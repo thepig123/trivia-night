@@ -15,7 +15,7 @@ export interface UseGameSocket {
   send: (msg: ClientMessage) => void;
 }
 
-type ClientRole = "host" | "team";
+type ClientRole = "host" | "team" | "tv";
 
 export function useGameSocket(role: ClientRole): UseGameSocket {
   const wsRef = useRef<WebSocket | null>(null);
@@ -42,7 +42,7 @@ export function useGameSocket(role: ClientRole): UseGameSocket {
         if (role === "host") {
           const saved = readSession("trivia-host-session");
           if (saved) socket.send(JSON.stringify({ type: "host:resume_room", ...saved } satisfies ClientMessage));
-        } else {
+        } else if (role === "team") {
           const saved = readSession("trivia-team-session");
           if (saved?.teamId) {
             socket.send(
