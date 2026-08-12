@@ -17,7 +17,7 @@ var _status_label: Label
 var _game_layer: CanvasLayer
 var _room_label: Label
 var _phase_label: Label
-var _scoreboard: VBoxContainer
+var _scoreboard: HBoxContainer
 var _question_panel: PanelContainer
 var _question_label: Label
 var _map_scroll: ScrollContainer
@@ -115,39 +115,30 @@ func _build_game_layer() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_game_layer.add_child(bg)
 
-	var root_h := HBoxContainer.new()
-	root_h.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root_h.add_theme_constant_override("separation", 0)
-	_game_layer.add_child(root_h)
-	root_h.add_child(_build_tier_legend())
-
 	var root_v := VBoxContainer.new()
-	root_v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root_v.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	root_v.add_theme_constant_override("separation", 12)
-	root_h.add_child(root_v)
+	root_v.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root_v.add_theme_constant_override("separation", 0)
+	_game_layer.add_child(root_v)
 
 	# --- Top bar ---
 	var top_bar := HBoxContainer.new()
-	top_bar.custom_minimum_size = Vector2(0, 70)
+	top_bar.custom_minimum_size = Vector2(0, 54)
 	root_v.add_child(top_bar)
 
 	var title := Label.new()
 	title.text = "TRIVIA NIGHT"
-	title.add_theme_font_size_override("font_size", 34)
+	title.add_theme_font_size_override("font_size", 27)
 	title.add_theme_color_override("font_color", GameTheme.CREAM)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_bar.add_child(title)
 
 	_room_label = Label.new()
-	_room_label.add_theme_font_size_override("font_size", 28)
+	_room_label.add_theme_font_size_override("font_size", 18)
 	_room_label.add_theme_color_override("font_color", GameTheme.YELLOW)
 	top_bar.add_child(_room_label)
 
 	_phase_label = Label.new()
-	_phase_label.add_theme_font_size_override("font_size", 20)
-	_phase_label.add_theme_color_override("font_color", GameTheme.TEAL)
-	root_v.add_child(_phase_label)
+	_phase_label.visible = false
 
 	# --- Route map with game-show question overlay ---
 	var map_stage := Control.new()
@@ -188,77 +179,20 @@ func _build_game_layer() -> void:
 	_question_label.add_theme_color_override("font_color", GameTheme.CREAM)
 	_question_panel.add_child(_question_label)
 
-	root_h.add_child(_build_team_sidebar())
 
-func _build_team_sidebar() -> PanelContainer:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(265, 0)
-	var side_style := StyleBoxFlat.new()
-	side_style.bg_color = GameTheme.BG_PANEL
-	side_style.content_margin_left = 0
-	side_style.content_margin_right = 0
-	side_style.content_margin_top = 18
-	side_style.content_margin_bottom = 0
-	panel.add_theme_stylebox_override("panel", side_style)
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 12)
-	panel.add_child(v)
-	var heading := Label.new()
-	heading.text = "LAGENE"
-	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	heading.add_theme_color_override("font_color", GameTheme.YELLOW)
-	heading.add_theme_font_size_override("font_size", 19)
-	v.add_child(heading)
-	_scoreboard = VBoxContainer.new()
-	_scoreboard.add_theme_constant_override("separation", 12)
-	_scoreboard.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	v.add_child(_scoreboard)
-	return panel
-
-func _build_tier_legend() -> PanelContainer:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(205, 0)
-	_style_panel(panel, GameTheme.BG_PANEL)
-
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 12)
-	panel.add_child(v)
-
-	var heading := Label.new()
-	heading.text = "POENGTABELL"
-	heading.add_theme_font_size_override("font_size", 19)
-	heading.add_theme_color_override("font_color", GameTheme.YELLOW)
-	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(heading)
-
-	for tier in ["T1", "T2", "T3", "T4", "T5"]:
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 10)
-		var icon := Label.new()
-		icon.text = GameTheme.TIER_SIGILS.get(tier, "◆")
-		icon.custom_minimum_size = Vector2(28, 0)
-		icon.add_theme_color_override("font_color", GameTheme.YELLOW)
-		icon.add_theme_font_size_override("font_size", 20)
-		row.add_child(icon)
-		var label := Label.new()
-		label.text = tier
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.add_theme_font_size_override("font_size", 18)
-		row.add_child(label)
-		var value := Label.new()
-		value.text = str(GameTheme.TIER_POINTS[tier])
-		value.add_theme_color_override("font_color", GameTheme.CREAM)
-		value.add_theme_font_size_override("font_size", 18)
-		row.add_child(value)
-		v.add_child(row)
-
-	var note := Label.new()
-	note.text = "Vanskeligere spørsmål\ngir flere poeng."
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	note.add_theme_color_override("font_color", Color("#B8A98D"))
-	note.add_theme_font_size_override("font_size", 13)
-	v.add_child(note)
-	return panel
+	# Fixed-height, edge-to-edge scoreboard. Every team owns an equal-width
+	# cell; buzz effects are drawn inside the cell and can never overlap.
+	var scoreboard_frame := PanelContainer.new()
+	scoreboard_frame.custom_minimum_size = Vector2(0, 142)
+	var scoreboard_style := StyleBoxFlat.new()
+	scoreboard_style.bg_color = Color("#171310")
+	scoreboard_style.border_color = Color("#765638")
+	scoreboard_style.border_width_top = 3
+	scoreboard_frame.add_theme_stylebox_override("panel", scoreboard_style)
+	root_v.add_child(scoreboard_frame)
+	_scoreboard = HBoxContainer.new()
+	_scoreboard.add_theme_constant_override("separation", 0)
+	scoreboard_frame.add_child(_scoreboard)
 
 func _style_panel(panel: PanelContainer, color: Color) -> void:
 	var sb := StyleBoxFlat.new()
@@ -293,7 +227,8 @@ func _on_state_received(state: Dictionary) -> void:
 		_game_layer.visible = true
 
 	_room_label.text = "ROM " + str(state.get("roomCode", ""))
-	_phase_label.text = "FASE: " + str(state.get("phase", "")).to_upper()
+	var phase: String = str(state.get("phase", ""))
+	_room_label.visible = phase == "lobby"
 
 	_render_scoreboard(state.get("teams", []), state.get("currentResponderId", ""), state.get("lockedOutTeamIds", []), state.get("targetScore", 10000))
 	_render_question(state)
@@ -308,24 +243,28 @@ func _render_scoreboard(teams: Array, current_responder_id, locked: Array, targe
 	for team in teams:
 		var panel := PanelContainer.new()
 		panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		panel.custom_minimum_size = Vector2(0, 138)
 		var team_color := Color(str(team.get("color", "#4A3B70")))
 		var is_first: bool = team.get("id", "") == first_buzz_id
 		_style_team_banner(panel, team_color, is_first)
 
 		var v := VBoxContainer.new()
+		v.alignment = BoxContainer.ALIGNMENT_CENTER
+		v.add_theme_constant_override("separation", 2)
 		panel.add_child(v)
 
 		var name_label := Label.new()
 		name_label.text = str(team.get("name", "Team"))
 		name_label.add_theme_color_override("font_color", team_color)
-		name_label.add_theme_font_size_override("font_size", 18)
+		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		name_label.add_theme_font_size_override("font_size", 20)
 		v.add_child(name_label)
 
 		var score_label := Label.new()
 		score_label.text = str(team.get("score", 0))
 		score_label.add_theme_color_override("font_color", GameTheme.CREAM)
-		score_label.add_theme_font_size_override("font_size", 30)
+		score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		score_label.add_theme_font_size_override("font_size", 34)
 		v.add_child(score_label)
 
 		var progress_label := Label.new()
@@ -335,6 +274,7 @@ func _render_scoreboard(teams: Array, current_responder_id, locked: Array, targe
 		else:
 			progress_label.text = "%d TIL FINALEN" % max(0, target_score - int(team.get("score", 0)))
 			progress_label.add_theme_color_override("font_color", Color("#B8A98D"))
+		progress_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		progress_label.add_theme_font_size_override("font_size", 11)
 		v.add_child(progress_label)
 
@@ -343,12 +283,14 @@ func _render_scoreboard(teams: Array, current_responder_id, locked: Array, targe
 			lock_label.text = "UTELÅST"
 			lock_label.add_theme_color_override("font_color", GameTheme.CORAL)
 			lock_label.add_theme_font_size_override("font_size", 12)
+			lock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			v.add_child(lock_label)
 		elif is_first:
 			var buzz_label := Label.new()
 			buzz_label.text = "BUZZET INN"
 			buzz_label.add_theme_color_override("font_color", GameTheme.YELLOW)
 			buzz_label.add_theme_font_size_override("font_size", 12)
+			buzz_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			v.add_child(buzz_label)
 
 		_scoreboard.add_child(panel)
@@ -357,13 +299,13 @@ func _style_team_banner(panel: PanelContainer, team_color: Color, active: bool) 
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = team_color.darkened(0.68) if not active else team_color.darkened(0.15)
 	sb.border_color = team_color if not active else GameTheme.YELLOW
-	sb.border_width_left = 4 if not active else 8
+	sb.border_width_left = 2 if not active else 6
+	sb.border_width_right = 2 if not active else 6
 	sb.border_width_top = 1
-	sb.border_width_bottom = 1
-	sb.content_margin_left = 22
-	sb.content_margin_right = 18
-	sb.content_margin_top = 16
-	sb.content_margin_bottom = 16
+	sb.content_margin_left = 12
+	sb.content_margin_right = 12
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
 	if active:
 		sb.shadow_color = team_color
 		sb.shadow_size = 14
@@ -374,13 +316,12 @@ func _render_question(state: Dictionary) -> void:
 	if q == null:
 		_question_panel.visible = false
 		return
-	var points = GameTheme.TIER_POINTS.get(q.get("tier", "T5"), 0)
 	var phase: String = str(state.get("phase", ""))
-	_question_panel.visible = phase in ["reading", "buzzing", "adjudicating"]
+	_question_panel.visible = phase in ["reading", "buzzing"]
 	if phase in ["reading", "buzzing"]:
-		_question_label.text = "%s  ·  %s  ·  %d pts\n\n%s" % [q.get("category", ""), q.get("tier", ""), points, q.get("prompt", "")]
-	elif phase == "adjudicating":
-		_question_label.text = ""
+		var prompt: String = str(q.get("prompt", ""))
+		_question_label.text = prompt
+		_question_label.add_theme_font_size_override("font_size", 38 if prompt.length() < 90 else 31)
 
 func _render_map(map: Dictionary) -> void:
 	for c in _map_column.get_children():
@@ -437,6 +378,10 @@ func _render_map(map: Dictionary) -> void:
 				sb.border_width_top = 3
 				sb.border_width_bottom = 3
 				sb.border_color = GameTheme.CREAM
+			if status == "selected":
+				sb.border_color = GameTheme.YELLOW
+				sb.shadow_color = Color("#D8A94D80")
+				sb.shadow_size = 10
 			dot.add_theme_stylebox_override("panel", sb)
 
 			var lbl := Label.new()
