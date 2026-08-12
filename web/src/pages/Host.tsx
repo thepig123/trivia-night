@@ -41,32 +41,23 @@ function AdminPanel({ state, roomCode, send }: any) {
           <div className="room-code">{roomCode}</div>
         </div>
 
-        <div className="card">
-          <h3 style={{ marginBottom: 10, fontSize: "1rem" }}>Teams</h3>
-          {state.teams.length === 0 && <div style={{ opacity: 0.5, fontSize: "0.85rem" }}>No teams have joined yet.</div>}
+        <div className="card team-overview">
+          <div className="team-overview__heading"><h3>Teams</h3><span>{state.teams.length}/5</span></div>
+          {state.teams.length === 0 && <div className="empty-teams">Waiting for teams. One player from each team joins at <b>/join</b>.</div>}
           {state.teams.map((t: any) => (
             <div className="team-row" key={t.id}>
-              {state.phase === "lobby" ? <div className="host-team-editor">
-                <input defaultValue={t.name} onBlur={(event) => rc("host:update_team", { teamId: t.id, name: event.target.value, players: t.players })} />
-                <div><input placeholder="Player 1" defaultValue={t.players?.[0]} onBlur={(event) => rc("host:update_team", { teamId: t.id, name: t.name, players: [event.target.value, t.players?.[1] ?? ""] })} /><input placeholder="Player 2" defaultValue={t.players?.[1]} onBlur={(event) => rc("host:update_team", { teamId: t.id, name: t.name, players: [t.players?.[0] ?? "", event.target.value] })} /></div>
-              </div> : <span>
-                <span className="team-dot" style={{ background: t.color }} />
-                {t.name} {!t.connected && "⚠️"}
-                {t.qualifiedForFinal && " 🏆"}
-              </span>}
-              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <b>{t.score}</b>
+              <span className="team-overview__identity"><span className="team-dot" style={{ background: t.color }} /><span><b>{t.name}</b><small>{t.players?.filter(Boolean).join(" & ")}</small></span>{!t.connected && " ⚠️"}{t.qualifiedForFinal && " 🏆"}</span>
+              <span className="team-overview__score">
+                <b>{t.score.toLocaleString()}</b>
                 <button className="btn ghost" style={{ width: "auto", padding: "2px 8px" }} onClick={() => rc("host:adjust_score", { teamId: t.id, delta: -100 })}>
                   -
                 </button>
                 <button className="btn ghost" style={{ width: "auto", padding: "2px 8px" }} onClick={() => rc("host:adjust_score", { teamId: t.id, delta: 100 })}>
                   +
                 </button>
-                {state.phase === "lobby" && state.teams.length > 3 && <button className="btn ghost" style={{ width: "auto", padding: "2px 8px" }} onClick={() => rc("host:remove_team", { teamId: t.id })}>×</button>}
               </span>
             </div>
           ))}
-          {state.phase === "lobby" && state.teams.length < 5 && <button className="btn ghost" onClick={() => rc("host:add_team")}>+ Add team</button>}
         </div>
 
         <div className="card">
