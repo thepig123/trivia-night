@@ -90,6 +90,7 @@ wss.on("connection", (ws) => {
         case "host:create_room": {
           const code = makeRoomCode();
           const room = new GameEngine(code);
+          room.initializeDefaultTeams();
           rooms.set(code, room);
           const sessionToken = nanoid(32);
           hostSessionTokens.set(code, sessionToken);
@@ -99,6 +100,23 @@ wss.on("connection", (ws) => {
           send(ws, { type: "room:created", roomCode: code, sessionToken });
           broadcast(code);
           break;
+        }
+
+        case "host:add_team": {
+          const room = requireHost(ws, info, msg.roomCode); if (!room || room.teams.length >= 5) return;
+          room.addTeam(`Team ${room.teams.length + 1}`); room.teams.at(-1)!.connected = false; broadcast(msg.roomCode); break;
+        }
+        case "host:remove_team": {
+          const room = requireHost(ws, info, msg.roomCode); if (!room) return;
+          room.removeTeam(msg.teamId); broadcast(msg.roomCode); break;
+        }
+        case "host:update_team": {
+          const room = requireHost(ws, info, msg.roomCode); if (!room) return;
+          room.updateTeam(msg.teamId, msg.name, msg.players); broadcast(msg.roomCode); break;
+        }
+        case "host:set_target": {
+          const room = requireHost(ws, info, msg.roomCode); if (!room) return;
+          room.setTargetScore(msg.targetScore); broadcast(msg.roomCode); break;
         }
 
         case "host:resume_room": {
@@ -123,7 +141,8 @@ wss.on("connection", (ws) => {
         case "team:join": {
           const room = rooms.get(msg.roomCode);
           if (!room) return sendError(ws, `Room ${msg.roomCode} not found.`);
-          const team = room.addTeam(msg.teamName);
+          const team = room.joinTeam(msg.teamId);
+          if (!team) return sendError(ws, "That team is unavailable or already connected.");
           const sessionToken = nanoid(32);
           teamSessionTokens.get(msg.roomCode)?.set(team.id, sessionToken);
           info.role = "team";
@@ -132,6 +151,11 @@ wss.on("connection", (ws) => {
           send(ws, { type: "team:joined", teamId: team.id, roomCode: msg.roomCode, sessionToken });
           broadcast(msg.roomCode);
           break;
+        }
+
+        case "team:view_room": {
+          if (!rooms.has(msg.roomCode)) return sendError(ws, `Room ${msg.roomCode} not found.`);
+          info.role = "tv"; info.roomCode = msg.roomCode; broadcast(msg.roomCode); break;
         }
 
         case "team:resume": {
@@ -165,12 +189,16 @@ wss.on("connection", (ws) => {
           broadcast(msg.roomCode);
           break;
         }
+        case "team:submit_friend_answer": {
+          const room = requireTeam(ws, info, msg.roomCode, msg.teamId); if (!room) return;
+          room.submitFriendAnswer(msg.teamId, msg.answer); broadcast(msg.roomCode); break;
+        }
 
         case "host:start_reading": {
           const room = requireHost(ws, info, msg.roomCode);
           if (!room) return;
           // First activation from START has no node yet — activate on demand.
-          if (!room.activeNodeId && room.map.currentStep < room.map.steps) {
+          if (!room.activeNodeId) {
             room.activateCurrentNode();
           }
           room.startReading();
@@ -240,6 +268,10 @@ wss.on("connection", (ws) => {
           room.advanceFinal();
           broadcast(msg.roomCode);
           break;
+        }
+        case "host:reveal_friend_answers": {
+          const room = requireHost(ws, info, msg.roomCode); if (!room) return;
+          room.revealFriendAnswers(); broadcast(msg.roomCode); break;
         }
 
         default:
