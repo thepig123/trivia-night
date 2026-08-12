@@ -515,5 +515,30 @@
     ],
     "hostNote": "",
     "status": "unused"
+  },
+  {
+    "id": "q051", "category": "Friend Group", "tier": "T5",
+    "prompt": "Who is hosting tonight's Trivia Night?", "answer": "Martin",
+    "acceptedAlternatives": [], "hostNote": "Starter example—replace with your own factual friend-group prompt.", "status": "unused", "mode": "friend_group"
+  },
+  {
+    "id": "q052", "category": "Friend Group", "tier": "T4",
+    "prompt": "Who has played roughly 1,000 hours of Path of Exile 2?", "answer": "Martin",
+    "acceptedAlternatives": [], "hostNote": "Starter example—replace if needed.", "status": "unused", "mode": "friend_group"
+  },
+  {
+    "id": "q053", "category": "Friend Group", "tier": "T3",
+    "prompt": "Who works as a frontend developer?", "answer": "Martin",
+    "acceptedAlternatives": [], "hostNote": "Starter example—replace if needed.", "status": "unused", "mode": "friend_group"
+  },
+  {
+    "id": "q054", "category": "Friend Group", "tier": "T2",
+    "prompt": "Who started bouldering in 2026?", "answer": "Martin",
+    "acceptedAlternatives": [], "hostNote": "Starter example—replace if needed.", "status": "unused", "mode": "friend_group"
+  },
+  {
+    "id": "q055", "category": "Friend Group", "tier": "T1",
+    "prompt": "Who originally came up with this Trivia Night game?", "answer": "Martin",
+    "acceptedAlternatives": [], "hostNote": "Starter example—replace if needed.", "status": "unused", "mode": "friend_group"
   }
 ]
