@@ -39,6 +39,53 @@ test("route is fully previewable with category and tier metadata", () => {
   assert.equal(game.activeQuestion?.category, activeNode?.category);
 });
 
+test("map extends indefinitely and each row has a shuffled tier spread", () => {
+  const game = new GameEngine("MAP02");
+  for (let round = 0; round < 12; round++) {
+    const legal = game.map.nodes.filter((node) => node.status === "available");
+    const row = game.map.nodes.filter((node) => node.step === legal[0].step);
+    assert.equal(new Set(row.map((node) => node.tier)).size, 3);
+    game.map = chooseTestRoute(game, legal[0].id);
+  }
+  assert.ok(game.map.steps >= 17);
+});
+
+function chooseTestRoute(game: GameEngine, nodeId: string) {
+  // Exercise public route selection with a temporary controller.
+  const team = game.teams[0] ?? game.addTeam("Route team");
+  game.phase = "route_choice";
+  game.controllingTeamId = team.id;
+  game.chooseRoute(team.id, nodeId);
+  return game.map;
+}
+
+test("lowering the target immediately qualifies the highest scoring teams", () => {
+  const game = new GameEngine("TARGET");
+  const a = game.addTeam("A"); const b = game.addTeam("B"); const c = game.addTeam("C");
+  a.score = 8000; b.score = 7500; c.score = 7000;
+  game.setTargetScore(7500);
+  assert.equal(a.qualifiedForFinal, true);
+  assert.equal(b.qualifiedForFinal, true);
+  assert.equal(c.qualifiedForFinal, false);
+  assert.equal(game.phase, "final");
+});
+
+test("friend-group rounds score every correct team and give trailing winner route control", () => {
+  const game = new GameEngine("FRIEND");
+  const a = game.addTeam("A"); const b = game.addTeam("B"); const c = game.addTeam("C");
+  a.score = 500; b.score = 100; c.score = 0;
+  game.activateCurrentNode();
+  game.activeQuestion!.mode = "friend_group";
+  game.activeQuestion!.answer = "Martin";
+  game.activeQuestion!.choices = ["Martin", "Mathias"];
+  game.startReading(); game.openBuzzers();
+  game.submitFriendAnswer(a.id, "Martin"); game.submitFriendAnswer(b.id, "Martin"); game.submitFriendAnswer(c.id, "Mathias");
+  game.revealFriendAnswers();
+  assert.ok(a.score > 500); assert.ok(b.score > 100); assert.equal(c.score, 0);
+  assert.equal(game.controllingTeamId, b.id);
+  assert.equal(game.phase, "route_choice");
+});
+
 test("skipping auto-selects a route and activates the next question", () => {
   const { game } = activeGame();
   const previousStep = game.map.currentStep;
