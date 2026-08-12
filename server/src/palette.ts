@@ -1,12 +1,12 @@
-// Vibrant, high-contrast palette (Jackbox-style) used to auto-assign team colors.
+// Muted jewel palette used to auto-assign team colors against the dark-fantasy UI.
 // Same hex values are mirrored in web/src/styles/theme.css and the Godot theme.
 export const TEAM_COLORS = [
-  "#FF3D81", // hot pink
-  "#00E5C7", // electric teal
-  "#FFC93C", // golden yellow
-  "#8C52FF", // violet
-  "#38B6FF", // sky blue
-  "#FF7A3D", // tangerine
-  "#7CFF6B", // lime
-  "#FF5C5C", // coral red
+  "#B74C3F", // ember
+  "#5B8975", // sage
+  "#D8A94D", // torch gold
+  "#745B86", // amethyst
+  "#667F92", // storm blue
+  "#A8693D", // copper
+  "#789157", // moss
+  "#9F3E39", // crimson
 ];
