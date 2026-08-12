@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import type { MapNode, RouteMap, Tier } from "./types.js";
 
 const TOTAL_STEPS = 15; // matches the completed Godot prototype (doc: "scrollable 15-step map")
+const CATEGORIES = ["Science", "History", "Geography", "Entertainment", "Sports"] as const;
 
 /**
  * Tier pacing: easier questions low on the map, harder near the top.
@@ -27,6 +28,7 @@ function makeChoiceTriple(step: number): MapNode[] {
     step,
     slot,
     tier: tierForStep(step),
+    category: CATEGORIES[(step * 2 + slot) % CATEGORIES.length],
     status: "available",
     questionId: null,
   }));
@@ -38,13 +40,14 @@ export function generateRouteMap(): RouteMap {
     step: 0,
     slot: 0,
     tier: null,
+    category: null,
     status: "selected",
     questionId: null,
   };
-  const firstChoices = makeChoiceTriple(1);
+  const routeNodes = Array.from({ length: TOTAL_STEPS }, (_, index) => makeChoiceTriple(index + 1)).flat();
   return {
     steps: TOTAL_STEPS,
-    nodes: [start, ...firstChoices],
+    nodes: [start, ...routeNodes],
     selectedPath: ["START"],
     currentStep: 0,
   };
@@ -58,8 +61,8 @@ export function legalNextNodeIds(map: RouteMap): string[] {
 
 /**
  * Resolve a route choice: mark the chosen node selected, siblings rejected,
- * advance currentStep, and (unless the map is finished) generate the next
- * triple of choices above it.
+ * advance currentStep. The complete route is generated at room creation so
+ * phones and the TV can preview the climb ahead.
  */
 export function chooseRoute(map: RouteMap, nodeId: string): RouteMap {
   const chosen = map.nodes.find((n) => n.id === nodeId);
@@ -75,14 +78,9 @@ export function chooseRoute(map: RouteMap, nodeId: string): RouteMap {
   const newStep = chosen.step;
   const selectedPath = [...map.selectedPath, chosen.id];
 
-  let nextNodes = updatedNodes;
-  if (newStep < map.steps) {
-    nextNodes = [...updatedNodes, ...makeChoiceTriple(newStep + 1)];
-  }
-
   return {
     ...map,
-    nodes: nextNodes,
+    nodes: updatedNodes,
     selectedPath,
     currentStep: newStep,
   };
