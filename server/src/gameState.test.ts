@@ -26,6 +26,25 @@ test("pause blocks phase changes and buzzes until resumed", () => {
   assert.equal(game.phase, "adjudicating");
 });
 
+test("teams self-register with two players and rooms cap at five teams", () => {
+  const game = new GameEngine("LOBBY");
+  const team = game.registerTeam("Night Owls", ["Alice", "Bob"]);
+  assert.equal(team?.name, "Night Owls");
+  assert.deepEqual(team?.players, ["Alice", "Bob"]);
+  for (let index = 2; index <= 5; index++) assert.ok(game.registerTeam(`Team ${index}`, [`P${index}A`, `P${index}B`]));
+  assert.equal(game.registerTeam("Too many", ["Nine", "Ten"]), null);
+});
+
+test("public state exposes the prompt but never the answer", () => {
+  const game = new GameEngine("PROMPT");
+  game.activateCurrentNode();
+  const publicQuestion = game.toPublicState().activeQuestionPublic;
+  assert.equal(publicQuestion?.prompt, game.activeQuestion?.prompt);
+  assert.equal("answer" in (publicQuestion as object), false);
+  game.startReading(); game.openBuzzers();
+  assert.equal(game.toPublicState().activeQuestionPublic?.prompt, game.activeQuestion?.prompt);
+});
+
 test("route is fully previewable with category and tier metadata", () => {
   const game = new GameEngine("MAP01");
   assert.equal(game.map.nodes.length, 1 + game.map.steps * 3);
