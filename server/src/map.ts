@@ -13,6 +13,9 @@ function tiersForStep(step: number): Tier[] {
 function makeRow(step: number): MapNode[] {
   const tiers = tiersForStep(step);
   const categories = shuffled(CATEGORIES).slice(0, 3);
+  if (step === 1) {
+    return [{ id: nanoid(8), step, slot: 1, tier: tiers[1], category: categories[0], status: "locked", questionId: null, nextNodeIds: [] }];
+  }
   return [0, 1, 2].map((slot) => ({ id: nanoid(8), step, slot, tier: tiers[slot], category: categories[slot], status: "locked", questionId: null, nextNodeIds: [] }));
 }
 function connectRows(nodes: MapNode[], fromStep: number, toStep: number) {
@@ -23,9 +26,9 @@ function connectRows(nodes: MapNode[], fromStep: number, toStep: number) {
     // encounters: rows 2–4 in each five-row cycle have one exit, then the
     // fifth row branches and reconnects the lanes.
     const cycle = toStep % 5;
-    const isCommittedRow = cycle >= 2 && cycle <= 4;
+    const isCommittedRow = cycle >= 1 && cycle <= 3;
     const targets = fromStep === 0
-      ? new Set([0, 1, 2])
+      ? new Set([1])
       : isCommittedRow
         ? new Set([node.slot])
         : new Set([node.slot, node.slot === 2 ? 1 : node.slot + 1]);
