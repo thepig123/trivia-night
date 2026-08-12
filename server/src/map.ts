@@ -2,7 +2,7 @@ import { nanoid } from "nanoid";
 import type { MapNode, RouteMap, Tier } from "./types.js";
 
 const LOOKAHEAD_ROWS = 5;
-const CATEGORIES = ["Science", "History", "Geography", "Entertainment", "Sports", "Friend Group"] as const;
+const CATEGORIES = ["Vitenskap", "Historie", "Geografi", "Popkultur", "Sport", "Gutta"] as const;
 
 function shuffled<T>(values: readonly T[]): T[] { return [...values].sort(() => Math.random() - 0.5); }
 function tiersForStep(step: number): Tier[] {
@@ -19,7 +19,16 @@ function connectRows(nodes: MapNode[], fromStep: number, toStep: number) {
   const from = nodes.filter((node) => node.step === fromStep);
   const to = nodes.filter((node) => node.step === toStep);
   for (const node of from) {
-    const targets = fromStep === 0 ? new Set([0, 1, 2]) : new Set([node.slot, node.slot === 2 ? 1 : node.slot + 1]);
+    // Some routes become committed runs, but never for more than three
+    // encounters: rows 2–4 in each five-row cycle have one exit, then the
+    // fifth row branches and reconnects the lanes.
+    const cycle = toStep % 5;
+    const isCommittedRow = cycle >= 2 && cycle <= 4;
+    const targets = fromStep === 0
+      ? new Set([0, 1, 2])
+      : isCommittedRow
+        ? new Set([node.slot])
+        : new Set([node.slot, node.slot === 2 ? 1 : node.slot + 1]);
     node.nextNodeIds = to.filter((candidate) => targets.has(candidate.slot)).map((candidate) => candidate.id);
   }
 }
