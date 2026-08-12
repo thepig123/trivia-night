@@ -5,7 +5,9 @@ import RouteMap, { TierLegend } from "../components/RouteMap";
 export default function TeamFlow() {
   const { connected, publicState, lastError, roomCode, teamId, send } = useGameSocket("team");
   const [roomInput, setRoomInput] = useState("");
-  const [viewingRoom, setViewingRoom] = useState(false);
+  const [teamName, setTeamName] = useState("");
+  const [playerOne, setPlayerOne] = useState("");
+  const [playerTwo, setPlayerTwo] = useState("");
   const [joined, setJoined] = useState(false);
 
   useEffect(() => {
@@ -31,16 +33,14 @@ export default function TeamFlow() {
               autoCapitalize="characters"
             />
           </div>
-          {!viewingRoom && <button className="btn teal" disabled={!connected || !roomInput.trim()} onClick={() => { setViewingRoom(true); send({ type: "team:view_room", roomCode: roomInput.trim() }); }}>
-            Find teams
-          </button>}
-          {viewingRoom && publicState && <div className="team-picker">
-            <p>Choose your team</p>
-            {publicState.teams.map((team) => <button key={team.id} className="btn ghost" disabled={team.connected} onClick={() => send({ type: "team:join", roomCode: roomInput.trim(), teamId: team.id })}>
-              <span><b>{team.name}</b>{team.players.some(Boolean) && <small>{team.players.filter(Boolean).join(" & ")}</small>}</span>
-              {team.connected ? "Joined" : "Select"}
-            </button>)}
-          </div>}
+          <div className="field"><label>Team name</label><input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="The Buzzer Beaters" maxLength={24} /></div>
+          <div className="player-fields">
+            <div className="field"><label>Player 1</label><input value={playerOne} onChange={(e) => setPlayerOne(e.target.value)} placeholder="Name" maxLength={24} /></div>
+            <div className="field"><label>Player 2</label><input value={playerTwo} onChange={(e) => setPlayerTwo(e.target.value)} placeholder="Name" maxLength={24} /></div>
+          </div>
+          <button className="btn teal" disabled={!connected || !roomInput.trim() || !teamName.trim() || !playerOne.trim() || !playerTwo.trim()} onClick={() => send({ type: "team:join", roomCode: roomInput.trim(), teamName: teamName.trim(), players: [playerOne.trim(), playerTwo.trim()] })}>
+            Create team and join
+          </button>
         </div>
       </div>
     );
