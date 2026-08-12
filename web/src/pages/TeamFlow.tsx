@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useGameSocket } from "../lib/ws";
+import RouteMap, { TierLegend } from "../components/RouteMap";
 
 export default function TeamFlow() {
   const { connected, publicState, lastError, roomCode, teamId, send } = useGameSocket("team");
@@ -91,30 +92,30 @@ function TeamController({ roomCode, teamId, publicState, send }: any) {
       </div>
 
       {isControlling ? (
-        <div className="panel" style={{ marginTop: 24 }}>
-          <h3 style={{ marginBottom: 12, textAlign: "center" }}>Your team chooses the next path!</h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {publicState.legalNextNodeIds.map((nodeId: string, i: number) => (
-              <button
-                key={nodeId}
-                className="btn violet"
-                onClick={() => send({ type: "team:choose_route", roomCode, teamId, nodeId })}
-              >
-                Path {i + 1}
-              </button>
-            ))}
-          </div>
+        <div className="map-choice-wrap">
+          <h3>Choose your path</h3>
+          <p>The glowing encounters are yours to claim.</p>
+          <RouteMap
+            map={publicState.map}
+            legalNodeIds={publicState.legalNextNodeIds}
+            interactive
+            onChoose={(nodeId) => send({ type: "team:choose_route", roomCode, teamId, nodeId })}
+          />
+          <TierLegend compact />
         </div>
       ) : (
-        <div className="buzzer-wrap">
-          <button
-            className={buzzerClass}
-            disabled={!canBuzz}
-            onClick={() => send({ type: "team:buzz", roomCode, teamId })}
-          >
-            {buzzerLabel}
-          </button>
-        </div>
+        <>
+          {publicState?.map && <RouteMap map={publicState.map} legalNodeIds={publicState.legalNextNodeIds} />}
+          <div className="buzzer-wrap">
+            <button
+              className={buzzerClass}
+              disabled={!canBuzz}
+              onClick={() => send({ type: "team:buzz", roomCode, teamId })}
+            >
+              {buzzerLabel}
+            </button>
+          </div>
+        </>
       )}
 
       <div style={{ opacity: 0.55, fontSize: "0.8rem", marginTop: 16, textTransform: "uppercase", letterSpacing: "0.06em" }}>
