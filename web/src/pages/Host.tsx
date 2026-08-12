@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useGameSocket } from "../lib/ws";
+import { TierLegend } from "../components/RouteMap";
 
 export default function Host() {
   const { connected, hostState, roomCode, send } = useGameSocket("host");
@@ -73,6 +74,8 @@ function AdminPanel({ state, roomCode, send }: any) {
             Questions left: {state.questionPoolRemaining} / {state.questionPoolTotal}
           </div>
         </div>
+
+        <TierLegend />
 
         <div className="card" style={{ flex: 1 }}>
           <h3 style={{ marginBottom: 10, fontSize: "1rem" }}>Event log</h3>
