@@ -16,6 +16,8 @@ interface ClientInfo {
 
 const rooms = new Map<string, GameEngine>();
 const clients = new Map<WebSocket, ClientInfo>();
+const hostSessionTokens = new Map<string, string>();
+const teamSessionTokens = new Map<string, Map<string, string>>();
 
 function makeRoomCode(): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no ambiguous chars
@@ -32,6 +34,23 @@ function send(ws: WebSocket, msg: ServerMessage) {
 
 function sendError(ws: WebSocket, message: string) {
   send(ws, { type: "error", message });
+}
+
+function requireHost(ws: WebSocket, info: ClientInfo, roomCode: string): GameEngine | null {
+  const room = rooms.get(roomCode);
+  if (!room) sendError(ws, `Room ${roomCode} not found.`);
+  else if (info.role !== "host" || info.roomCode !== roomCode) sendError(ws, "Host authorization required.");
+  else return room;
+  return null;
+}
+
+function requireTeam(ws: WebSocket, info: ClientInfo, roomCode: string, teamId: string): GameEngine | null {
+  const room = rooms.get(roomCode);
+  if (!room) sendError(ws, `Room ${roomCode} not found.`);
+  else if (info.role !== "team" || info.roomCode !== roomCode || info.teamId !== teamId) {
+    sendError(ws, "Team authorization required.");
+  } else return room;
+  return null;
 }
 
 /** Broadcast the current state to everyone connected to a room, role-appropriately. */
@@ -72,9 +91,12 @@ wss.on("connection", (ws) => {
           const code = makeRoomCode();
           const room = new GameEngine(code);
           rooms.set(code, room);
+          const sessionToken = nanoid(32);
+          hostSessionTokens.set(code, sessionToken);
+          teamSessionTokens.set(code, new Map());
           info.role = "host";
           info.roomCode = code;
-          send(ws, { type: "room:created", roomCode: code });
+          send(ws, { type: "room:created", roomCode: code, sessionToken });
           broadcast(code);
           break;
         }
@@ -82,6 +104,7 @@ wss.on("connection", (ws) => {
         case "host:resume_room": {
           const room = rooms.get(msg.roomCode);
           if (!room) return sendError(ws, `Room ${msg.roomCode} not found.`);
+          if (hostSessionTokens.get(msg.roomCode) !== msg.sessionToken) return sendError(ws, "Invalid host session.");
           info.role = "host";
           info.roomCode = msg.roomCode;
           broadcast(msg.roomCode);
@@ -101,16 +124,34 @@ wss.on("connection", (ws) => {
           const room = rooms.get(msg.roomCode);
           if (!room) return sendError(ws, `Room ${msg.roomCode} not found.`);
           const team = room.addTeam(msg.teamName);
+          const sessionToken = nanoid(32);
+          teamSessionTokens.get(msg.roomCode)?.set(team.id, sessionToken);
           info.role = "team";
           info.roomCode = msg.roomCode;
           info.teamId = team.id;
-          send(ws, { type: "team:joined", teamId: team.id, roomCode: msg.roomCode });
+          send(ws, { type: "team:joined", teamId: team.id, roomCode: msg.roomCode, sessionToken });
+          broadcast(msg.roomCode);
+          break;
+        }
+
+        case "team:resume": {
+          const room = rooms.get(msg.roomCode);
+          if (!room) return sendError(ws, `Room ${msg.roomCode} not found.`);
+          if (teamSessionTokens.get(msg.roomCode)?.get(msg.teamId) !== msg.sessionToken) {
+            return sendError(ws, "Invalid team session.");
+          }
+          if (!room.teams.some((team) => team.id === msg.teamId)) return sendError(ws, "Team not found.");
+          info.role = "team";
+          info.roomCode = msg.roomCode;
+          info.teamId = msg.teamId;
+          room.setConnected(msg.teamId, true);
+          send(ws, { type: "team:joined", teamId: msg.teamId, roomCode: msg.roomCode, sessionToken: msg.sessionToken });
           broadcast(msg.roomCode);
           break;
         }
 
         case "team:buzz": {
-          const room = rooms.get(msg.roomCode);
+          const room = requireTeam(ws, info, msg.roomCode, msg.teamId);
           if (!room) return;
           room.registerBuzz(msg.teamId);
           broadcast(msg.roomCode);
@@ -118,7 +159,7 @@ wss.on("connection", (ws) => {
         }
 
         case "team:choose_route": {
-          const room = rooms.get(msg.roomCode);
+          const room = requireTeam(ws, info, msg.roomCode, msg.teamId);
           if (!room) return;
           room.chooseRoute(msg.teamId, msg.nodeId);
           broadcast(msg.roomCode);
@@ -126,7 +167,7 @@ wss.on("connection", (ws) => {
         }
 
         case "host:start_reading": {
-          const room = rooms.get(msg.roomCode);
+          const room = requireHost(ws, info, msg.roomCode);
           if (!room) return;
           // First activation from START has no node yet — activate on demand.
           if (!room.activeNodeId && room.map.currentStep < room.map.steps) {
@@ -138,7 +179,7 @@ wss.on("connection", (ws) => {
         }
 
         case "host:open_buzzers": {
-          const room = rooms.get(msg.roomCode);
+          const room = requireHost(ws, info, msg.roomCode);
           if (!room) return;
           room.openBuzzers();
           broadcast(msg.roomCode);
@@ -146,7 +187,7 @@ wss.on("connection", (ws) => {
         }
 
         case "host:mark_correct": {
-          const room = rooms.get(msg.roomCode);
+          const room = requireHost(ws, info, msg.roomCode);
           if (!room) return;
           room.markCorrect(msg.teamId);
           broadcast(msg.roomCode);
@@ -154,7 +195,7 @@ wss.on("connection", (ws) => {
         }
 
         case "host:mark_wrong": {
-          const room = rooms.get(msg.roomCode);
+          const room = requireHost(ws, info, msg.roomCode);
           if (!room) return;
           room.markWrong(msg.teamId);
           broadcast(msg.roomCode);
@@ -162,7 +203,7 @@ wss.on("connection", (ws) => {
         }
 
         case "host:skip_question": {
-          const room = rooms.get(msg.roomCode);
+          const room = requireHost(ws, info, msg.roomCode);
           if (!room) return;
           room.skipQuestion();
           broadcast(msg.roomCode);
@@ -170,7 +211,7 @@ wss.on("connection", (ws) => {
         }
 
         case "host:pause": {
-          const room = rooms.get(msg.roomCode);
+          const room = requireHost(ws, info, msg.roomCode);
           if (!room) return;
           room.pause();
           broadcast(msg.roomCode);
@@ -178,7 +219,7 @@ wss.on("connection", (ws) => {
         }
 
         case "host:resume": {
-          const room = rooms.get(msg.roomCode);
+          const room = requireHost(ws, info, msg.roomCode);
           if (!room) return;
           room.resume();
           broadcast(msg.roomCode);
@@ -186,9 +227,17 @@ wss.on("connection", (ws) => {
         }
 
         case "host:adjust_score": {
-          const room = rooms.get(msg.roomCode);
+          const room = requireHost(ws, info, msg.roomCode);
           if (!room) return;
           room.adjustScore(msg.teamId, msg.delta);
+          broadcast(msg.roomCode);
+          break;
+        }
+
+        case "host:advance_final": {
+          const room = requireHost(ws, info, msg.roomCode);
+          if (!room) return;
+          room.advanceFinal();
           broadcast(msg.roomCode);
           break;
         }

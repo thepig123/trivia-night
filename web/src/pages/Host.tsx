@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useGameSocket } from "../lib/ws";
 
 export default function Host() {
-  const { connected, hostState, roomCode, send } = useGameSocket();
+  const { connected, hostState, roomCode, send } = useGameSocket("host");
   const [created, setCreated] = useState(false);
 
   useEffect(() => {
@@ -97,7 +97,7 @@ function AdminPanel({ state, roomCode, send }: any) {
         </div>
 
         {state.phase === "final" && state.finalState ? (
-          <FinalPanel state={state} />
+          <FinalPanel state={state} roomCode={roomCode} send={send} />
         ) : (
           <>
             <div className="question-box">
@@ -191,7 +191,7 @@ function AdminPanel({ state, roomCode, send }: any) {
   );
 }
 
-function FinalPanel({ state }: any) {
+function FinalPanel({ state, roomCode, send }: any) {
   const finalists = state.finalState.finalists.map((id: string) => state.teams.find((t: any) => t.id === id));
   return (
     <div className="card">
@@ -200,9 +200,18 @@ function FinalPanel({ state }: any) {
         {finalists.map((f: any) => f?.name).join(" vs ")} — question {state.finalState.currentIndex + 1} of{" "}
         {state.finalState.questionIds.length}
       </p>
-      <p style={{ opacity: 0.6, fontSize: "0.85rem" }}>
-        Final format is a placeholder (doc section 7 leaves this open) — wire up your preferred Final flow here.
+      {state.activeQuestion && (
+        <div className="question-box">
+          <p style={{ fontSize: "1.3rem", fontWeight: 600, marginBottom: 16 }}>{state.activeQuestion.prompt}</p>
+          <div><b>Answer:</b> {state.activeQuestion.answer}</div>
+        </div>
+      )}
+      <p style={{ opacity: 0.6, fontSize: "0.85rem", marginBottom: 12 }}>
+        Final scoring and victory rules are still intentionally undecided; this control safely advances the provisional question set.
       </p>
+      <button className="btn teal" onClick={() => send({ type: "host:advance_final", roomCode })}>
+        {state.finalState.currentIndex + 1 >= state.finalState.questionIds.length ? "End provisional Final" : "Next Final question"}
+      </button>
     </div>
   );
 }

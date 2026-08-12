@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useGameSocket } from "../lib/ws";
 
 export default function TeamFlow() {
-  const { connected, publicState, lastError, roomCode, teamId, send } = useGameSocket();
+  const { connected, publicState, lastError, roomCode, teamId, send } = useGameSocket("team");
   const [roomInput, setRoomInput] = useState("");
   const [nameInput, setNameInput] = useState("");
   const [joined, setJoined] = useState(false);
@@ -60,8 +60,8 @@ function TeamController({ roomCode, teamId, publicState, send }: any) {
   const iBuzzed = publicState?.buzzOrder?.some((b: any) => b.teamId === teamId);
   const iAmLocked = publicState?.lockedOutTeamIds?.includes(teamId);
   const iAmFirst = publicState?.currentResponderId === teamId;
-  const canBuzz = phase === "buzzing" && !iBuzzed && !iAmLocked;
-  const isControlling = phase === "route_choice" && publicState?.controllingTeamId === teamId;
+  const canBuzz = !publicState?.paused && phase === "buzzing" && !iBuzzed && !iAmLocked;
+  const isControlling = !publicState?.paused && phase === "route_choice" && publicState?.controllingTeamId === teamId;
 
   let buzzerClass = "buzzer";
   let buzzerLabel = "BUZZ";
@@ -118,7 +118,7 @@ function TeamController({ roomCode, teamId, publicState, send }: any) {
       )}
 
       <div style={{ opacity: 0.55, fontSize: "0.8rem", marginTop: 16, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-        {phaseLabel(phase)}
+        {publicState?.paused ? "Game paused" : phaseLabel(phase)}
       </div>
     </div>
   );

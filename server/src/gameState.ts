@@ -112,12 +112,14 @@ export class GameEngine {
   }
 
   startReading() {
+    if (this.paused) return;
     if (this.phase !== "map") return;
     this.phase = "reading";
     this.log("Host started reading the question.");
   }
 
   openBuzzers() {
+    if (this.paused) return;
     if (this.phase !== "reading" && this.phase !== "map") return;
     this.phase = "buzzing";
     this.buzzOrder = [];
@@ -126,6 +128,8 @@ export class GameEngine {
   }
 
   registerBuzz(teamId: string): boolean {
+    if (this.paused) return false;
+    if (!this.teams.some((team) => team.id === teamId && team.connected)) return false;
     if (this.phase !== "buzzing") return false;
     if (this.lockedOutTeamIds.includes(teamId)) return false;
     if (this.buzzOrder.some((b) => b.teamId === teamId)) return false;
@@ -148,6 +152,7 @@ export class GameEngine {
   }
 
   markCorrect(teamId: string) {
+    if (this.paused) return;
     if (this.phase !== "adjudicating") return;
     if (this.currentResponderId() !== teamId) return; // only the team currently up can be adjudicated
     const node = this.map.nodes.find((n) => n.id === this.activeNodeId);
@@ -163,6 +168,10 @@ export class GameEngine {
 
     this.checkQualification(team);
 
+    // The second qualifier starts the Final immediately. Do not overwrite
+    // that transition with route_choice below.
+    if (this.finalState !== null) return;
+
     if (this.map.currentStep >= this.map.steps) {
       this.finishRoutePhase();
     } else {
@@ -171,6 +180,7 @@ export class GameEngine {
   }
 
   markWrong(teamId: string) {
+    if (this.paused) return;
     if (this.phase !== "adjudicating") return;
     if (this.currentResponderId() !== teamId) return;
     this.lockedOutTeamIds.push(teamId);
@@ -190,6 +200,8 @@ export class GameEngine {
   }
 
   skipQuestion() {
+    if (this.paused) return;
+    if (!this.activeNodeId || !["map", "reading", "buzzing", "adjudicating"].includes(this.phase)) return;
     this.activeQuestion = null;
     if (this.activeNodeId) {
       this.map = markNodeCompleted(this.map, this.activeNodeId);
@@ -197,11 +209,30 @@ export class GameEngine {
     this.activeNodeId = null;
     this.buzzOrder = [];
     this.lockedOutTeamIds = [];
-    this.phase = this.map.currentStep >= this.map.steps ? "ended" : "route_choice";
     this.log("Host skipped the question.");
+
+    if (this.map.currentStep >= this.map.steps) {
+      this.finishRoutePhase();
+      return;
+    }
+
+    // Nobody earned control of a skipped/dead question, so auto-select a
+    // route and keep the live game moving instead of entering an impossible
+    // route_choice state with no controlling team.
+    const legal = legalNextNodeIds(this.map);
+    if (legal.length === 0) {
+      this.finishRoutePhase();
+      return;
+    }
+    const pick = legal[Math.floor(Math.random() * legal.length)];
+    this.map = chooseRoute(this.map, pick);
+    this.controllingTeamId = null;
+    this.log("Next route auto-selected after the skipped question.");
+    this.activateCurrentNode();
   }
 
   chooseRoute(teamId: string, nodeId: string) {
+    if (this.paused) return;
     if (this.phase !== "route_choice") return;
     if (this.controllingTeamId !== teamId) return;
     const legal = legalNextNodeIds(this.map);
@@ -248,8 +279,27 @@ export class GameEngine {
       currentIndex: 0,
       scores: Object.fromEntries(finalists.map((id) => [id, 0])),
     };
+    this.activeQuestion = picks.length > 0 ? this.questionPool.find((q) => q.id === picks[0]) ?? null : null;
+    this.activeNodeId = null;
+    this.controllingTeamId = null;
+    this.buzzOrder = [];
+    this.lockedOutTeamIds = [];
     this.phase = "final";
     this.log(`Final begins between ${finalists.map((id) => this.teamName(id)).join(" and ")}.`);
+  }
+
+  advanceFinal() {
+    if (this.paused || this.phase !== "final" || !this.finalState) return;
+    this.finalState.currentIndex += 1;
+    if (this.finalState.currentIndex >= this.finalState.questionIds.length) {
+      this.activeQuestion = null;
+      this.phase = "ended";
+      this.log("Final question set completed.");
+      return;
+    }
+    const questionId = this.finalState.questionIds[this.finalState.currentIndex];
+    this.activeQuestion = this.questionPool.find((q) => q.id === questionId) ?? null;
+    this.log(`Advanced to Final question ${this.finalState.currentIndex + 1}.`);
   }
 
   pause() {

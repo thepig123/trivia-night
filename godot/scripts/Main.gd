@@ -92,10 +92,10 @@ func _build_connect_overlay() -> void:
 
 func _on_connect_pressed() -> void:
 	_status_label.text = "Connecting…"
-	ServerConnection.connect_to_server(_url_input.text.strip_edges())
 	# Say hello once connected — handled by ServerConnection when the socket opens,
 	# but we set the pending room code now so it fires as soon as it's ready.
 	ServerConnection.set_pending_room(_room_input.text.strip_edges().to_upper())
+	ServerConnection.connect_to_server(_url_input.text.strip_edges())
 
 func _on_connection_changed(is_connected: bool) -> void:
 	_connected = is_connected

@@ -98,6 +98,7 @@ export interface HostGameState {
   activeQuestion: Question | null; // full question incl. answer
   buzzOrder: BuzzEntry[];
   lockedOutTeamIds: string[];
+  currentResponderId: string | null;
   controllingTeamId: string | null;
   finalState: FinalState | null;
   eventLog: EventLogEntry[];
@@ -121,6 +122,7 @@ export interface PublicGameState {
   } | null;
   buzzOrder: { teamId: string }[]; // no timestamps needed publicly
   lockedOutTeamIds: string[];
+  currentResponderId: string | null;
   controllingTeamId: string | null;
   finalState: FinalState | null;
   legalNextNodeIds: string[];
@@ -130,8 +132,9 @@ export interface PublicGameState {
 
 export type ClientMessage =
   | { type: "host:create_room" }
-  | { type: "host:resume_room"; roomCode: string }
+  | { type: "host:resume_room"; roomCode: string; sessionToken: string }
   | { type: "team:join"; roomCode: string; teamName: string }
+  | { type: "team:resume"; roomCode: string; teamId: string; sessionToken: string }
   | { type: "team:buzz"; roomCode: string; teamId: string }
   | { type: "team:choose_route"; roomCode: string; teamId: string; nodeId: string }
   | { type: "tv:hello"; roomCode: string }
@@ -148,8 +151,8 @@ export type ClientMessage =
 // ---------- Server -> Client messages ----------
 
 export type ServerMessage =
-  | { type: "room:created"; roomCode: string }
+  | { type: "room:created"; roomCode: string; sessionToken: string }
   | { type: "state:public"; state: PublicGameState }
   | { type: "state:host"; state: HostGameState }
-  | { type: "team:joined"; teamId: string; roomCode: string }
+  | { type: "team:joined"; teamId: string; roomCode: string; sessionToken: string }
   | { type: "error"; message: string };

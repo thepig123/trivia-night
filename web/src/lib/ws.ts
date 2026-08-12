@@ -15,7 +15,9 @@ export interface UseGameSocket {
   send: (msg: ClientMessage) => void;
 }
 
-export function useGameSocket(): UseGameSocket {
+type ClientRole = "host" | "team";
+
+export function useGameSocket(role: ClientRole): UseGameSocket {
   const wsRef = useRef<WebSocket | null>(null);
   const [connected, setConnected] = useState(false);
   const [publicState, setPublicState] = useState<PublicGameState | null>(null);
@@ -27,16 +29,37 @@ export function useGameSocket(): UseGameSocket {
   useEffect(() => {
     let cancelled = false;
     let socket: WebSocket;
+    let reconnectTimer: number | undefined;
 
     function connect() {
       socket = new WebSocket(WS_URL);
       wsRef.current = socket;
 
-      socket.onopen = () => !cancelled && setConnected(true);
+      socket.onopen = () => {
+        if (cancelled) return;
+        setConnected(true);
+        setLastError(null);
+        if (role === "host") {
+          const saved = readSession("trivia-host-session");
+          if (saved) socket.send(JSON.stringify({ type: "host:resume_room", ...saved } satisfies ClientMessage));
+        } else {
+          const saved = readSession("trivia-team-session");
+          if (saved?.teamId) {
+            socket.send(
+              JSON.stringify({
+                type: "team:resume",
+                roomCode: saved.roomCode,
+                teamId: saved.teamId,
+                sessionToken: saved.sessionToken,
+              } satisfies ClientMessage),
+            );
+          }
+        }
+      };
       socket.onclose = () => {
         if (cancelled) return;
         setConnected(false);
-        setTimeout(connect, 1500); // simple auto-reconnect
+        reconnectTimer = window.setTimeout(connect, 1500);
       };
       socket.onerror = () => socket.close();
       socket.onmessage = (event) => {
@@ -44,10 +67,15 @@ export function useGameSocket(): UseGameSocket {
         switch (msg.type) {
           case "room:created":
             setRoomCode(msg.roomCode);
+            localStorage.setItem("trivia-host-session", JSON.stringify({ roomCode: msg.roomCode, sessionToken: msg.sessionToken }));
             break;
           case "team:joined":
             setRoomCode(msg.roomCode);
             setTeamId(msg.teamId);
+            localStorage.setItem(
+              "trivia-team-session",
+              JSON.stringify({ roomCode: msg.roomCode, teamId: msg.teamId, sessionToken: msg.sessionToken }),
+            );
             break;
           case "state:public":
             setPublicState(msg.state);
@@ -67,13 +95,24 @@ export function useGameSocket(): UseGameSocket {
     connect();
     return () => {
       cancelled = true;
+      if (reconnectTimer !== undefined) window.clearTimeout(reconnectTimer);
       wsRef.current?.close();
     };
-  }, []);
+  }, [role]);
 
   const send = useCallback((msg: ClientMessage) => {
     wsRef.current?.readyState === WebSocket.OPEN && wsRef.current.send(JSON.stringify(msg));
   }, []);
 
   return { connected, publicState, hostState, lastError, roomCode, teamId, send };
+}
+
+function readSession(key: string): { roomCode: string; sessionToken: string; teamId?: string } | null {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : null;
+  } catch {
+    localStorage.removeItem(key);
+    return null;
+  }
 }

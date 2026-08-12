@@ -12,6 +12,7 @@ var _socket := WebSocketPeer.new()
 var _url := "ws://127.0.0.1:8080"
 var _is_connected := false
 var _is_reconnecting := false
+var _should_connect := false
 var _room_code := ""
 var _reconnect_timer: Timer
 
@@ -27,6 +28,7 @@ func set_pending_room(room_code: String) -> void:
 
 func connect_to_server(url: String) -> void:
 	_url = url
+	_should_connect = true
 
 	# Cancel any scheduled automatic attempt before manually connecting.
 	if not _reconnect_timer.is_stopped():
@@ -88,7 +90,7 @@ func _process(_delta: float) -> void:
 		_is_connected = false
 		emit_signal("connection_changed", false)
 
-	if state == WebSocketPeer.STATE_CLOSED and not _is_connected and not _is_reconnecting:
+	if state == WebSocketPeer.STATE_CLOSED and _should_connect and not _is_connected and not _is_reconnecting:
 		# Auto-reconnect a short beat after a drop, via a real Timer node
 		# (avoids stacking coroutines by awaiting inside _process).
 		_is_reconnecting = true
