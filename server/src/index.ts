@@ -38,17 +38,17 @@ function sendError(ws: WebSocket, message: string) {
 
 function requireHost(ws: WebSocket, info: ClientInfo, roomCode: string): GameEngine | null {
   const room = rooms.get(roomCode);
-  if (!room) sendError(ws, `Room ${roomCode} not found.`);
-  else if (info.role !== "host" || info.roomCode !== roomCode) sendError(ws, "Host authorization required.");
+  if (!room) sendError(ws, `Fant ikke rom ${roomCode}.`);
+  else if (info.role !== "host" || info.roomCode !== roomCode) sendError(ws, "Krever tilgang som vert.");
   else return room;
   return null;
 }
 
 function requireTeam(ws: WebSocket, info: ClientInfo, roomCode: string, teamId: string): GameEngine | null {
   const room = rooms.get(roomCode);
-  if (!room) sendError(ws, `Room ${roomCode} not found.`);
+  if (!room) sendError(ws, `Fant ikke rom ${roomCode}.`);
   else if (info.role !== "team" || info.roomCode !== roomCode || info.teamId !== teamId) {
-    sendError(ws, "Team authorization required.");
+    sendError(ws, "Krever tilgang som lag.");
   } else return room;
   return null;
 }
@@ -79,7 +79,7 @@ wss.on("connection", (ws) => {
     try {
       msg = JSON.parse(raw.toString());
     } catch {
-      sendError(ws, "Malformed message.");
+      sendError(ws, "Ugyldig melding.");
       return;
     }
 
@@ -90,6 +90,7 @@ wss.on("connection", (ws) => {
         case "host:create_room": {
           const code = makeRoomCode();
           const room = new GameEngine(code);
+          room.initializeDefaultTeams();
           rooms.set(code, room);
           const sessionToken = nanoid(32);
           hostSessionTokens.set(code, sessionToken);
@@ -99,6 +100,23 @@ wss.on("connection", (ws) => {
           send(ws, { type: "room:created", roomCode: code, sessionToken });
           broadcast(code);
           break;
+        }
+
+        case "host:add_team": {
+          const room = requireHost(ws, info, msg.roomCode); if (!room || room.teams.length >= 5) return;
+          room.addTeam(`Team ${room.teams.length + 1}`); room.teams.at(-1)!.connected = false; broadcast(msg.roomCode); break;
+        }
+        case "host:remove_team": {
+          const room = requireHost(ws, info, msg.roomCode); if (!room) return;
+          room.removeTeam(msg.teamId); broadcast(msg.roomCode); break;
+        }
+        case "host:update_team": {
+          const room = requireHost(ws, info, msg.roomCode); if (!room) return;
+          room.updateTeam(msg.teamId, msg.name, msg.players); broadcast(msg.roomCode); break;
+        }
+        case "host:set_target": {
+          const room = requireHost(ws, info, msg.roomCode); if (!room) return;
+          room.setTargetScore(msg.targetScore); broadcast(msg.roomCode); break;
         }
 
         case "host:resume_room": {
@@ -123,7 +141,8 @@ wss.on("connection", (ws) => {
         case "team:join": {
           const room = rooms.get(msg.roomCode);
           if (!room) return sendError(ws, `Room ${msg.roomCode} not found.`);
-          const team = room.addTeam(msg.teamName);
+          const team = room.registerTeam(msg.teamName, msg.players, msg.photoDataUrl);
+          if (!team) return sendError(ws, "Skriv inn lagnavn og to spillernavn. Rommet støtter opptil fem lag.");
           const sessionToken = nanoid(32);
           teamSessionTokens.get(msg.roomCode)?.set(team.id, sessionToken);
           info.role = "team";
@@ -165,12 +184,16 @@ wss.on("connection", (ws) => {
           broadcast(msg.roomCode);
           break;
         }
+        case "team:submit_friend_answer": {
+          const room = requireTeam(ws, info, msg.roomCode, msg.teamId); if (!room) return;
+          room.submitFriendAnswer(msg.teamId, msg.answer); broadcast(msg.roomCode); break;
+        }
 
         case "host:start_reading": {
           const room = requireHost(ws, info, msg.roomCode);
           if (!room) return;
           // First activation from START has no node yet — activate on demand.
-          if (!room.activeNodeId && room.map.currentStep < room.map.steps) {
+          if (!room.activeNodeId) {
             room.activateCurrentNode();
           }
           room.startReading();
@@ -240,6 +263,10 @@ wss.on("connection", (ws) => {
           room.advanceFinal();
           broadcast(msg.roomCode);
           break;
+        }
+        case "host:reveal_friend_answers": {
+          const room = requireHost(ws, info, msg.roomCode); if (!room) return;
+          room.revealFriendAnswers(); broadcast(msg.roomCode); break;
         }
 
         default:

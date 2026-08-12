@@ -9,7 +9,7 @@ server-authoritative, exactly as section 8 specifies.
 trivia-night/
   server/   Node + TypeScript WebSocket server — the single source of truth
   web/      React app — team controller (phones) + host admin panel (laptop)
-  godot/    Godot 4 project — the shared TV client
+  godot-prototype-not-in-use/  Archived Godot 4 TV prototype
 ```
 
 ## 1. Run the server
@@ -44,18 +44,33 @@ If your phones aren't on the same machine, set `VITE_WS_URL` in a `web/.env`
 file to your laptop's LAN IP, e.g. `VITE_WS_URL=ws://192.168.1.42:8080`, and
 run `npm run dev -- --host` so the dev server is reachable on the LAN.
 
-## 3. Run the Godot TV client
+## 3. Run the React TV client
 
-Open `godot/` as a project in Godot **4.2+**. Press Play. On the connect
-screen, enter the server URL (`ws://127.0.0.1:8080` by default, or your LAN
-IP) and the room code shown in the host panel, then Connect.
+Open `http://localhost:5173/tv`, enter the room code shown in the host panel,
+and use the browser's fullscreen mode on the shared TV/projector.
 
-The TV client is a pure renderer: it draws whatever `state:public` snapshot
+The TV route is a pure renderer: it draws whatever `state:public` snapshot
 the server sends (scores, route map, active category/tier, buzz status) and
 never computes anything itself, per your doc's authoritative-state
 principle. Everything is built at runtime from `scripts/Main.gd` — there's
-no hand-built scene tree to fight with in the editor, so it's easy to
-restyle.
+It reuses the same `RouteMap` React component as the team controller, with
+TV-specific scaling and a longer lookahead.
+
+The original Godot implementation is preserved under
+`godot-prototype-not-in-use/` as a learning reference and possible foundation
+for a future 3D doors-and-dungeon edition. It is no longer the supported TV
+client for the current game.
+
+The route is an endless procedural climb. The server keeps five connected rows
+ahead of the players and extends the map as they advance. Each row contains a
+shuffled easy/medium/hard spread for that section of the climb. Encounter nodes
+show category and tier sigil; the separate tier table carries point values. Real route lines determine which nodes
+can be reached. Phones render a compact window around the current position.
+Merely previewing or rejecting a node never consumes a question.
+
+Routes may contain deliberate committed stretches with one available node, but
+never for more than three consecutive encounters. The next row then branches or
+reconnects to restore a meaningful choice.
 
 ## How a round works end-to-end
 
@@ -71,8 +86,51 @@ restyle.
      nodes.
    - Wrong → that team is locked out for this question; buzzing reopens for
      everyone else still eligible.
-5. Repeat until two teams reach the target score (10,000) or the 15-step map
-   runs out, at which point the top two scores enter the Final.
+5. Repeat until two teams reach the target score (10,000 by default). The host
+   may adjust the target in 500-point increments if the event is running long.
+   Qualified teams become spectators while the remaining teams race onward.
+
+## Teams and Friend Group rounds
+
+One player from each team opens `/join`, enters the room code, team name, and
+both player names, then that shared phone represents the team. Rooms accept up
+to five teams; the planned format is four teams of two. The host panel receives
+each registration automatically and stays focused on monitoring and scoring.
+
+When the host starts reading, the public question prompt appears in a centered
+game-show card over the TV map. The card contains only the question in large
+type—no category, tier, points, or other metadata. It remains visible while
+buzzers are open, then disappears as soon as the first team buzzes so nobody
+can buzz early and keep reading. Public snapshots include the prompt but never
+expose the answer.
+
+The TV is deliberately minimal: the route map owns the full central stage and
+an edge-to-edge, fixed-height scoreboard spans the bottom. Each team receives
+an equal-width cell, so three to five teams cannot overlap or resize each other.
+The current responder is highlighted inside its cell without moving layout.
+Tier values remain on the phone UI rather than occupying permanent TV space.
+
+Questions with `mode: "friend_group"` use simultaneous selection instead of a
+buzzer. Every active team privately chooses from the configured player roster;
+the host reveals when ready, all correct teams score, and the lowest-scoring
+correct non-finalist receives route control. Five starter examples are included
+in `questions.json` and are intended to be replaced with real group stories.
+The current build is Norwegian-first (Bokmål), and this category is presented
+as `Gutta` throughout the map and question data.
+
+## Planned non-text question modes
+
+The protocol should later grow beyond ordinary text trivia without forcing all
+modes into the buzzer flow. Ideas currently recorded for design after the
+standard loop is stable:
+
+- `Hvem sa det?` — identify which person sent or said a quoted message
+- image reveal — identify an emoji, movie, character, book cover, object, or person
+- audio/video clues
+- cropped or progressively revealed images
+
+These will use an explicit question `mode` plus optional media and choices, so
+the host panel, phones, and TV can render the correct interaction independently.
 
 ## Decisions I made to get to a playable build
 
@@ -81,8 +139,8 @@ I picked defaults so the MVP runs; all are easy to change in one place:
 
 | Decision | Default | Where to change |
 |---|---|---|
-| Map length | 15 steps (matches your completed Godot prototype) | `server/src/map.ts` → `TOTAL_STEPS` |
-| Tier pacing (easy low, hard high) | banded random pool | `server/src/map.ts` → `TIER_BANDS` |
+| Map length | Infinite; five connected rows generated ahead | `server/src/map.ts` → `LOOKAHEAD_ROWS` |
+| Tier pacing | Controlled three-tier spread, shuffled per row | `server/src/map.ts` → `tiersForStep` |
 | Wrong-answer handling | locks out that team only; buzzing reopens for the rest | `GameEngine.markWrong` in `server/src/gameState.ts` |
 | Final format | placeholder: top two scores at map-end also qualify; a 5-question final pool is drawn but scoring/win-condition UI isn't built out (doc explicitly leaves this undefined) | `GameEngine.startFinal`, `web/src/pages/Host.tsx` → `FinalPanel` |
 | Question budget | 50 questions shipped (5 categories × 5 tiers × 2), matching your primary target | `server/src/data/questions.json` |
@@ -96,15 +154,30 @@ type in `server/src/types.ts` (category, tier, prompt, answer, accepted
 alternatives, host note, status). Add, edit, or bulk-replace this file to
 build your real 50-75 question set — no code changes needed.
 
+### Media and visual clue placeholders
+
+Questions can optionally include a `media` object. The TV renders it inside
+the question card. Audio and video stop automatically when somebody buzzes
+because the card closes at that point.
+
+```json
+"media": { "type": "audio", "url": "/media/song-sample.mp3" }
+"media": { "type": "image", "url": "/media/movie-poster.jpg" }
+"media": { "type": "image", "url": "/media/face.jpg", "effect": "pixelated" }
+```
+
+Emoji riddles and rhyme clues need no special mode: put the emoji sequence or
+rhyme in `prompt`. Media files can be added later under `web/public/media/`;
+the current question content is intentionally placeholder data.
+
 ## Visual direction
 
 Palette is defined once per surface and kept in sync by convention:
 `server/src/palette.ts`, `web/src/styles/theme.css`, and
-`godot/scripts/GameTheme.gd`. It's a vibrant party-game palette — deep
-plum background, hot pink / electric teal / golden yellow / violet accents,
-chunky rounded display type (Baloo 2) over a clean geometric body face
-(Space Grotesk) — built for TV-distance readability and a satisfying,
-Jackbox-like buzzer feel.
+`godot/scripts/GameTheme.gd`. The current direction is an original dark-fantasy
+roguelike expedition: weathered map surfaces, torch-gold highlights, muted
+gem tones, encounter sigils, and tier bounties. It takes inspiration from the
+feeling of climbing a dangerous branching map without copying any game assets.
 
 ## What's next (from your Phase 2/3)
 

@@ -1,9 +1,9 @@
 [
   {
     "id": "q001",
-    "category": "Science",
+    "category": "Vitenskap",
     "tier": "T5",
-    "prompt": "What planet is known as the Red Planet?",
+    "prompt": "Hvilken planet er kjent som den røde planeten?",
     "answer": "Mars",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -11,9 +11,9 @@
   },
   {
     "id": "q002",
-    "category": "Science",
+    "category": "Vitenskap",
     "tier": "T5",
-    "prompt": "What gas do plants absorb from the air to make food?",
+    "prompt": "Hvilken gass tar planter opp fra luften for å lage næring?",
     "answer": "Carbon dioxide",
     "acceptedAlternatives": [
       "CO2"
@@ -23,9 +23,9 @@
   },
   {
     "id": "q003",
-    "category": "Science",
+    "category": "Vitenskap",
     "tier": "T4",
-    "prompt": "What is the chemical symbol for gold?",
+    "prompt": "Hva er det kjemiske symbolet for gull?",
     "answer": "Au",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -33,9 +33,9 @@
   },
   {
     "id": "q004",
-    "category": "Science",
+    "category": "Vitenskap",
     "tier": "T4",
-    "prompt": "How many bones are in the adult human body?",
+    "prompt": "Hvor mange knokler finnes i kroppen til et voksent menneske?",
     "answer": "206",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -43,9 +43,9 @@
   },
   {
     "id": "q005",
-    "category": "Science",
+    "category": "Vitenskap",
     "tier": "T3",
-    "prompt": "What force pulls objects toward the Earth?",
+    "prompt": "Hvilken kraft trekker objekter mot jorden?",
     "answer": "Gravity",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -53,9 +53,9 @@
   },
   {
     "id": "q006",
-    "category": "Science",
+    "category": "Vitenskap",
     "tier": "T3",
-    "prompt": "What is the powerhouse of the cell?",
+    "prompt": "Hva kalles cellens kraftverk?",
     "answer": "Mitochondria",
     "acceptedAlternatives": [
       "Mitochondrion"
@@ -65,9 +65,9 @@
   },
   {
     "id": "q007",
-    "category": "Science",
+    "category": "Vitenskap",
     "tier": "T2",
-    "prompt": "What particle has a negative electric charge?",
+    "prompt": "Hvilken partikkel har negativ elektrisk ladning?",
     "answer": "Electron",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -75,9 +75,9 @@
   },
   {
     "id": "q008",
-    "category": "Science",
+    "category": "Vitenskap",
     "tier": "T2",
-    "prompt": "What is the speed of light in a vacuum, to the nearest thousand km/s?",
+    "prompt": "Hva er lysets hastighet i vakuum, avrundet til nærmeste tusen km/s?",
     "answer": "300,000 km/s",
     "acceptedAlternatives": [
       "3x10^8 m/s",
@@ -88,9 +88,9 @@
   },
   {
     "id": "q009",
-    "category": "Science",
+    "category": "Vitenskap",
     "tier": "T1",
-    "prompt": "What is the name of the enzyme that unwinds DNA during replication?",
+    "prompt": "Hva heter enzymet som vikler opp DNA under replikasjon?",
     "answer": "Helicase",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -98,9 +98,9 @@
   },
   {
     "id": "q010",
-    "category": "Science",
+    "category": "Vitenskap",
     "tier": "T1",
-    "prompt": "What element has the atomic number 1?",
+    "prompt": "Hvilket grunnstoff har atomnummer 1?",
     "answer": "Hydrogen",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -108,9 +108,9 @@
   },
   {
     "id": "q011",
-    "category": "History",
+    "category": "Historie",
     "tier": "T5",
-    "prompt": "In what year did World War II end?",
+    "prompt": "Hvilket år tok andre verdenskrig slutt?",
     "answer": "1945",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -118,9 +118,9 @@
   },
   {
     "id": "q012",
-    "category": "History",
+    "category": "Historie",
     "tier": "T5",
-    "prompt": "Who was the first President of the United States?",
+    "prompt": "Hvem var USAs første president?",
     "answer": "George Washington",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -128,9 +128,9 @@
   },
   {
     "id": "q013",
-    "category": "History",
+    "category": "Historie",
     "tier": "T4",
-    "prompt": "What ancient civilization built the pyramids of Giza?",
+    "prompt": "Hvilken oldtidssivilisasjon bygde pyramidene i Giza?",
     "answer": "The Egyptians",
     "acceptedAlternatives": [
       "Ancient Egypt"
@@ -140,9 +140,9 @@
   },
   {
     "id": "q014",
-    "category": "History",
+    "category": "Historie",
     "tier": "T4",
-    "prompt": "What wall divided East and West Berlin?",
+    "prompt": "Hvilken mur delte Øst- og Vest-Berlin?",
     "answer": "The Berlin Wall",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -150,9 +150,9 @@
   },
   {
     "id": "q015",
-    "category": "History",
+    "category": "Historie",
     "tier": "T3",
-    "prompt": "What year did the Titanic sink?",
+    "prompt": "Hvilket år sank Titanic?",
     "answer": "1912",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -160,9 +160,9 @@
   },
   {
     "id": "q016",
-    "category": "History",
+    "category": "Historie",
     "tier": "T3",
-    "prompt": "Who was the Roman general who crossed the Rubicon?",
+    "prompt": "Hvilken romersk general krysset Rubicon?",
     "answer": "Julius Caesar",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -170,9 +170,9 @@
   },
   {
     "id": "q017",
-    "category": "History",
+    "category": "Historie",
     "tier": "T2",
-    "prompt": "What treaty ended World War I?",
+    "prompt": "Hvilken fredsavtale avsluttet første verdenskrig?",
     "answer": "The Treaty of Versailles",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -180,9 +180,9 @@
   },
   {
     "id": "q018",
-    "category": "History",
+    "category": "Historie",
     "tier": "T2",
-    "prompt": "Which empire was ruled by Genghis Khan?",
+    "prompt": "Hvilket rike ble styrt av Djengis Khan?",
     "answer": "The Mongol Empire",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -190,9 +190,9 @@
   },
   {
     "id": "q019",
-    "category": "History",
+    "category": "Historie",
     "tier": "T1",
-    "prompt": "In what year was the Magna Carta signed?",
+    "prompt": "Hvilket år ble Magna Carta undertegnet?",
     "answer": "1215",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -200,9 +200,9 @@
   },
   {
     "id": "q020",
-    "category": "History",
+    "category": "Historie",
     "tier": "T1",
-    "prompt": "Who was the last Tsar of Russia?",
+    "prompt": "Hvem var Russlands siste tsar?",
     "answer": "Nicholas II",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -210,9 +210,9 @@
   },
   {
     "id": "q021",
-    "category": "Pop Culture",
+    "category": "Popkultur",
     "tier": "T5",
-    "prompt": "What ocean-dwelling sponge lives in a pineapple?",
+    "prompt": "Hvilken svamp bor i en ananas under havet?",
     "answer": "SpongeBob SquarePants",
     "acceptedAlternatives": [
       "SpongeBob"
@@ -222,9 +222,9 @@
   },
   {
     "id": "q022",
-    "category": "Pop Culture",
+    "category": "Popkultur",
     "tier": "T5",
-    "prompt": "What is the highest-grossing film of all time (as of 2024, unadjusted)?",
+    "prompt": "Hvilken film har tjent mest gjennom tidene, uten inflasjonsjustering per 2024?",
     "answer": "Avatar",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -232,9 +232,9 @@
   },
   {
     "id": "q023",
-    "category": "Pop Culture",
+    "category": "Popkultur",
     "tier": "T4",
-    "prompt": "What band released the album 'Abbey Road'?",
+    "prompt": "Hvilket band ga ut albumet «Abbey Road»?",
     "answer": "The Beatles",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -242,9 +242,9 @@
   },
   {
     "id": "q024",
-    "category": "Pop Culture",
+    "category": "Popkultur",
     "tier": "T4",
-    "prompt": "Who played Iron Man in the Marvel Cinematic Universe?",
+    "prompt": "Hvem spilte Iron Man i Marvel Cinematic Universe?",
     "answer": "Robert Downey Jr.",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -252,9 +252,9 @@
   },
   {
     "id": "q025",
-    "category": "Pop Culture",
+    "category": "Popkultur",
     "tier": "T3",
-    "prompt": "What streaming show features a chess prodigy named Beth Harmon?",
+    "prompt": "Hvilken strømmeserie handler om sjakktalentet Beth Harmon?",
     "answer": "The Queen's Gambit",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -262,9 +262,9 @@
   },
   {
     "id": "q026",
-    "category": "Pop Culture",
+    "category": "Popkultur",
     "tier": "T3",
-    "prompt": "Who directed the movie 'Jaws'?",
+    "prompt": "Hvem regisserte filmen «Haisommer»?",
     "answer": "Steven Spielberg",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -272,9 +272,9 @@
   },
   {
     "id": "q027",
-    "category": "Pop Culture",
+    "category": "Popkultur",
     "tier": "T2",
-    "prompt": "What was the first feature-length fully computer-animated film?",
+    "prompt": "Hva var den første helaftens dataanimerte filmen?",
     "answer": "Toy Story",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -282,9 +282,9 @@
   },
   {
     "id": "q028",
-    "category": "Pop Culture",
+    "category": "Popkultur",
     "tier": "T2",
-    "prompt": "Who composed the score for 'Star Wars'?",
+    "prompt": "Hvem komponerte filmmusikken til «Star Wars»?",
     "answer": "John Williams",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -292,9 +292,9 @@
   },
   {
     "id": "q029",
-    "category": "Pop Culture",
+    "category": "Popkultur",
     "tier": "T1",
-    "prompt": "What was the working title of the movie 'Pulp Fiction'?",
+    "prompt": "Hva var arbeidstittelen til filmen «Pulp Fiction»?",
     "answer": "Black Mask",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -302,9 +302,9 @@
   },
   {
     "id": "q030",
-    "category": "Pop Culture",
+    "category": "Popkultur",
     "tier": "T1",
-    "prompt": "Who won the first-ever Academy Award for Best Actor?",
+    "prompt": "Hvem vant den aller første Oscar-prisen for beste mannlige skuespiller?",
     "answer": "Emil Jannings",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -312,9 +312,9 @@
   },
   {
     "id": "q031",
-    "category": "Geography",
+    "category": "Geografi",
     "tier": "T5",
-    "prompt": "What is the longest river in the world?",
+    "prompt": "Hva er verdens lengste elv?",
     "answer": "The Nile",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -322,9 +322,9 @@
   },
   {
     "id": "q032",
-    "category": "Geography",
+    "category": "Geografi",
     "tier": "T5",
-    "prompt": "What country has the most people?",
+    "prompt": "Hvilket land har flest innbyggere?",
     "answer": "India",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -332,9 +332,9 @@
   },
   {
     "id": "q033",
-    "category": "Geography",
+    "category": "Geografi",
     "tier": "T4",
-    "prompt": "What is the capital of Australia?",
+    "prompt": "Hva er hovedstaden i Australia?",
     "answer": "Canberra",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -342,9 +342,9 @@
   },
   {
     "id": "q034",
-    "category": "Geography",
+    "category": "Geografi",
     "tier": "T4",
-    "prompt": "What desert is the largest hot desert in the world?",
+    "prompt": "Hva er verdens største varme ørken?",
     "answer": "The Sahara",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -352,9 +352,9 @@
   },
   {
     "id": "q035",
-    "category": "Geography",
+    "category": "Geografi",
     "tier": "T3",
-    "prompt": "What mountain range separates Europe and Asia?",
+    "prompt": "Hvilken fjellkjede skiller Europa og Asia?",
     "answer": "The Ural Mountains",
     "acceptedAlternatives": [
       "Urals"
@@ -364,9 +364,9 @@
   },
   {
     "id": "q036",
-    "category": "Geography",
+    "category": "Geografi",
     "tier": "T3",
-    "prompt": "What is the smallest country in the world by area?",
+    "prompt": "Hva er verdens minste land målt i areal?",
     "answer": "Vatican City",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -374,9 +374,9 @@
   },
   {
     "id": "q037",
-    "category": "Geography",
+    "category": "Geografi",
     "tier": "T2",
-    "prompt": "What strait separates Europe from Africa at its narrowest point?",
+    "prompt": "Hvilket sund skiller Europa og Afrika på det smaleste punktet?",
     "answer": "Strait of Gibraltar",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -384,9 +384,9 @@
   },
   {
     "id": "q038",
-    "category": "Geography",
+    "category": "Geografi",
     "tier": "T2",
-    "prompt": "What is the only country that spans four hemispheres?",
+    "prompt": "Hvilket land er det eneste som ligger på alle fire halvkuler?",
     "answer": "Kiribati",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -394,9 +394,9 @@
   },
   {
     "id": "q039",
-    "category": "Geography",
+    "category": "Geografi",
     "tier": "T1",
-    "prompt": "What is the deepest point in the ocean called?",
+    "prompt": "Hva heter havets dypeste punkt?",
     "answer": "Challenger Deep",
     "acceptedAlternatives": [
       "Mariana Trench"
@@ -406,9 +406,9 @@
   },
   {
     "id": "q040",
-    "category": "Geography",
+    "category": "Geografi",
     "tier": "T1",
-    "prompt": "Which African country has three capital cities?",
+    "prompt": "Hvilket afrikansk land har tre hovedsteder?",
     "answer": "South Africa",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -416,9 +416,9 @@
   },
   {
     "id": "q041",
-    "category": "Sports",
+    "category": "Sport",
     "tier": "T5",
-    "prompt": "How many players are on a standard soccer team on the field?",
+    "prompt": "Hvor mange spillere har et fotballag på banen?",
     "answer": "11",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -426,9 +426,9 @@
   },
   {
     "id": "q042",
-    "category": "Sports",
+    "category": "Sport",
     "tier": "T5",
-    "prompt": "In what sport would you perform a slam dunk?",
+    "prompt": "I hvilken idrett utfører man en slam dunk?",
     "answer": "Basketball",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -436,9 +436,9 @@
   },
   {
     "id": "q043",
-    "category": "Sports",
+    "category": "Sport",
     "tier": "T4",
-    "prompt": "How many rings are on the Olympic flag?",
+    "prompt": "Hvor mange ringer er det på det olympiske flagget?",
     "answer": "5",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -446,9 +446,9 @@
   },
   {
     "id": "q044",
-    "category": "Sports",
+    "category": "Sport",
     "tier": "T4",
-    "prompt": "What sport is played at Wimbledon?",
+    "prompt": "Hvilken idrett spilles i Wimbledon?",
     "answer": "Tennis",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -456,9 +456,9 @@
   },
   {
     "id": "q045",
-    "category": "Sports",
+    "category": "Sport",
     "tier": "T3",
-    "prompt": "How often are the Summer Olympics held?",
+    "prompt": "Hvor ofte arrangeres sommer-OL?",
     "answer": "Every 4 years",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -466,9 +466,9 @@
   },
   {
     "id": "q046",
-    "category": "Sports",
+    "category": "Sport",
     "tier": "T3",
-    "prompt": "What country has won the most FIFA World Cups?",
+    "prompt": "Hvilket land har vunnet flest fotball-VM for herrer?",
     "answer": "Brazil",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -476,9 +476,9 @@
   },
   {
     "id": "q047",
-    "category": "Sports",
+    "category": "Sport",
     "tier": "T2",
-    "prompt": "What is the maximum break in snooker?",
+    "prompt": "Hva er den høyeste mulige serien i snooker?",
     "answer": "147",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -486,9 +486,9 @@
   },
   {
     "id": "q048",
-    "category": "Sports",
+    "category": "Sport",
     "tier": "T2",
-    "prompt": "Who holds the record for most Grand Slam singles titles (men's, as of 2024)?",
+    "prompt": "Hvem har rekorden for flest Grand Slam-titler i herresingle per 2024?",
     "answer": "Novak Djokovic",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -496,9 +496,9 @@
   },
   {
     "id": "q049",
-    "category": "Sports",
+    "category": "Sport",
     "tier": "T1",
-    "prompt": "In what year were the first modern Olympic Games held?",
+    "prompt": "Hvilket år ble de første moderne olympiske leker arrangert?",
     "answer": "1896",
     "acceptedAlternatives": [],
     "hostNote": "",
@@ -506,14 +506,39 @@
   },
   {
     "id": "q050",
-    "category": "Sports",
+    "category": "Sport",
     "tier": "T1",
-    "prompt": "What jockey has won the most Kentucky Derby races?",
+    "prompt": "Hvilken jockey har vunnet Kentucky Derby flest ganger?",
     "answer": "Eddie Arcaro",
     "acceptedAlternatives": [
       "Bill Shoemaker"
     ],
     "hostNote": "",
     "status": "unused"
+  },
+  {
+    "id": "q051", "category": "Gutta", "tier": "T5",
+    "prompt": "Hvem er vert for kveldens quiz?", "answer": "Martin",
+    "acceptedAlternatives": [], "hostNote": "Starteksempel – erstatt med et faktisk spørsmål om gutta.", "status": "unused", "mode": "friend_group"
+  },
+  {
+    "id": "q052", "category": "Gutta", "tier": "T4",
+    "prompt": "Hvem har spilt omtrent 1 000 timer Path of Exile 2?", "answer": "Martin",
+    "acceptedAlternatives": [], "hostNote": "Starteksempel – erstatt ved behov.", "status": "unused", "mode": "friend_group"
+  },
+  {
+    "id": "q053", "category": "Gutta", "tier": "T3",
+    "prompt": "Hvem jobber som frontendutvikler?", "answer": "Martin",
+    "acceptedAlternatives": [], "hostNote": "Starteksempel – erstatt ved behov.", "status": "unused", "mode": "friend_group"
+  },
+  {
+    "id": "q054", "category": "Gutta", "tier": "T2",
+    "prompt": "Hvem begynte med buldring i 2026?", "answer": "Martin",
+    "acceptedAlternatives": [], "hostNote": "Starteksempel – erstatt ved behov.", "status": "unused", "mode": "friend_group"
+  },
+  {
+    "id": "q055", "category": "Gutta", "tier": "T1",
+    "prompt": "Hvem kom opprinnelig på ideen til dette quizspillet?", "answer": "Martin",
+    "acceptedAlternatives": [], "hostNote": "Starteksempel – erstatt ved behov.", "status": "unused", "mode": "friend_group"
   }
 ]

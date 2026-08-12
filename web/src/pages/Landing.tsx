@@ -4,13 +4,16 @@ export default function Landing() {
   return (
     <div className="screen" style={{ justifyContent: "center" }}>
       <h1 className="brand">TRIVIA NIGHT</h1>
-      <p className="brand-sub">Answer. Climb. Win the room.</p>
+      <p className="brand-sub">Svar. Klatre. Vinn kvelden.</p>
       <div className="panel" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <Link to="/join" className="btn pink">
-          I'm on a team
+          Jeg er på et lag
         </Link>
         <Link to="/host" className="btn violet">
-          I'm hosting
+          Jeg er vert
+        </Link>
+        <Link to="/tv" className="btn ghost">
+          Åpne TV-skjermen
         </Link>
       </div>
     </div>

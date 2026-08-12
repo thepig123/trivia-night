@@ -24,9 +24,11 @@ export interface Question {
   answer: string;
   acceptedAlternatives: string[];
   hostNote?: string;
-  media?: { type: "image" | "audio" | "video"; url: string };
+  media?: { type: "image" | "audio" | "video"; url: string; effect?: "none" | "pixelated" | "blurred" };
   status: QuestionStatus;
   lastUsedSession?: string;
+  mode?: "buzzer" | "friend_group";
+  choices?: string[];
 }
 
 export type NodeStatus = "locked" | "available" | "selected" | "rejected" | "completed";
@@ -36,12 +38,14 @@ export interface MapNode {
   step: number; // 0 = START
   slot: number; // 0..2 within the step, START has slot 0 only
   tier: Tier | null; // null for START
+  category: string | null; // visible before selection so route choice is strategic
   status: NodeStatus;
   questionId: string | null; // assigned only when activated
+  nextNodeIds: string[];
 }
 
 export interface RouteMap {
-  steps: number; // total steps above START, e.g. 15
+  steps: number; // highest row currently generated; grows during play
   nodes: MapNode[]; // flattened, includes START at step 0
   selectedPath: string[]; // node ids, START first
   currentStep: number; // index of the last *selected* step (0 = at START)
@@ -55,6 +59,8 @@ export interface Team {
   connected: boolean;
   qualifiedForFinal: boolean;
   finalScore?: number;
+  players: string[];
+  photoDataUrl?: string;
 }
 
 export type GamePhase =
@@ -104,6 +110,7 @@ export interface HostGameState {
   eventLog: EventLogEntry[];
   questionPoolRemaining: number;
   questionPoolTotal: number;
+  friendAnswers: Record<string, string>;
 }
 
 /** Sanitized state broadcast to the TV client and team controllers — no answers. */
@@ -119,6 +126,10 @@ export interface PublicGameState {
     category: string;
     tier: Tier;
     points: number;
+    prompt: string;
+    mode?: "buzzer" | "friend_group";
+    choices?: string[];
+    media?: Question["media"];
   } | null;
   buzzOrder: { teamId: string }[]; // no timestamps needed publicly
   lockedOutTeamIds: string[];
@@ -126,17 +137,23 @@ export interface PublicGameState {
   controllingTeamId: string | null;
   finalState: FinalState | null;
   legalNextNodeIds: string[];
+  friendAnswersSubmitted: string[];
 }
 
 // ---------- Client -> Server messages ----------
 
 export type ClientMessage =
   | { type: "host:create_room" }
+  | { type: "host:add_team"; roomCode: string }
+  | { type: "host:remove_team"; roomCode: string; teamId: string }
+  | { type: "host:update_team"; roomCode: string; teamId: string; name: string; players: string[] }
+  | { type: "host:set_target"; roomCode: string; targetScore: number }
   | { type: "host:resume_room"; roomCode: string; sessionToken: string }
-  | { type: "team:join"; roomCode: string; teamName: string }
+  | { type: "team:join"; roomCode: string; teamName: string; players: string[]; photoDataUrl?: string }
   | { type: "team:resume"; roomCode: string; teamId: string; sessionToken: string }
   | { type: "team:buzz"; roomCode: string; teamId: string }
   | { type: "team:choose_route"; roomCode: string; teamId: string; nodeId: string }
+  | { type: "team:submit_friend_answer"; roomCode: string; teamId: string; answer: string }
   | { type: "tv:hello"; roomCode: string }
   | { type: "host:start_reading"; roomCode: string }
   | { type: "host:open_buzzers"; roomCode: string }
@@ -146,7 +163,8 @@ export type ClientMessage =
   | { type: "host:pause"; roomCode: string }
   | { type: "host:resume"; roomCode: string }
   | { type: "host:adjust_score"; roomCode: string; teamId: string; delta: number }
-  | { type: "host:advance_final"; roomCode: string };
+  | { type: "host:advance_final"; roomCode: string }
+  | { type: "host:reveal_friend_answers"; roomCode: string };
 
 // ---------- Server -> Client messages ----------
 
