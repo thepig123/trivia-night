@@ -57,6 +57,12 @@ principle. Everything is built at runtime from `scripts/Main.gd` — there's
 no hand-built scene tree to fight with in the editor, so it's easy to
 restyle.
 
+The route is generated in full when a room is created. Each encounter shows
+its category, tier icon, and point bounty before it is chosen. Phones render a
+compact four-row window around the team's current position; the controlling
+team chooses directly on that map while everyone else sees it in spectator
+mode. Merely previewing a node never consumes a question.
+
 ## How a round works end-to-end
 
 1. Host clicks **Reveal first question** (or, after a route choice,
@@ -100,11 +106,10 @@ build your real 50-75 question set — no code changes needed.
 
 Palette is defined once per surface and kept in sync by convention:
 `server/src/palette.ts`, `web/src/styles/theme.css`, and
-`godot/scripts/GameTheme.gd`. It's a vibrant party-game palette — deep
-plum background, hot pink / electric teal / golden yellow / violet accents,
-chunky rounded display type (Baloo 2) over a clean geometric body face
-(Space Grotesk) — built for TV-distance readability and a satisfying,
-Jackbox-like buzzer feel.
+`godot/scripts/GameTheme.gd`. The current direction is an original dark-fantasy
+roguelike expedition: weathered map surfaces, torch-gold highlights, muted
+gem tones, encounter sigils, and tier bounties. It takes inspiration from the
+feeling of climbing a dangerous branching map without copying any game assets.
 
 ## What's next (from your Phase 2/3)
 
