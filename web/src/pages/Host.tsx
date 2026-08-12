@@ -14,12 +14,12 @@ export default function Host() {
     return (
       <div className="screen" style={{ justifyContent: "center" }}>
         <h1 className="brand" style={{ fontSize: "2.2rem" }}>
-          Host console
+          Vertspanel
         </h1>
-        <p className="brand-sub">{connected ? "Connected to server" : "Connecting…"}</p>
+        <p className="brand-sub">{connected ? "Tilkoblet serveren" : "Kobler til…"}</p>
         <div className="panel">
           <button className="btn violet" disabled={!connected} onClick={() => send({ type: "host:create_room" })}>
-            Create new room
+            Opprett nytt rom
           </button>
         </div>
       </div>
@@ -37,13 +37,13 @@ function AdminPanel({ state, roomCode, send }: any) {
     <div className="admin-shell">
       <aside className="admin-sidebar">
         <div>
-          <div style={{ fontSize: "0.7rem", opacity: 0.6, textAlign: "center" }}>ROOM CODE</div>
+          <div style={{ fontSize: "0.7rem", opacity: 0.6, textAlign: "center" }}>ROMKODE</div>
           <div className="room-code">{roomCode}</div>
         </div>
 
         <div className="card team-overview">
-          <div className="team-overview__heading"><h3>Teams</h3><span>{state.teams.length}/5</span></div>
-          {state.teams.length === 0 && <div className="empty-teams">Waiting for teams. One player from each team joins at <b>/join</b>.</div>}
+          <div className="team-overview__heading"><h3>Lag</h3><span>{state.teams.length}/5</span></div>
+          {state.teams.length === 0 && <div className="empty-teams">Venter på lag. Én spiller fra hvert lag blir med via <b>/join</b>.</div>}
           {state.teams.map((t: any) => (
             <div className="team-row" key={t.id}>
               <span className="team-overview__identity"><span className="team-dot" style={{ background: t.color }} /><span><b>{t.name}</b><small>{t.players?.filter(Boolean).join(" & ")}</small></span>{!t.connected && " ⚠️"}{t.qualifiedForFinal && " 🏆"}</span>
@@ -61,25 +61,25 @@ function AdminPanel({ state, roomCode, send }: any) {
         </div>
 
         <div className="card">
-          <h3 style={{ marginBottom: 10, fontSize: "1rem" }}>Progress</h3>
+          <h3 style={{ marginBottom: 10, fontSize: "1rem" }}>Fremdrift</h3>
           <div style={{ fontSize: "0.85rem", opacity: 0.75 }}>
-            Climb stage: {state.map.currentStep}
+            Etappe: {state.map.currentStep}
             <br />
-            Target score: {state.targetScore.toLocaleString()}
+            Poengmål: {state.targetScore.toLocaleString()}
             <br />
-            Questions left: {state.questionPoolRemaining} / {state.questionPoolTotal}
+            Spørsmål igjen: {state.questionPoolRemaining} / {state.questionPoolTotal}
           </div>
         </div>
 
         <TierLegend />
 
         <div className="target-control">
-          <span>Final target</span><strong>{state.targetScore.toLocaleString()}</strong>
+          <span>Poengmål for finale</span><strong>{state.targetScore.toLocaleString()}</strong>
           <div><button onClick={() => rc("host:set_target", { targetScore: state.targetScore - 500 })}>−500</button><button onClick={() => rc("host:set_target", { targetScore: state.targetScore + 500 })}>+500</button></div>
         </div>
 
         <div className="card" style={{ flex: 1 }}>
-          <h3 style={{ marginBottom: 10, fontSize: "1rem" }}>Event log</h3>
+          <h3 style={{ marginBottom: 10, fontSize: "1rem" }}>Hendelseslogg</h3>
           <ul className="log-list">
             {[...state.eventLog].reverse().map((e: any) => (
               <li key={e.id}>{e.message}</li>
@@ -88,16 +88,16 @@ function AdminPanel({ state, roomCode, send }: any) {
         </div>
 
         <button className="btn ghost" onClick={() => rc(state.paused ? "host:resume" : "host:pause")}>
-          {state.paused ? "Resume game" : "Pause game"}
+          {state.paused ? "Fortsett spillet" : "Sett på pause"}
         </button>
       </aside>
 
       <main className="admin-main">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h2 style={{ textTransform: "uppercase", letterSpacing: "0.04em" }}>
-            Phase: <span style={{ color: "var(--teal)" }}>{state.phase}</span>
+            Fase: <span style={{ color: "var(--teal)" }}>{state.phase}</span>
           </h2>
-          {state.paused && <span className="chip" style={{ background: "var(--coral)" }}>PAUSED</span>}
+          {state.paused && <span className="chip" style={{ background: "var(--coral)" }}>PAUSE</span>}
         </div>
 
         {state.phase === "final" && state.finalState ? (
@@ -117,24 +117,24 @@ function AdminPanel({ state, roomCode, send }: any) {
                   </div>
                   <p style={{ fontSize: "1.3rem", fontWeight: 600, marginBottom: 16 }}>{state.activeQuestion.prompt}</p>
                   <div style={{ fontSize: "0.95rem", opacity: 0.9 }}>
-                    <b>Answer:</b> {state.activeQuestion.answer}
+                    <b>Svar:</b> {state.activeQuestion.answer}
                   </div>
                   {state.activeQuestion.acceptedAlternatives?.length > 0 && (
                     <div style={{ fontSize: "0.85rem", opacity: 0.7, marginTop: 4 }}>
-                      Accept also: {state.activeQuestion.acceptedAlternatives.join(", ")}
+                      Godta også: {state.activeQuestion.acceptedAlternatives.join(", ")}
                     </div>
                   )}
                   {state.activeQuestion.hostNote && (
-                    <div style={{ fontSize: "0.85rem", opacity: 0.7, marginTop: 4 }}>Note: {state.activeQuestion.hostNote}</div>
+                    <div style={{ fontSize: "0.85rem", opacity: 0.7, marginTop: 4 }}>Vertens notat: {state.activeQuestion.hostNote}</div>
                   )}
                 </>
               ) : (
                 <p style={{ opacity: 0.6 }}>
                   {state.phase === "lobby"
-                    ? "Waiting for teams to join. Start the game when ready."
+                    ? "Venter på lag. Start spillet når alle er klare."
                     : state.phase === "route_choice"
-                    ? "Waiting for the controlling team to pick the next path…"
-                    : "No active question."}
+                    ? "Venter på at laget skal velge neste rute…"
+                    : "Ingen aktive spørsmål."}
                 </p>
               )}
             </div>
@@ -142,28 +142,28 @@ function AdminPanel({ state, roomCode, send }: any) {
             <div className="control-row">
               {state.phase === "map" && (
                 <button className="btn teal" onClick={() => rc("host:start_reading")}>
-                  Start reading
+                  Les opp spørsmålet
                 </button>
               )}
               {state.phase === "lobby" && (
                 <button className="btn teal" onClick={() => rc("host:start_reading")}>
-                  Reveal first question
+                  Vis første spørsmål
                 </button>
               )}
               {(state.phase === "reading" || state.phase === "map") && (
                 <button className="btn pink" onClick={() => rc("host:open_buzzers")}>
-                  Open buzzers
+                  Åpne buzzere
                 </button>
               )}
-              {state.phase === "buzzing" && state.activeQuestion?.mode === "friend_group" && <button className="btn teal" onClick={() => rc("host:reveal_friend_answers")}>Reveal answers ({Object.keys(state.friendAnswers).length}/{state.teams.filter((t: any) => !t.qualifiedForFinal).length})</button>}
+              {state.phase === "buzzing" && state.activeQuestion?.mode === "friend_group" && <button className="btn teal" onClick={() => rc("host:reveal_friend_answers")}>Avslør svar ({Object.keys(state.friendAnswers).length}/{state.teams.filter((t: any) => !t.qualifiedForFinal).length})</button>}
               <button className="btn ghost" onClick={() => rc("host:skip_question")}>
-                Skip question
+                Hopp over spørsmål
               </button>
             </div>
 
             {state.phase === "adjudicating" && (
               <div className="card">
-                <h3 style={{ marginBottom: 10, fontSize: "1rem" }}>Buzz order</h3>
+                <h3 style={{ marginBottom: 10, fontSize: "1rem" }}>Buzzerrekkefølge</h3>
                 {state.buzzOrder.map((b: any, i: number) => {
                   const team = state.teams.find((t: any) => t.id === b.teamId);
                   const isCurrent = b.teamId === state.currentResponderId;
@@ -172,15 +172,15 @@ function AdminPanel({ state, roomCode, send }: any) {
                     <div key={b.teamId} className="team-row">
                       <span>
                         <span className="team-dot" style={{ background: team?.color }} />
-                        {i + 1}. {team?.name} {isLocked && "(locked out)"}
+                        {i + 1}. {team?.name} {isLocked && "(utelåst)"}
                       </span>
                       {isCurrent && (
                         <span style={{ display: "flex", gap: 8 }}>
                           <button className="btn teal" style={{ width: "auto" }} onClick={() => rc("host:mark_correct", { teamId: b.teamId })}>
-                            Correct
+                            Riktig
                           </button>
                           <button className="btn coral" style={{ width: "auto" }} onClick={() => rc("host:mark_wrong", { teamId: b.teamId })}>
-                            Wrong
+                            Feil
                           </button>
                         </span>
                       )}
