@@ -61,7 +61,7 @@ export class GameEngine {
       players: ["", ""],
     };
     this.teams.push(team);
-    this.log(`${team.name} joined the room.`);
+    this.log(`${team.name} ble med i rommet.`);
     return team;
   }
 
@@ -87,7 +87,7 @@ export class GameEngine {
     const team = this.teams.find((candidate) => candidate.id === teamId);
     if (!team || team.connected) return null;
     team.connected = true;
-    this.log(`${team.name} joined the room.`);
+    this.log(`${team.name} ble med i rommet.`);
     return team;
   }
 
@@ -104,7 +104,7 @@ export class GameEngine {
     if (this.finalState) return;
     const previous = this.targetScore;
     this.targetScore = Math.max(1000, Math.min(20000, Math.round(value / 500) * 500));
-    this.log(`Final target changed from ${previous} to ${this.targetScore}.`);
+    this.log(`Poengmålet ble endret fra ${previous} til ${this.targetScore}.`);
     this.qualifyEligibleTeams();
   }
 
@@ -128,7 +128,7 @@ export class GameEngine {
       if (opening.length === 0) return;
       const pick = opening[Math.floor(Math.random() * opening.length)];
       this.map = chooseRoute(this.map, pick);
-      this.log("Opening path auto-selected to start the game.");
+      this.log("Åpningsruten ble valgt automatisk.");
       node = this.map.nodes.find((n) => n.id === this.map.selectedPath[this.map.selectedPath.length - 1]);
     }
 
@@ -137,7 +137,7 @@ export class GameEngine {
 
     const question = this.pickQuestion(node.tier, node.category);
     if (!question) {
-      this.log(`No unused questions left for tier ${node.tier} — pool exhausted.`);
+      this.log(`Ingen ubrukte spørsmål igjen for ${node.tier}.`);
       return;
     }
     question.status = "used";
@@ -155,7 +155,7 @@ export class GameEngine {
     // A depleted category/tier pair falls back to the tier pool. Keep the node
     // label truthful if that happens during a long session.
     node.category = question.category;
-    this.log(`Activated ${node.tier} question in ${question.category} (${TIER_POINTS[node.tier]} pts).`);
+    this.log(`Aktiverte ${node.tier}-spørsmål i ${question.category} (${TIER_POINTS[node.tier]} poeng).`);
   }
 
   private pickQuestion(tier: Tier, category: string | null): Question | undefined {
@@ -171,7 +171,7 @@ export class GameEngine {
     if (this.paused) return;
     if (this.phase !== "map") return;
     this.phase = "reading";
-    this.log("Host started reading the question.");
+    this.log("Verten begynte å lese spørsmålet.");
   }
 
   openBuzzers() {
@@ -180,7 +180,7 @@ export class GameEngine {
     this.phase = "buzzing";
     this.buzzOrder = [];
     this.lockedOutTeamIds = [];
-    this.log("Buzzers open.");
+    this.log("Buzzerne er åpne.");
   }
 
   registerBuzz(teamId: string): boolean {
@@ -192,7 +192,7 @@ export class GameEngine {
     this.buzzOrder.push({ teamId, serverTimestamp: Date.now() });
     if (this.currentResponderId() === teamId) {
       this.phase = "adjudicating";
-      this.log(`${this.teamName(teamId)} buzzed in.`);
+      this.log(`${this.teamName(teamId)} buzzet inn.`);
     }
     return true;
   }
@@ -216,7 +216,7 @@ export class GameEngine {
     if (!node || !team || node.tier === null) return;
 
     team.score += TIER_POINTS[node.tier];
-    this.log(`${team.name} answered correctly (+${TIER_POINTS[node.tier]}). Score: ${team.score}.`);
+    this.log(`${team.name} svarte riktig (+${TIER_POINTS[node.tier]}). Poeng: ${team.score}.`);
     this.map = markNodeCompleted(this.map, node.id);
     this.controllingTeamId = team.id;
     this.activeQuestion = null;
@@ -246,7 +246,7 @@ export class GameEngine {
     if (this.phase !== "adjudicating") return;
     if (this.currentResponderId() !== teamId) return;
     this.lockedOutTeamIds.push(teamId);
-    this.log(`${this.teamName(teamId)} answered incorrectly and is locked out.`);
+    this.log(`${this.teamName(teamId)} svarte feil og er utelåst.`);
     // Doc section 5: lockout/rebound rule is still to be finalized.
     // Default behavior: any team not yet locked out (whether they've already
     // buzzed and are waiting, or haven't buzzed yet) may still answer.
@@ -257,7 +257,7 @@ export class GameEngine {
       this.phase = this.currentResponderId() ? "adjudicating" : "buzzing";
     } else {
       // Nobody left to answer — question is dead, host must skip.
-      this.log("No teams remain eligible to answer. Use Skip to move on.");
+      this.log("Ingen lag kan svare. Hopp over spørsmålet for å gå videre.");
     }
   }
 
@@ -271,7 +271,7 @@ export class GameEngine {
     this.activeNodeId = null;
     this.buzzOrder = [];
     this.lockedOutTeamIds = [];
-    this.log("Host skipped the question.");
+    this.log("Verten hoppet over spørsmålet.");
 
     // Nobody earned control of a skipped/dead question, so auto-select a
     // route and keep the live game moving instead of entering an impossible
@@ -284,7 +284,7 @@ export class GameEngine {
     const pick = legal[Math.floor(Math.random() * legal.length)];
     this.map = chooseRoute(this.map, pick);
     this.controllingTeamId = null;
-    this.log("Next route auto-selected after the skipped question.");
+    this.log("Neste rute ble valgt automatisk.");
     this.activateCurrentNode();
   }
 
@@ -297,7 +297,7 @@ export class GameEngine {
     this.map = chooseRoute(this.map, nodeId);
     this.controllingTeamId = null;
     this.phase = "map";
-    this.log(`${this.teamName(teamId)} chose the next route.`);
+    this.log(`${this.teamName(teamId)} valgte neste rute.`);
     this.activateCurrentNode();
   }
 
@@ -307,7 +307,7 @@ export class GameEngine {
     const alreadyQualified = this.teams.filter((t) => t.qualifiedForFinal);
     if (alreadyQualified.length >= 2) return;
     team.qualifiedForFinal = true;
-    this.log(`${team.name} qualified for the Final!`);
+    this.log(`${team.name} kvalifiserte seg til finalen!`);
     if (this.teams.filter((t) => t.qualifiedForFinal).length === 2) {
       this.startFinal();
     }
@@ -375,7 +375,7 @@ export class GameEngine {
     this.buzzOrder = [];
     this.lockedOutTeamIds = [];
     this.phase = "final";
-    this.log(`Final begins between ${finalists.map((id) => this.teamName(id)).join(" and ")}.`);
+    this.log(`Finalen begynner mellom ${finalists.map((id) => this.teamName(id)).join(" og ")}.`);
   }
 
   advanceFinal() {
@@ -384,12 +384,12 @@ export class GameEngine {
     if (this.finalState.currentIndex >= this.finalState.questionIds.length) {
       this.activeQuestion = null;
       this.phase = "ended";
-      this.log("Final question set completed.");
+      this.log("Finalespørsmålene er fullført.");
       return;
     }
     const questionId = this.finalState.questionIds[this.finalState.currentIndex];
     this.activeQuestion = this.questionPool.find((q) => q.id === questionId) ?? null;
-    this.log(`Advanced to Final question ${this.finalState.currentIndex + 1}.`);
+    this.log(`Gikk videre til finalespørsmål ${this.finalState.currentIndex + 1}.`);
   }
 
   pause() {
@@ -403,7 +403,7 @@ export class GameEngine {
     const team = this.teams.find((t) => t.id === teamId);
     if (!team) return;
     team.score = Math.max(0, team.score + delta);
-    this.log(`Host manually adjusted ${team.name}'s score by ${delta > 0 ? "+" : ""}${delta}.`);
+    this.log(`Verten justerte poengene til ${team.name} med ${delta > 0 ? "+" : ""}${delta}.`);
   }
 
   // ---------- Snapshots ----------
