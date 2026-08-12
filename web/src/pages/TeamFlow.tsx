@@ -18,13 +18,13 @@ export default function TeamFlow() {
     return (
       <div className="screen" style={{ justifyContent: "center" }}>
         <h1 className="brand" style={{ fontSize: "2.2rem" }}>
-          Join the game
+          Bli med i spillet
         </h1>
-        <p className="brand-sub">{connected ? "Connected to server" : "Connecting…"}</p>
+        <p className="brand-sub">{connected ? "Tilkoblet serveren" : "Kobler til…"}</p>
         <div className="panel">
           {lastError && <div className="error-banner">{lastError}</div>}
           <div className="field">
-            <label>Room code</label>
+            <label>Romkode</label>
             <input
               value={roomInput}
               onChange={(e) => setRoomInput(e.target.value.toUpperCase())}
@@ -33,13 +33,13 @@ export default function TeamFlow() {
               autoCapitalize="characters"
             />
           </div>
-          <div className="field"><label>Team name</label><input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="The Buzzer Beaters" maxLength={24} /></div>
+          <div className="field"><label>Lagets navn</label><input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Quizkameratene" maxLength={24} /></div>
           <div className="player-fields">
-            <div className="field"><label>Player 1</label><input value={playerOne} onChange={(e) => setPlayerOne(e.target.value)} placeholder="Name" maxLength={24} /></div>
-            <div className="field"><label>Player 2</label><input value={playerTwo} onChange={(e) => setPlayerTwo(e.target.value)} placeholder="Name" maxLength={24} /></div>
+            <div className="field"><label>Spiller 1</label><input value={playerOne} onChange={(e) => setPlayerOne(e.target.value)} placeholder="Navn" maxLength={24} /></div>
+            <div className="field"><label>Spiller 2</label><input value={playerTwo} onChange={(e) => setPlayerTwo(e.target.value)} placeholder="Navn" maxLength={24} /></div>
           </div>
           <button className="btn teal" disabled={!connected || !roomInput.trim() || !teamName.trim() || !playerOne.trim() || !playerTwo.trim()} onClick={() => send({ type: "team:join", roomCode: roomInput.trim(), teamName: teamName.trim(), players: [playerOne.trim(), playerTwo.trim()] })}>
-            Create team and join
+            Opprett lag og bli med
           </button>
         </div>
       </div>
@@ -65,33 +65,33 @@ function TeamController({ roomCode, teamId, publicState, send }: any) {
   let buzzerLabel = "BUZZ";
   if (iAmFirst) {
     buzzerClass += " first";
-    buzzerLabel = "YOU'RE UP!";
+    buzzerLabel = "DERES TUR!";
   } else if (iAmLocked || (iBuzzed && !iAmFirst) || phase !== "buzzing") {
     buzzerClass += " locked";
-    if (iAmLocked) buzzerLabel = "LOCKED OUT";
-    else if (iBuzzed) buzzerLabel = "BUZZED";
-    else buzzerLabel = "WAIT";
+    if (iAmLocked) buzzerLabel = "UTELÅST";
+    else if (iBuzzed) buzzerLabel = "SVART";
+    else buzzerLabel = "VENT";
   }
 
   return (
     <div className="screen">
       <div style={{ width: "100%", maxWidth: 480, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>ROOM {roomCode}</div>
+          <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>ROM {roomCode}</div>
           <h2 style={{ color: me?.color }}>{me?.name}</h2>
         </div>
         <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: "0.7rem", opacity: 0.6 }}>SCORE</div>
+          <div style={{ fontSize: "0.7rem", opacity: 0.6 }}>POENG</div>
           <div style={{ fontFamily: "var(--font-display)", fontSize: "1.8rem", color: "var(--yellow)" }}>
             {me?.score ?? 0}
           </div>
         </div>
       </div>
 
-      {qualified ? <div className="qualified-card"><strong>FINALIST</strong><span>Your place is secured. Watch the remaining teams race.</span></div> : isControlling ? (
+      {qualified ? <div className="qualified-card"><strong>FINALIST</strong><span>Finaleplassen er sikret. Følg kampen mellom de andre lagene.</span></div> : isControlling ? (
         <div className="map-choice-wrap">
-          <h3>Choose your path</h3>
-          <p>The glowing encounters are yours to claim.</p>
+          <h3>Velg rute</h3>
+          <p>Velg mellom de lysende kategoriene.</p>
           <RouteMap
             map={publicState.map}
             legalNodeIds={publicState.legalNextNodeIds}
@@ -102,9 +102,9 @@ function TeamController({ roomCode, teamId, publicState, send }: any) {
         </div>
       ) : isFriendRound && phase === "buzzing" ? (
         <div className="friend-answer-panel">
-          <h3>Choose your answer</h3>
+          <h3>Velg svar</h3>
           {publicState.activeQuestionPublic.choices?.map((choice: string) => <button className="btn ghost" key={choice} disabled={friendSubmitted} onClick={() => send({ type: "team:submit_friend_answer", roomCode, teamId, answer: choice })}>{choice}</button>)}
-          {friendSubmitted && <p>Answer locked in. Waiting for the reveal…</p>}
+          {friendSubmitted && <p>Svaret er låst. Venter på avsløringen…</p>}
         </div>
       ) : (
         <>
@@ -122,9 +122,9 @@ function TeamController({ roomCode, teamId, publicState, send }: any) {
       )}
 
       <div style={{ opacity: 0.55, fontSize: "0.8rem", marginTop: 16, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-        {publicState?.paused ? "Game paused" : phaseLabel(phase)}
+        {publicState?.paused ? "Spillet er satt på pause" : phaseLabel(phase)}
       </div>
-      {me && !qualified && <div className="final-progress"><div><span>Road to the Final</span><b>{Math.max(0, publicState.targetScore - me.score).toLocaleString()} points remaining</b></div><progress value={me.score} max={publicState.targetScore} /></div>}
+      {me && !qualified && <div className="final-progress"><div><span>Veien til finalen</span><b>{Math.max(0, publicState.targetScore - me.score).toLocaleString()} poeng igjen</b></div><progress value={me.score} max={publicState.targetScore} /></div>}
     </div>
   );
 }
@@ -132,21 +132,21 @@ function TeamController({ roomCode, teamId, publicState, send }: any) {
 function phaseLabel(phase: string | undefined) {
   switch (phase) {
     case "lobby":
-      return "Waiting for the host to start";
+      return "Venter på at verten skal starte";
     case "map":
-      return "Get ready — question coming up";
+      return "Gjør dere klare — neste spørsmål kommer";
     case "reading":
-      return "Host is reading the question";
+      return "Verten leser spørsmålet";
     case "buzzing":
-      return "Buzzers are open!";
+      return "Buzzerne er åpne!";
     case "adjudicating":
-      return "Host is judging the answer";
+      return "Verten vurderer svaret";
     case "route_choice":
-      return "Choosing the next path";
+      return "Neste rute velges";
     case "final":
-      return "Final round!";
+      return "Finale!";
     case "ended":
-      return "Game over";
+      return "Spillet er ferdig";
     default:
       return "";
   }
