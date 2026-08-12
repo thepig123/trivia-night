@@ -57,11 +57,12 @@ principle. Everything is built at runtime from `scripts/Main.gd` — there's
 no hand-built scene tree to fight with in the editor, so it's easy to
 restyle.
 
-The route is generated in full when a room is created. Each encounter shows
-its category, tier icon, and point bounty before it is chosen. Phones render a
-compact four-row window around the team's current position; the controlling
-team chooses directly on that map while everyone else sees it in spectator
-mode. Merely previewing a node never consumes a question.
+The route is an endless procedural climb. The server keeps five connected rows
+ahead of the players and extends the map as they advance. Each row contains a
+shuffled easy/medium/hard spread for that section of the climb. Encounter nodes
+show category, tier, and point bounty; real route lines determine which nodes
+can be reached. Phones render a compact window around the current position.
+Merely previewing or rejecting a node never consumes a question.
 
 ## How a round works end-to-end
 
@@ -77,8 +78,22 @@ mode. Merely previewing a node never consumes a question.
      nodes.
    - Wrong → that team is locked out for this question; buzzing reopens for
      everyone else still eligible.
-5. Repeat until two teams reach the target score (10,000) or the 15-step map
-   runs out, at which point the top two scores enter the Final.
+5. Repeat until two teams reach the target score (10,000 by default). The host
+   may adjust the target in 500-point increments if the event is running long.
+   Qualified teams become spectators while the remaining teams race onward.
+
+## Teams and Friend Group rounds
+
+Rooms start with four host-configurable teams of two, matching the planned
+eight-player format. The host may use three to five teams, edits team/player
+names in the lobby, and each team selects its prepared identity on one shared
+phone.
+
+Questions with `mode: "friend_group"` use simultaneous selection instead of a
+buzzer. Every active team privately chooses from the configured player roster;
+the host reveals when ready, all correct teams score, and the lowest-scoring
+correct non-finalist receives route control. Five starter examples are included
+in `questions.json` and are intended to be replaced with real group stories.
 
 ## Decisions I made to get to a playable build
 
@@ -87,8 +102,8 @@ I picked defaults so the MVP runs; all are easy to change in one place:
 
 | Decision | Default | Where to change |
 |---|---|---|
-| Map length | 15 steps (matches your completed Godot prototype) | `server/src/map.ts` → `TOTAL_STEPS` |
-| Tier pacing (easy low, hard high) | banded random pool | `server/src/map.ts` → `TIER_BANDS` |
+| Map length | Infinite; five connected rows generated ahead | `server/src/map.ts` → `LOOKAHEAD_ROWS` |
+| Tier pacing | Controlled three-tier spread, shuffled per row | `server/src/map.ts` → `tiersForStep` |
 | Wrong-answer handling | locks out that team only; buzzing reopens for the rest | `GameEngine.markWrong` in `server/src/gameState.ts` |
 | Final format | placeholder: top two scores at map-end also qualify; a 5-question final pool is drawn but scoring/win-condition UI isn't built out (doc explicitly leaves this undefined) | `GameEngine.startFinal`, `web/src/pages/Host.tsx` → `FinalPanel` |
 | Question budget | 50 questions shipped (5 categories × 5 tiers × 2), matching your primary target | `server/src/data/questions.json` |
