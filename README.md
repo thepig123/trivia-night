@@ -9,7 +9,7 @@ server-authoritative, exactly as section 8 specifies.
 trivia-night/
   server/   Node + TypeScript WebSocket server — the single source of truth
   web/      React app — team controller (phones) + host admin panel (laptop)
-  godot/    Godot 4 project — the shared TV client
+  godot-prototype-not-in-use/  Archived Godot 4 TV prototype
 ```
 
 ## 1. Run the server
@@ -44,18 +44,22 @@ If your phones aren't on the same machine, set `VITE_WS_URL` in a `web/.env`
 file to your laptop's LAN IP, e.g. `VITE_WS_URL=ws://192.168.1.42:8080`, and
 run `npm run dev -- --host` so the dev server is reachable on the LAN.
 
-## 3. Run the Godot TV client
+## 3. Run the React TV client
 
-Open `godot/` as a project in Godot **4.2+**. Press Play. On the connect
-screen, enter the server URL (`ws://127.0.0.1:8080` by default, or your LAN
-IP) and the room code shown in the host panel, then Connect.
+Open `http://localhost:5173/tv`, enter the room code shown in the host panel,
+and use the browser's fullscreen mode on the shared TV/projector.
 
-The TV client is a pure renderer: it draws whatever `state:public` snapshot
+The TV route is a pure renderer: it draws whatever `state:public` snapshot
 the server sends (scores, route map, active category/tier, buzz status) and
 never computes anything itself, per your doc's authoritative-state
 principle. Everything is built at runtime from `scripts/Main.gd` — there's
-no hand-built scene tree to fight with in the editor, so it's easy to
-restyle.
+It reuses the same `RouteMap` React component as the team controller, with
+TV-specific scaling and a longer lookahead.
+
+The original Godot implementation is preserved under
+`godot-prototype-not-in-use/` as a learning reference and possible foundation
+for a future 3D doors-and-dungeon edition. It is no longer the supported TV
+client for the current game.
 
 The route is an endless procedural climb. The server keeps five connected rows
 ahead of the players and extends the map as they advance. Each row contains a
