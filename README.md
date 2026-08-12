@@ -93,9 +93,10 @@ both player names, then that shared phone represents the team. Rooms accept up
 to five teams; the planned format is four teams of two. The host panel receives
 each registration automatically and stays focused on monitoring and scoring.
 
-When the host starts reading, the public question prompt appears on the TV and
-remains visible throughout buzzing and adjudication. Public snapshots include
-the prompt but never expose the stored answer.
+When the host starts reading, the public question prompt appears in a centered
+game-show card over the TV map. It remains visible while buzzers are open, then
+the card clears as soon as the first team buzzes so nobody can buzz early and
+keep reading. Public snapshots include the prompt but never expose the answer.
 
 Questions with `mode: "friend_group"` use simultaneous selection instead of a
 buzzer. Every active team privately chooses from the configured player roster;
@@ -104,6 +105,20 @@ correct non-finalist receives route control. Five starter examples are included
 in `questions.json` and are intended to be replaced with real group stories.
 The current build is Norwegian-first (Bokmål), and this category is presented
 as `Gutta` throughout the map and question data.
+
+## Planned non-text question modes
+
+The protocol should later grow beyond ordinary text trivia without forcing all
+modes into the buzzer flow. Ideas currently recorded for design after the
+standard loop is stable:
+
+- `Hvem sa det?` — identify which person sent or said a quoted message
+- image reveal — identify an emoji, movie, character, book cover, object, or person
+- audio/video clues
+- cropped or progressively revealed images
+
+These will use an explicit question `mode` plus optional media and choices, so
+the host panel, phones, and TV can render the correct interaction independently.
 
 ## Decisions I made to get to a playable build
 
