@@ -26,6 +26,19 @@ test("pause blocks phase changes and buzzes until resumed", () => {
   assert.equal(game.phase, "adjudicating");
 });
 
+test("route is fully previewable with category and tier metadata", () => {
+  const game = new GameEngine("MAP01");
+  assert.equal(game.map.nodes.length, 1 + game.map.steps * 3);
+  for (const node of game.map.nodes.filter((candidate) => candidate.id !== "START")) {
+    assert.ok(node.category);
+    assert.ok(node.tier);
+  }
+
+  game.activateCurrentNode();
+  const activeNode = game.map.nodes.find((node) => node.id === game.activeNodeId);
+  assert.equal(game.activeQuestion?.category, activeNode?.category);
+});
+
 test("skipping auto-selects a route and activates the next question", () => {
   const { game } = activeGame();
   const previousStep = game.map.currentStep;
