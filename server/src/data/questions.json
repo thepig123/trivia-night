@@ -1,0 +1,519 @@
+[
+  {
+    "id": "q001",
+    "category": "Science",
+    "tier": "T5",
+    "prompt": "What planet is known as the Red Planet?",
+    "answer": "Mars",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q002",
+    "category": "Science",
+    "tier": "T5",
+    "prompt": "What gas do plants absorb from the air to make food?",
+    "answer": "Carbon dioxide",
+    "acceptedAlternatives": [
+      "CO2"
+    ],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q003",
+    "category": "Science",
+    "tier": "T4",
+    "prompt": "What is the chemical symbol for gold?",
+    "answer": "Au",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q004",
+    "category": "Science",
+    "tier": "T4",
+    "prompt": "How many bones are in the adult human body?",
+    "answer": "206",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q005",
+    "category": "Science",
+    "tier": "T3",
+    "prompt": "What force pulls objects toward the Earth?",
+    "answer": "Gravity",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q006",
+    "category": "Science",
+    "tier": "T3",
+    "prompt": "What is the powerhouse of the cell?",
+    "answer": "Mitochondria",
+    "acceptedAlternatives": [
+      "Mitochondrion"
+    ],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q007",
+    "category": "Science",
+    "tier": "T2",
+    "prompt": "What particle has a negative electric charge?",
+    "answer": "Electron",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q008",
+    "category": "Science",
+    "tier": "T2",
+    "prompt": "What is the speed of light in a vacuum, to the nearest thousand km/s?",
+    "answer": "300,000 km/s",
+    "acceptedAlternatives": [
+      "3x10^8 m/s",
+      "300000"
+    ],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q009",
+    "category": "Science",
+    "tier": "T1",
+    "prompt": "What is the name of the enzyme that unwinds DNA during replication?",
+    "answer": "Helicase",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q010",
+    "category": "Science",
+    "tier": "T1",
+    "prompt": "What element has the atomic number 1?",
+    "answer": "Hydrogen",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q011",
+    "category": "History",
+    "tier": "T5",
+    "prompt": "In what year did World War II end?",
+    "answer": "1945",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q012",
+    "category": "History",
+    "tier": "T5",
+    "prompt": "Who was the first President of the United States?",
+    "answer": "George Washington",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q013",
+    "category": "History",
+    "tier": "T4",
+    "prompt": "What ancient civilization built the pyramids of Giza?",
+    "answer": "The Egyptians",
+    "acceptedAlternatives": [
+      "Ancient Egypt"
+    ],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q014",
+    "category": "History",
+    "tier": "T4",
+    "prompt": "What wall divided East and West Berlin?",
+    "answer": "The Berlin Wall",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q015",
+    "category": "History",
+    "tier": "T3",
+    "prompt": "What year did the Titanic sink?",
+    "answer": "1912",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q016",
+    "category": "History",
+    "tier": "T3",
+    "prompt": "Who was the Roman general who crossed the Rubicon?",
+    "answer": "Julius Caesar",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q017",
+    "category": "History",
+    "tier": "T2",
+    "prompt": "What treaty ended World War I?",
+    "answer": "The Treaty of Versailles",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q018",
+    "category": "History",
+    "tier": "T2",
+    "prompt": "Which empire was ruled by Genghis Khan?",
+    "answer": "The Mongol Empire",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q019",
+    "category": "History",
+    "tier": "T1",
+    "prompt": "In what year was the Magna Carta signed?",
+    "answer": "1215",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q020",
+    "category": "History",
+    "tier": "T1",
+    "prompt": "Who was the last Tsar of Russia?",
+    "answer": "Nicholas II",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q021",
+    "category": "Pop Culture",
+    "tier": "T5",
+    "prompt": "What ocean-dwelling sponge lives in a pineapple?",
+    "answer": "SpongeBob SquarePants",
+    "acceptedAlternatives": [
+      "SpongeBob"
+    ],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q022",
+    "category": "Pop Culture",
+    "tier": "T5",
+    "prompt": "What is the highest-grossing film of all time (as of 2024, unadjusted)?",
+    "answer": "Avatar",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q023",
+    "category": "Pop Culture",
+    "tier": "T4",
+    "prompt": "What band released the album 'Abbey Road'?",
+    "answer": "The Beatles",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q024",
+    "category": "Pop Culture",
+    "tier": "T4",
+    "prompt": "Who played Iron Man in the Marvel Cinematic Universe?",
+    "answer": "Robert Downey Jr.",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q025",
+    "category": "Pop Culture",
+    "tier": "T3",
+    "prompt": "What streaming show features a chess prodigy named Beth Harmon?",
+    "answer": "The Queen's Gambit",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q026",
+    "category": "Pop Culture",
+    "tier": "T3",
+    "prompt": "Who directed the movie 'Jaws'?",
+    "answer": "Steven Spielberg",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q027",
+    "category": "Pop Culture",
+    "tier": "T2",
+    "prompt": "What was the first feature-length fully computer-animated film?",
+    "answer": "Toy Story",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q028",
+    "category": "Pop Culture",
+    "tier": "T2",
+    "prompt": "Who composed the score for 'Star Wars'?",
+    "answer": "John Williams",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q029",
+    "category": "Pop Culture",
+    "tier": "T1",
+    "prompt": "What was the working title of the movie 'Pulp Fiction'?",
+    "answer": "Black Mask",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q030",
+    "category": "Pop Culture",
+    "tier": "T1",
+    "prompt": "Who won the first-ever Academy Award for Best Actor?",
+    "answer": "Emil Jannings",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q031",
+    "category": "Geography",
+    "tier": "T5",
+    "prompt": "What is the longest river in the world?",
+    "answer": "The Nile",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q032",
+    "category": "Geography",
+    "tier": "T5",
+    "prompt": "What country has the most people?",
+    "answer": "India",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q033",
+    "category": "Geography",
+    "tier": "T4",
+    "prompt": "What is the capital of Australia?",
+    "answer": "Canberra",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q034",
+    "category": "Geography",
+    "tier": "T4",
+    "prompt": "What desert is the largest hot desert in the world?",
+    "answer": "The Sahara",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q035",
+    "category": "Geography",
+    "tier": "T3",
+    "prompt": "What mountain range separates Europe and Asia?",
+    "answer": "The Ural Mountains",
+    "acceptedAlternatives": [
+      "Urals"
+    ],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q036",
+    "category": "Geography",
+    "tier": "T3",
+    "prompt": "What is the smallest country in the world by area?",
+    "answer": "Vatican City",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q037",
+    "category": "Geography",
+    "tier": "T2",
+    "prompt": "What strait separates Europe from Africa at its narrowest point?",
+    "answer": "Strait of Gibraltar",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q038",
+    "category": "Geography",
+    "tier": "T2",
+    "prompt": "What is the only country that spans four hemispheres?",
+    "answer": "Kiribati",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q039",
+    "category": "Geography",
+    "tier": "T1",
+    "prompt": "What is the deepest point in the ocean called?",
+    "answer": "Challenger Deep",
+    "acceptedAlternatives": [
+      "Mariana Trench"
+    ],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q040",
+    "category": "Geography",
+    "tier": "T1",
+    "prompt": "Which African country has three capital cities?",
+    "answer": "South Africa",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q041",
+    "category": "Sports",
+    "tier": "T5",
+    "prompt": "How many players are on a standard soccer team on the field?",
+    "answer": "11",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q042",
+    "category": "Sports",
+    "tier": "T5",
+    "prompt": "In what sport would you perform a slam dunk?",
+    "answer": "Basketball",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q043",
+    "category": "Sports",
+    "tier": "T4",
+    "prompt": "How many rings are on the Olympic flag?",
+    "answer": "5",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q044",
+    "category": "Sports",
+    "tier": "T4",
+    "prompt": "What sport is played at Wimbledon?",
+    "answer": "Tennis",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q045",
+    "category": "Sports",
+    "tier": "T3",
+    "prompt": "How often are the Summer Olympics held?",
+    "answer": "Every 4 years",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q046",
+    "category": "Sports",
+    "tier": "T3",
+    "prompt": "What country has won the most FIFA World Cups?",
+    "answer": "Brazil",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q047",
+    "category": "Sports",
+    "tier": "T2",
+    "prompt": "What is the maximum break in snooker?",
+    "answer": "147",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q048",
+    "category": "Sports",
+    "tier": "T2",
+    "prompt": "Who holds the record for most Grand Slam singles titles (men's, as of 2024)?",
+    "answer": "Novak Djokovic",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q049",
+    "category": "Sports",
+    "tier": "T1",
+    "prompt": "In what year were the first modern Olympic Games held?",
+    "answer": "1896",
+    "acceptedAlternatives": [],
+    "hostNote": "",
+    "status": "unused"
+  },
+  {
+    "id": "q050",
+    "category": "Sports",
+    "tier": "T1",
+    "prompt": "What jockey has won the most Kentucky Derby races?",
+    "answer": "Eddie Arcaro",
+    "acceptedAlternatives": [
+      "Bill Shoemaker"
+    ],
+    "hostNote": "",
+    "status": "unused"
+  }
+]
