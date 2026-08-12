@@ -14,11 +14,12 @@ interface RouteMapProps {
   legalNodeIds?: string[];
   interactive?: boolean;
   onChoose?: (nodeId: string) => void;
+  rowsAhead?: number;
 }
 
-export default function RouteMap({ map, legalNodeIds = [], interactive = false, onChoose }: RouteMapProps) {
+export default function RouteMap({ map, legalNodeIds = [], interactive = false, onChoose, rowsAhead = 3 }: RouteMapProps) {
   const firstStep = Math.max(0, map.currentStep - 1);
-  const lastStep = Math.min(map.steps, map.currentStep + 3);
+  const lastStep = Math.min(map.steps, map.currentStep + rowsAhead);
   const visibleSteps = Array.from({ length: lastStep - firstStep + 1 }, (_, index) => lastStep - index);
   const visibleNodes = map.nodes.filter((node) => node.step >= firstStep && node.step <= lastStep);
   const rowY = (step: number) => 35 + (lastStep - step) * 88;
