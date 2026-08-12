@@ -249,11 +249,11 @@ func _on_state_received(state: Dictionary) -> void:
 	_room_label.text = "ROOM " + str(state.get("roomCode", ""))
 	_phase_label.text = "PHASE: " + str(state.get("phase", "")).to_upper()
 
-	_render_scoreboard(state.get("teams", []), state.get("currentResponderId", ""), state.get("lockedOutTeamIds", []))
+	_render_scoreboard(state.get("teams", []), state.get("currentResponderId", ""), state.get("lockedOutTeamIds", []), state.get("targetScore", 10000))
 	_render_question(state)
 	_render_map(state.get("map", {}))
 
-func _render_scoreboard(teams: Array, current_responder_id, locked: Array) -> void:
+func _render_scoreboard(teams: Array, current_responder_id, locked: Array, target_score: int) -> void:
 	for c in _scoreboard.get_children():
 		c.queue_free()
 
@@ -280,6 +280,16 @@ func _render_scoreboard(teams: Array, current_responder_id, locked: Array) -> vo
 		score_label.add_theme_color_override("font_color", GameTheme.CREAM)
 		score_label.add_theme_font_size_override("font_size", 30)
 		v.add_child(score_label)
+
+		var progress_label := Label.new()
+		if team.get("qualifiedForFinal", false):
+			progress_label.text = "FINALIST"
+			progress_label.add_theme_color_override("font_color", GameTheme.YELLOW)
+		else:
+			progress_label.text = "%d TO FINAL" % max(0, target_score - int(team.get("score", 0)))
+			progress_label.add_theme_color_override("font_color", Color("#B8A98D"))
+		progress_label.add_theme_font_size_override("font_size", 11)
+		v.add_child(progress_label)
 
 		if team.get("id", "") in locked:
 			var lock_label := Label.new()
@@ -363,8 +373,7 @@ func _render_map(map: Dictionary) -> void:
 			else:
 				var tier: String = str(n.get("tier", "T5"))
 				var category: String = str(n.get("category", "Unknown"))
-				var sigil: String = GameTheme.CATEGORY_SIGILS.get(category, "◆")
-				lbl.text = "%s  %s\n%s · %d" % [sigil, category, tier, GameTheme.TIER_POINTS.get(tier, 0)]
+				lbl.text = "%s\n%s · %d" % [category, tier, GameTheme.TIER_POINTS.get(tier, 0)]
 			lbl.add_theme_font_size_override("font_size", 12)
 			lbl.add_theme_color_override("font_color", GameTheme.CREAM)
 			dot.add_child(lbl)
