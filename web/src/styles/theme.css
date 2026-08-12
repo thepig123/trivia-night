@@ -490,13 +490,20 @@ button {
   }
 }
 
-.team-picker { display: grid; gap: 8px; margin-top: 16px; }
-.team-picker > p { margin: 0 0 4px; color: #cbb991; }
-.team-picker .btn { justify-content: space-between; text-align: left; font-size: 0.9rem; }
-.team-picker small { display: block; opacity: 0.65; margin-top: 2px; }
-.host-team-editor { flex: 1; display: grid; gap: 5px; }
-.host-team-editor input { min-width: 0; width: 100%; padding: 5px 7px; border: 1px solid #6a5239; border-radius: 4px; background: #171310; color: var(--cream); }
-.host-team-editor > div { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.player-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.team-overview__heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.team-overview__heading h3 { font-size: 1rem; }
+.team-overview__heading span { color: #b8a98d; font-size: 0.75rem; }
+.empty-teams { padding: 14px 4px; color: #b8a98d; font-size: 0.82rem; line-height: 1.45; }
+.team-overview .team-row { align-items: flex-start; padding: 12px 10px; gap: 10px; }
+.team-overview__identity { display: flex; min-width: 0; align-items: flex-start; gap: 7px; }
+.team-overview__identity > span:nth-child(2) { min-width: 0; }
+.team-overview__identity b, .team-overview__identity small { display: block; }
+.team-overview__identity b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.team-overview__identity small { margin-top: 3px; color: #b8a98d; font-size: 0.68rem; line-height: 1.25; }
+.team-overview__score { display: grid; flex: 0 0 auto; grid-template-columns: 1fr 28px 28px; align-items: center; gap: 4px; }
+.team-overview__score > b { grid-column: 1 / -1; text-align: right; color: var(--yellow); }
+.team-overview__score .btn { min-width: 0; padding: 2px 7px !important; }
 .target-control { padding: 12px; border: 1px solid #6a5239; border-radius: 7px; text-align: center; background: rgba(24, 20, 18, 0.9); }
 .target-control span, .target-control strong { display: block; }
 .target-control strong { margin: 4px 0 8px; color: var(--yellow); font-size: 1.4rem; }
@@ -515,4 +522,5 @@ button {
   .screen { padding-inline: 10px; }
   .map-node__category { font-size: 0.55rem; }
   .map-node__tier { font-size: 0.52rem; }
+  .player-fields { grid-template-columns: 1fr; gap: 0; }
 }
