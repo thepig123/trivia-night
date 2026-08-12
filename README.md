@@ -84,10 +84,14 @@ Merely previewing or rejecting a node never consumes a question.
 
 ## Teams and Friend Group rounds
 
-Rooms start with four host-configurable teams of two, matching the planned
-eight-player format. The host may use three to five teams, edits team/player
-names in the lobby, and each team selects its prepared identity on one shared
-phone.
+One player from each team opens `/join`, enters the room code, team name, and
+both player names, then that shared phone represents the team. Rooms accept up
+to five teams; the planned format is four teams of two. The host panel receives
+each registration automatically and stays focused on monitoring and scoring.
+
+When the host starts reading, the public question prompt appears on the TV and
+remains visible throughout buzzing and adjudication. Public snapshots include
+the prompt but never expose the stored answer.
 
 Questions with `mode: "friend_group"` use simultaneous selection instead of a
 buzzer. Every active team privately chooses from the configured player roster;
