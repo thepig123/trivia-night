@@ -9,14 +9,6 @@ const TIER_GLYPHS: Record<Tier, string> = {
   T5: "✦",
 };
 
-const CATEGORY_GLYPHS: Record<string, string> = {
-  Science: "⚗",
-  History: "♜",
-  Geography: "⌖",
-  Entertainment: "★",
-  Sports: "⚑",
-};
-
 interface RouteMapProps {
   map: RouteMapState;
   legalNodeIds?: string[];
@@ -28,12 +20,22 @@ export default function RouteMap({ map, legalNodeIds = [], interactive = false, 
   const firstStep = Math.max(0, map.currentStep - 1);
   const lastStep = Math.min(map.steps, map.currentStep + 3);
   const visibleSteps = Array.from({ length: lastStep - firstStep + 1 }, (_, index) => lastStep - index);
+  const visibleNodes = map.nodes.filter((node) => node.step >= firstStep && node.step <= lastStep);
+  const rowY = (step: number) => 35 + (lastStep - step) * 88;
+  const nodeX = (slot: number) => slot * 100 + 50;
 
   return (
     <section className="route-map" aria-label="Route map">
       <div className="route-map__mist" />
       <div className="route-map__summit">FINAL</div>
-      <div className="route-map__trail" aria-hidden="true" />
+      <svg className="route-map__connections" viewBox={`0 0 300 ${visibleSteps.length * 88}`} preserveAspectRatio="none" aria-hidden="true">
+        {visibleNodes.flatMap((node) => node.nextNodeIds.map((targetId) => {
+          const target = visibleNodes.find((candidate) => candidate.id === targetId);
+          if (!target) return null;
+          const chosen = map.selectedPath.includes(node.id) && map.selectedPath.includes(target.id);
+          return <line key={`${node.id}-${targetId}`} x1={nodeX(node.slot)} y1={rowY(node.step)} x2={nodeX(target.slot)} y2={rowY(target.step)} className={chosen ? "route-line route-line--chosen" : "route-line"} />;
+        }))}
+      </svg>
       <div className="route-map__rows">
         {visibleSteps.map((step) => {
           const nodes = map.nodes.filter((node) => node.step === step);
@@ -81,7 +83,6 @@ function MapNodeButton({
       onClick={() => enabled && onChoose?.(node.id)}
       aria-label={`${node.category}, ${tier}, ${TIER_POINTS[tier]} points${enabled ? ", choose route" : ""}`}
     >
-      <span className="map-node__sigil" aria-hidden="true">{CATEGORY_GLYPHS[node.category ?? ""] ?? "?"}</span>
       <span className="map-node__category">{node.category}</span>
       <span className="map-node__tier"><b>{TIER_GLYPHS[tier]}</b> {tier} · {TIER_POINTS[tier]}</span>
     </button>
