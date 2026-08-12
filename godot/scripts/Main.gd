@@ -312,7 +312,14 @@ func _render_question(state: Dictionary) -> void:
 		_question_label.text = "—"
 		return
 	var points = GameTheme.TIER_POINTS.get(q.get("tier", "T5"), 0)
-	_question_label.text = "%s  ·  %s  ·  %d pts" % [q.get("category", ""), q.get("tier", ""), points]
+	var phase: String = str(state.get("phase", ""))
+	if phase in ["reading", "buzzing", "adjudicating"]:
+		_question_label.text = "%s  ·  %s  ·  %d pts\n\n%s" % [q.get("category", ""), q.get("tier", ""), points, q.get("prompt", "")]
+		_question_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_question_panel.custom_minimum_size = Vector2(0, 180)
+	else:
+		_question_label.text = "%s  ·  %s  ·  %d pts" % [q.get("category", ""), q.get("tier", ""), points]
+		_question_panel.custom_minimum_size = Vector2(0, 90)
 
 func _render_map(map: Dictionary) -> void:
 	for c in _map_column.get_children():
