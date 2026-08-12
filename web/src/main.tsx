@@ -5,6 +5,7 @@ import "./styles/theme.css";
 import Landing from "./pages/Landing";
 import TeamFlow from "./pages/TeamFlow";
 import Host from "./pages/Host";
+import Tv from "./pages/Tv";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -13,6 +14,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Route path="/" element={<Landing />} />
         <Route path="/join" element={<TeamFlow />} />
         <Route path="/host" element={<Host />} />
+        <Route path="/tv" element={<Tv />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>
