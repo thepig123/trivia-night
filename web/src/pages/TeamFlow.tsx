@@ -5,7 +5,7 @@ import RouteMap, { TierLegend } from "../components/RouteMap";
 export default function TeamFlow() {
   const { connected, publicState, lastError, roomCode, teamId, send } = useGameSocket("team");
   const [roomInput, setRoomInput] = useState("");
-  const [nameInput, setNameInput] = useState("");
+  const [viewingRoom, setViewingRoom] = useState(false);
   const [joined, setJoined] = useState(false);
 
   useEffect(() => {
@@ -31,22 +31,16 @@ export default function TeamFlow() {
               autoCapitalize="characters"
             />
           </div>
-          <div className="field">
-            <label>Team name</label>
-            <input
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              placeholder="The Buzzer Beaters"
-              maxLength={24}
-            />
-          </div>
-          <button
-            className="btn teal"
-            disabled={!connected || !roomInput.trim() || !nameInput.trim()}
-            onClick={() => send({ type: "team:join", roomCode: roomInput.trim(), teamName: nameInput.trim() })}
-          >
-            Join room
-          </button>
+          {!viewingRoom && <button className="btn teal" disabled={!connected || !roomInput.trim()} onClick={() => { setViewingRoom(true); send({ type: "team:view_room", roomCode: roomInput.trim() }); }}>
+            Find teams
+          </button>}
+          {viewingRoom && publicState && <div className="team-picker">
+            <p>Choose your team</p>
+            {publicState.teams.map((team) => <button key={team.id} className="btn ghost" disabled={team.connected} onClick={() => send({ type: "team:join", roomCode: roomInput.trim(), teamId: team.id })}>
+              <span><b>{team.name}</b>{team.players.some(Boolean) && <small>{team.players.filter(Boolean).join(" & ")}</small>}</span>
+              {team.connected ? "Joined" : "Select"}
+            </button>)}
+          </div>}
         </div>
       </div>
     );
@@ -63,6 +57,9 @@ function TeamController({ roomCode, teamId, publicState, send }: any) {
   const iAmFirst = publicState?.currentResponderId === teamId;
   const canBuzz = !publicState?.paused && phase === "buzzing" && !iBuzzed && !iAmLocked;
   const isControlling = !publicState?.paused && phase === "route_choice" && publicState?.controllingTeamId === teamId;
+  const isFriendRound = publicState?.activeQuestionPublic?.mode === "friend_group";
+  const friendSubmitted = publicState?.friendAnswersSubmitted?.includes(teamId);
+  const qualified = me?.qualifiedForFinal;
 
   let buzzerClass = "buzzer";
   let buzzerLabel = "BUZZ";
@@ -91,7 +88,7 @@ function TeamController({ roomCode, teamId, publicState, send }: any) {
         </div>
       </div>
 
-      {isControlling ? (
+      {qualified ? <div className="qualified-card"><strong>FINALIST</strong><span>Your place is secured. Watch the remaining teams race.</span></div> : isControlling ? (
         <div className="map-choice-wrap">
           <h3>Choose your path</h3>
           <p>The glowing encounters are yours to claim.</p>
@@ -102,6 +99,12 @@ function TeamController({ roomCode, teamId, publicState, send }: any) {
             onChoose={(nodeId) => send({ type: "team:choose_route", roomCode, teamId, nodeId })}
           />
           <TierLegend compact />
+        </div>
+      ) : isFriendRound && phase === "buzzing" ? (
+        <div className="friend-answer-panel">
+          <h3>Choose your answer</h3>
+          {publicState.activeQuestionPublic.choices?.map((choice: string) => <button className="btn ghost" key={choice} disabled={friendSubmitted} onClick={() => send({ type: "team:submit_friend_answer", roomCode, teamId, answer: choice })}>{choice}</button>)}
+          {friendSubmitted && <p>Answer locked in. Waiting for the reveal…</p>}
         </div>
       ) : (
         <>
@@ -121,6 +124,7 @@ function TeamController({ roomCode, teamId, publicState, send }: any) {
       <div style={{ opacity: 0.55, fontSize: "0.8rem", marginTop: 16, textTransform: "uppercase", letterSpacing: "0.06em" }}>
         {publicState?.paused ? "Game paused" : phaseLabel(phase)}
       </div>
+      {me && !qualified && <div className="final-progress"><div><span>Road to the Final</span><b>{Math.max(0, publicState.targetScore - me.score).toLocaleString()} points remaining</b></div><progress value={me.score} max={publicState.targetScore} /></div>}
     </div>
   );
 }
