@@ -141,8 +141,8 @@ wss.on("connection", (ws) => {
         case "team:join": {
           const room = rooms.get(msg.roomCode);
           if (!room) return sendError(ws, `Room ${msg.roomCode} not found.`);
-          const team = room.joinTeam(msg.teamId);
-          if (!team) return sendError(ws, "That team is unavailable or already connected.");
+          const team = room.registerTeam(msg.teamName, msg.players);
+          if (!team) return sendError(ws, "Enter a team name and two player names. Rooms support up to five teams.");
           const sessionToken = nanoid(32);
           teamSessionTokens.get(msg.roomCode)?.set(team.id, sessionToken);
           info.role = "team";
@@ -151,11 +151,6 @@ wss.on("connection", (ws) => {
           send(ws, { type: "team:joined", teamId: team.id, roomCode: msg.roomCode, sessionToken });
           broadcast(msg.roomCode);
           break;
-        }
-
-        case "team:view_room": {
-          if (!rooms.has(msg.roomCode)) return sendError(ws, `Room ${msg.roomCode} not found.`);
-          info.role = "tv"; info.roomCode = msg.roomCode; broadcast(msg.roomCode); break;
         }
 
         case "team:resume": {
