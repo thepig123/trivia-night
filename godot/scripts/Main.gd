@@ -115,10 +115,16 @@ func _build_game_layer() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_game_layer.add_child(bg)
 
+	var root_h := HBoxContainer.new()
+	root_h.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root_h.add_theme_constant_override("separation", 14)
+	_game_layer.add_child(root_h)
+
 	var root_v := VBoxContainer.new()
-	root_v.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root_v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	root_v.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root_v.add_theme_constant_override("separation", 12)
-	_game_layer.add_child(root_v)
+	root_h.add_child(root_v)
 
 	# --- Top bar ---
 	var top_bar := HBoxContainer.new()
@@ -171,6 +177,53 @@ func _build_game_layer() -> void:
 	_map_column.add_theme_constant_override("separation", 10)
 	_map_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_map_scroll.add_child(_map_column)
+
+	root_h.add_child(_build_tier_legend())
+
+func _build_tier_legend() -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(205, 0)
+	_style_panel(panel, GameTheme.BG_PANEL)
+
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 12)
+	panel.add_child(v)
+
+	var heading := Label.new()
+	heading.text = "TIER BOUNTY"
+	heading.add_theme_font_size_override("font_size", 19)
+	heading.add_theme_color_override("font_color", GameTheme.YELLOW)
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(heading)
+
+	for tier in ["T1", "T2", "T3", "T4", "T5"]:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		var icon := Label.new()
+		icon.text = GameTheme.TIER_SIGILS.get(tier, "◆")
+		icon.custom_minimum_size = Vector2(28, 0)
+		icon.add_theme_color_override("font_color", GameTheme.YELLOW)
+		icon.add_theme_font_size_override("font_size", 20)
+		row.add_child(icon)
+		var label := Label.new()
+		label.text = tier
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.add_theme_font_size_override("font_size", 18)
+		row.add_child(label)
+		var value := Label.new()
+		value.text = str(GameTheme.TIER_POINTS[tier])
+		value.add_theme_color_override("font_color", GameTheme.CREAM)
+		value.add_theme_font_size_override("font_size", 18)
+		row.add_child(value)
+		v.add_child(row)
+
+	var note := Label.new()
+	note.text = "Harder encounters\nyield greater rewards."
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.add_theme_color_override("font_color", Color("#B8A98D"))
+	note.add_theme_font_size_override("font_size", 13)
+	v.add_child(note)
+	return panel
 
 func _style_panel(panel: PanelContainer, color: Color) -> void:
 	var sb := StyleBoxFlat.new()
@@ -280,15 +333,20 @@ func _render_map(map: Dictionary) -> void:
 
 		for n in by_step[step]:
 			var dot := PanelContainer.new()
-			dot.custom_minimum_size = Vector2(56, 56)
+			dot.custom_minimum_size = Vector2(108, 66)
 			var status: String = n.get("status", "available")
 			var color: Color = GameTheme.NODE_STATUS_COLOR.get(status, GameTheme.BG_PANEL)
 			var sb := StyleBoxFlat.new()
 			sb.bg_color = color
-			sb.corner_radius_top_left = 28
-			sb.corner_radius_top_right = 28
-			sb.corner_radius_bottom_left = 28
-			sb.corner_radius_bottom_right = 28
+			sb.corner_radius_top_left = 22
+			sb.corner_radius_top_right = 22
+			sb.corner_radius_bottom_left = 15
+			sb.corner_radius_bottom_right = 15
+			sb.border_width_left = 2
+			sb.border_width_right = 2
+			sb.border_width_top = 2
+			sb.border_width_bottom = 2
+			sb.border_color = Color("#765638")
 			if status == "selected" or status == "completed":
 				sb.border_width_left = 3
 				sb.border_width_right = 3
@@ -300,8 +358,14 @@ func _render_map(map: Dictionary) -> void:
 			var lbl := Label.new()
 			lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			lbl.text = "START" if n.get("id", "") == "START" else str(n.get("tier", ""))
-			lbl.add_theme_font_size_override("font_size", 10)
+			if n.get("id", "") == "START":
+				lbl.text = "START"
+			else:
+				var tier: String = str(n.get("tier", "T5"))
+				var category: String = str(n.get("category", "Unknown"))
+				var sigil: String = GameTheme.CATEGORY_SIGILS.get(category, "◆")
+				lbl.text = "%s  %s\n%s · %d" % [sigil, category, tier, GameTheme.TIER_POINTS.get(tier, 0)]
+			lbl.add_theme_font_size_override("font_size", 12)
 			lbl.add_theme_color_override("font_color", GameTheme.CREAM)
 			dot.add_child(lbl)
 
