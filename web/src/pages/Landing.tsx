@@ -12,6 +12,9 @@ export default function Landing() {
         <Link to="/host" className="btn violet">
           Jeg er vert
         </Link>
+        <Link to="/tv" className="btn ghost">
+          Åpne TV-skjermen
+        </Link>
       </div>
     </div>
   );
