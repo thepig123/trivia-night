@@ -94,9 +94,17 @@ to five teams; the planned format is four teams of two. The host panel receives
 each registration automatically and stays focused on monitoring and scoring.
 
 When the host starts reading, the public question prompt appears in a centered
-game-show card over the TV map. It remains visible while buzzers are open, then
-the card clears as soon as the first team buzzes so nobody can buzz early and
-keep reading. Public snapshots include the prompt but never expose the answer.
+game-show card over the TV map. The card contains only the question in large
+type—no category, tier, points, or other metadata. It remains visible while
+buzzers are open, then disappears as soon as the first team buzzes so nobody
+can buzz early and keep reading. Public snapshots include the prompt but never
+expose the answer.
+
+The TV is deliberately minimal: the route map owns the full central stage and
+an edge-to-edge, fixed-height scoreboard spans the bottom. Each team receives
+an equal-width cell, so three to five teams cannot overlap or resize each other.
+The current responder is highlighted inside its cell without moving layout.
+Tier values remain on the phone UI rather than occupying permanent TV space.
 
 Questions with `mode: "friend_group"` use simultaneous selection instead of a
 buzzer. Every active team privately chooses from the configured player roster;
