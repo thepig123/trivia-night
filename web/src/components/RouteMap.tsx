@@ -84,7 +84,7 @@ function MapNodeButton({
       aria-label={`${node.category}, ${tier}, ${TIER_POINTS[tier]} points${enabled ? ", choose route" : ""}`}
     >
       <span className="map-node__category">{node.category}</span>
-      <span className="map-node__tier"><b>{TIER_GLYPHS[tier]}</b> {tier} · {TIER_POINTS[tier]}</span>
+      <span className="map-node__tier"><b>{TIER_GLYPHS[tier]}</b> {tier}</span>
     </button>
   );
 }
@@ -92,7 +92,7 @@ function MapNodeButton({
 export function TierLegend({ compact = false }: { compact?: boolean }) {
   return (
     <aside className={`tier-legend ${compact ? "tier-legend--compact" : ""}`} aria-label="Tier values">
-      <h3>Tier Bounty</h3>
+      <h3>Poengtabell</h3>
       {(Object.keys(TIER_POINTS) as Tier[]).map((tier) => (
         <div className={`tier-legend__row tier-legend__row--${tier.toLowerCase()}`} key={tier}>
           <span className="tier-legend__icon" aria-hidden="true">{TIER_GLYPHS[tier]}</span>
