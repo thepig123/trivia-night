@@ -69,6 +69,19 @@ test("map extends indefinitely and each row has a shuffled tier spread", () => {
   assert.ok(game.map.steps >= 17);
 });
 
+test("a route never forces more than three single-choice encounters", () => {
+  const game = new GameEngine("BRANCH");
+  const team = game.addTeam("Pathfinders");
+  let forcedRun = 0;
+  for (let round = 0; round < 20; round++) {
+    const legal = game.map.nodes.filter((node) => node.status === "available");
+    forcedRun = legal.length === 1 ? forcedRun + 1 : 0;
+    assert.ok(forcedRun <= 3);
+    game.phase = "route_choice"; game.controllingTeamId = team.id;
+    game.chooseRoute(team.id, legal[0].id);
+  }
+});
+
 function chooseTestRoute(game: GameEngine, nodeId: string) {
   // Exercise public route selection with a temporary controller.
   const team = game.teams[0] ?? game.addTeam("Route team");
