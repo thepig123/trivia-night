@@ -29,7 +29,8 @@ export default function Tv() {
     );
   }
 
-  const showQuestion = ["reading", "buzzing"].includes(publicState.phase) && publicState.activeQuestionPublic;
+  const showQuestionCard = ["reading", "buzzing", "adjudicating"].includes(publicState.phase) && publicState.activeQuestionPublic;
+  const showQuestionContent = publicState.phase !== "adjudicating";
 
   return (
     <main className="tv-screen">
@@ -40,9 +41,9 @@ export default function Tv() {
 
       <div className="tv-stage">
         <RouteMap map={publicState.map} legalNodeIds={publicState.legalNextNodeIds} rowsAhead={6} />
-        {showQuestion && (
-          <section className="tv-question" aria-label="Aktivt spørsmål">
-            <QuestionContent question={publicState.activeQuestionPublic!} />
+        {showQuestionCard && (
+          <section className={`tv-question ${showQuestionContent ? "" : "tv-question--blank"}`} aria-label="Aktivt spørsmål">
+            {showQuestionContent && <QuestionContent question={publicState.activeQuestionPublic!} />}
           </section>
         )}
       </div>

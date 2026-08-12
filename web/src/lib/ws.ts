@@ -40,10 +40,10 @@ export function useGameSocket(role: ClientRole): UseGameSocket {
         setConnected(true);
         setLastError(null);
         if (role === "host") {
-          const saved = readSession("trivia-host-session");
+          const saved = readSession(localStorage, "trivia-host-session");
           if (saved) socket.send(JSON.stringify({ type: "host:resume_room", ...saved } satisfies ClientMessage));
         } else if (role === "team") {
-          const saved = readSession("trivia-team-session");
+          const saved = readSession(sessionStorage, "trivia-team-session");
           if (saved?.teamId) {
             socket.send(
               JSON.stringify({
@@ -72,7 +72,7 @@ export function useGameSocket(role: ClientRole): UseGameSocket {
           case "team:joined":
             setRoomCode(msg.roomCode);
             setTeamId(msg.teamId);
-            localStorage.setItem(
+            sessionStorage.setItem(
               "trivia-team-session",
               JSON.stringify({ roomCode: msg.roomCode, teamId: msg.teamId, sessionToken: msg.sessionToken }),
             );
@@ -107,12 +107,12 @@ export function useGameSocket(role: ClientRole): UseGameSocket {
   return { connected, publicState, hostState, lastError, roomCode, teamId, send };
 }
 
-function readSession(key: string): { roomCode: string; sessionToken: string; teamId?: string } | null {
+function readSession(storage: Storage, key: string): { roomCode: string; sessionToken: string; teamId?: string } | null {
   try {
-    const value = localStorage.getItem(key);
+    const value = storage.getItem(key);
     return value ? JSON.parse(value) : null;
   } catch {
-    localStorage.removeItem(key);
+    storage.removeItem(key);
     return null;
   }
 }

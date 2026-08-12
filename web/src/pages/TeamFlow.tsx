@@ -42,6 +42,7 @@ export default function TeamFlow() {
           </div>
           <div className="field team-photo-field">
             <label>Lagbilde (valgfritt og helst litt teit)</label>
+            <small>Bildet beskjæres automatisk til bannerformat. Forhåndsvisningen viser utsnittet som brukes.</small>
             <input type="file" accept="image/*" onChange={async (event) => {
               const file = event.target.files?.[0];
               if (!file) return;
@@ -63,13 +64,14 @@ export default function TeamFlow() {
 
 async function compressTeamPhoto(file: File): Promise<string> {
   const bitmap = await createImageBitmap(file);
-  const size = 640;
+  const widthTarget = 960;
+  const heightTarget = 360;
   const canvas = document.createElement("canvas");
-  canvas.width = size; canvas.height = size;
+  canvas.width = widthTarget; canvas.height = heightTarget;
   const context = canvas.getContext("2d")!;
-  const scale = Math.max(size / bitmap.width, size / bitmap.height);
+  const scale = Math.max(widthTarget / bitmap.width, heightTarget / bitmap.height);
   const width = bitmap.width * scale, height = bitmap.height * scale;
-  context.drawImage(bitmap, (size - width) / 2, (size - height) / 2, width, height);
+  context.drawImage(bitmap, (widthTarget - width) / 2, (heightTarget - height) / 2, width, height);
   bitmap.close();
   return canvas.toDataURL("image/jpeg", 0.68);
 }
