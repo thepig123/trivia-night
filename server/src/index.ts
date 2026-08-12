@@ -38,17 +38,17 @@ function sendError(ws: WebSocket, message: string) {
 
 function requireHost(ws: WebSocket, info: ClientInfo, roomCode: string): GameEngine | null {
   const room = rooms.get(roomCode);
-  if (!room) sendError(ws, `Room ${roomCode} not found.`);
-  else if (info.role !== "host" || info.roomCode !== roomCode) sendError(ws, "Host authorization required.");
+  if (!room) sendError(ws, `Fant ikke rom ${roomCode}.`);
+  else if (info.role !== "host" || info.roomCode !== roomCode) sendError(ws, "Krever tilgang som vert.");
   else return room;
   return null;
 }
 
 function requireTeam(ws: WebSocket, info: ClientInfo, roomCode: string, teamId: string): GameEngine | null {
   const room = rooms.get(roomCode);
-  if (!room) sendError(ws, `Room ${roomCode} not found.`);
+  if (!room) sendError(ws, `Fant ikke rom ${roomCode}.`);
   else if (info.role !== "team" || info.roomCode !== roomCode || info.teamId !== teamId) {
-    sendError(ws, "Team authorization required.");
+    sendError(ws, "Krever tilgang som lag.");
   } else return room;
   return null;
 }
@@ -79,7 +79,7 @@ wss.on("connection", (ws) => {
     try {
       msg = JSON.parse(raw.toString());
     } catch {
-      sendError(ws, "Malformed message.");
+      sendError(ws, "Ugyldig melding.");
       return;
     }
 
@@ -142,7 +142,7 @@ wss.on("connection", (ws) => {
           const room = rooms.get(msg.roomCode);
           if (!room) return sendError(ws, `Room ${msg.roomCode} not found.`);
           const team = room.registerTeam(msg.teamName, msg.players);
-          if (!team) return sendError(ws, "Enter a team name and two player names. Rooms support up to five teams.");
+          if (!team) return sendError(ws, "Skriv inn lagnavn og to spillernavn. Rommet støtter opptil fem lag.");
           const sessionToken = nanoid(32);
           teamSessionTokens.get(msg.roomCode)?.set(team.id, sessionToken);
           info.role = "team";
