@@ -66,8 +66,8 @@ export class GameEngine {
   }
 
   initializeDefaultTeams() {
-    if (this.teams.length === 0) for (let i = 1; i <= 4; i++) this.addTeam(`Team ${i}`);
-    for (const team of this.teams) team.connected = false;
+    // Teams self-register from one shared phone. Kept as a compatibility
+    // hook for room creation so older servers/clients can upgrade cleanly.
   }
 
   removeTeam(teamId: string) {
@@ -88,6 +88,15 @@ export class GameEngine {
     if (!team || team.connected) return null;
     team.connected = true;
     this.log(`${team.name} joined the room.`);
+    return team;
+  }
+
+  registerTeam(name: string, players: string[]): Team | null {
+    if (this.phase !== "lobby" || this.teams.length >= 5) return null;
+    const cleanPlayers = players.slice(0, 2).map((player) => player.trim().slice(0, 24));
+    if (!name.trim() || cleanPlayers.some((player) => !player)) return null;
+    const team = this.addTeam(name);
+    team.players = cleanPlayers;
     return team;
   }
 
@@ -434,7 +443,7 @@ export class GameEngine {
       activeNodeId: this.activeNodeId,
       activeQuestionPublic:
         node && node.tier
-          ? { category: this.activeQuestion?.category ?? "?", tier: node.tier, points: TIER_POINTS[node.tier], mode: this.activeQuestion?.mode ?? "buzzer", choices: this.activeQuestion?.choices }
+          ? { category: this.activeQuestion?.category ?? "?", tier: node.tier, points: TIER_POINTS[node.tier], prompt: this.activeQuestion?.prompt ?? "", mode: this.activeQuestion?.mode ?? "buzzer", choices: this.activeQuestion?.choices }
           : null,
       buzzOrder: this.buzzOrder.map((b) => ({ teamId: b.teamId })),
       lockedOutTeamIds: this.lockedOutTeamIds,
