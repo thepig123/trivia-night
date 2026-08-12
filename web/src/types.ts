@@ -27,6 +27,8 @@ export interface Question {
   media?: { type: "image" | "audio" | "video"; url: string };
   status: QuestionStatus;
   lastUsedSession?: string;
+  mode?: "buzzer" | "friend_group";
+  choices?: string[];
 }
 
 export type NodeStatus = "locked" | "available" | "selected" | "rejected" | "completed";
@@ -39,6 +41,7 @@ export interface MapNode {
   category: string | null; // visible before selection so route choice is strategic
   status: NodeStatus;
   questionId: string | null; // assigned only when activated
+  nextNodeIds: string[];
 }
 
 export interface RouteMap {
@@ -56,6 +59,7 @@ export interface Team {
   connected: boolean;
   qualifiedForFinal: boolean;
   finalScore?: number;
+  players: string[];
 }
 
 export type GamePhase =
@@ -105,6 +109,7 @@ export interface HostGameState {
   eventLog: EventLogEntry[];
   questionPoolRemaining: number;
   questionPoolTotal: number;
+  friendAnswers: Record<string, string>;
 }
 
 /** Sanitized state broadcast to the TV client and team controllers — no answers. */
@@ -120,6 +125,8 @@ export interface PublicGameState {
     category: string;
     tier: Tier;
     points: number;
+    mode?: "buzzer" | "friend_group";
+    choices?: string[];
   } | null;
   buzzOrder: { teamId: string }[]; // no timestamps needed publicly
   lockedOutTeamIds: string[];
@@ -127,17 +134,24 @@ export interface PublicGameState {
   controllingTeamId: string | null;
   finalState: FinalState | null;
   legalNextNodeIds: string[];
+  friendAnswersSubmitted: string[];
 }
 
 // ---------- Client -> Server messages ----------
 
 export type ClientMessage =
   | { type: "host:create_room" }
+  | { type: "host:add_team"; roomCode: string }
+  | { type: "host:remove_team"; roomCode: string; teamId: string }
+  | { type: "host:update_team"; roomCode: string; teamId: string; name: string; players: string[] }
+  | { type: "host:set_target"; roomCode: string; targetScore: number }
   | { type: "host:resume_room"; roomCode: string; sessionToken: string }
-  | { type: "team:join"; roomCode: string; teamName: string }
+  | { type: "team:join"; roomCode: string; teamId: string }
+  | { type: "team:view_room"; roomCode: string }
   | { type: "team:resume"; roomCode: string; teamId: string; sessionToken: string }
   | { type: "team:buzz"; roomCode: string; teamId: string }
   | { type: "team:choose_route"; roomCode: string; teamId: string; nodeId: string }
+  | { type: "team:submit_friend_answer"; roomCode: string; teamId: string; answer: string }
   | { type: "tv:hello"; roomCode: string }
   | { type: "host:start_reading"; roomCode: string }
   | { type: "host:open_buzzers"; roomCode: string }
@@ -147,7 +161,8 @@ export type ClientMessage =
   | { type: "host:pause"; roomCode: string }
   | { type: "host:resume"; roomCode: string }
   | { type: "host:adjust_score"; roomCode: string; teamId: string; delta: number }
-  | { type: "host:advance_final"; roomCode: string };
+  | { type: "host:advance_final"; roomCode: string }
+  | { type: "host:reveal_friend_answers"; roomCode: string };
 
 // ---------- Server -> Client messages ----------
 
