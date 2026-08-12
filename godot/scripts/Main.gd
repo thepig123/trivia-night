@@ -117,7 +117,7 @@ func _build_game_layer() -> void:
 
 	var root_h := HBoxContainer.new()
 	root_h.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root_h.add_theme_constant_override("separation", 14)
+	root_h.add_theme_constant_override("separation", 0)
 	_game_layer.add_child(root_h)
 	root_h.add_child(_build_tier_legend())
 
@@ -149,36 +149,57 @@ func _build_game_layer() -> void:
 	_phase_label.add_theme_color_override("font_color", GameTheme.TEAL)
 	root_v.add_child(_phase_label)
 
-	# --- Active question banner ---
-	_question_panel = PanelContainer.new()
-	_question_panel.custom_minimum_size = Vector2(0, 90)
-	root_v.add_child(_question_panel)
-	_style_panel(_question_panel, GameTheme.BG_PANEL)
+	# --- Route map with game-show question overlay ---
+	var map_stage := Control.new()
+	map_stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	map_stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root_v.add_child(map_stage)
 
-	_question_label = Label.new()
-	_question_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_question_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_question_label.add_theme_font_size_override("font_size", 26)
-	_question_label.add_theme_color_override("font_color", GameTheme.CREAM)
-	_question_panel.add_child(_question_label)
-
-	# --- Route map ---
 	_map_scroll = ScrollContainer.new()
-	_map_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	root_v.add_child(_map_scroll)
+	_map_scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	map_stage.add_child(_map_scroll)
+	var map_style := StyleBoxFlat.new()
+	map_style.bg_color = Color("#1A1512")
+	map_style.border_color = Color("#765638")
+	map_style.set_border_width_all(2)
+	map_style.set_corner_radius_all(10)
+	_map_scroll.add_theme_stylebox_override("panel", map_style)
 
 	_map_column = VBoxContainer.new()
 	_map_column.alignment = BoxContainer.ALIGNMENT_END
-	_map_column.add_theme_constant_override("separation", 10)
+	_map_column.add_theme_constant_override("separation", 28)
 	_map_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_map_scroll.add_child(_map_column)
+
+	var question_center := CenterContainer.new()
+	question_center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	question_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	map_stage.add_child(question_center)
+	_question_panel = PanelContainer.new()
+	_question_panel.custom_minimum_size = Vector2(520, 360)
+	question_center.add_child(_question_panel)
+	_style_question_panel(_question_panel)
+	_question_panel.visible = false
+	_question_label = Label.new()
+	_question_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_question_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_question_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_question_label.add_theme_font_size_override("font_size", 30)
+	_question_label.add_theme_color_override("font_color", GameTheme.CREAM)
+	_question_panel.add_child(_question_label)
 
 	root_h.add_child(_build_team_sidebar())
 
 func _build_team_sidebar() -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(245, 0)
-	_style_panel(panel, GameTheme.BG_PANEL)
+	panel.custom_minimum_size = Vector2(265, 0)
+	var side_style := StyleBoxFlat.new()
+	side_style.bg_color = GameTheme.BG_PANEL
+	side_style.content_margin_left = 0
+	side_style.content_margin_right = 0
+	side_style.content_margin_top = 18
+	side_style.content_margin_bottom = 0
+	panel.add_theme_stylebox_override("panel", side_style)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 12)
 	panel.add_child(v)
@@ -252,6 +273,17 @@ func _style_panel(panel: PanelContainer, color: Color) -> void:
 	sb.content_margin_bottom = 18
 	panel.add_theme_stylebox_override("panel", sb)
 
+func _style_question_panel(panel: PanelContainer) -> void:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("#211B19")
+	sb.border_color = GameTheme.YELLOW
+	sb.set_border_width_all(4)
+	sb.set_corner_radius_all(12)
+	sb.shadow_color = Color(0, 0, 0, 0.65)
+	sb.shadow_size = 18
+	sb.set_content_margin_all(38)
+	panel.add_theme_stylebox_override("panel", sb)
+
 # ---------------- State rendering ----------------
 
 func _on_state_received(state: Dictionary) -> void:
@@ -276,9 +308,10 @@ func _render_scoreboard(teams: Array, current_responder_id, locked: Array, targe
 	for team in teams:
 		var panel := PanelContainer.new()
 		panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		var team_color := Color(str(team.get("color", "#4A3B70")))
 		var is_first: bool = team.get("id", "") == first_buzz_id
-		_style_panel(panel, team_color.darkened(0.6) if not is_first else team_color.darkened(0.2))
+		_style_team_banner(panel, team_color, is_first)
 
 		var v := VBoxContainer.new()
 		panel.add_child(v)
@@ -320,20 +353,34 @@ func _render_scoreboard(teams: Array, current_responder_id, locked: Array, targe
 
 		_scoreboard.add_child(panel)
 
+func _style_team_banner(panel: PanelContainer, team_color: Color, active: bool) -> void:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = team_color.darkened(0.68) if not active else team_color.darkened(0.15)
+	sb.border_color = team_color if not active else GameTheme.YELLOW
+	sb.border_width_left = 4 if not active else 8
+	sb.border_width_top = 1
+	sb.border_width_bottom = 1
+	sb.content_margin_left = 22
+	sb.content_margin_right = 18
+	sb.content_margin_top = 16
+	sb.content_margin_bottom = 16
+	if active:
+		sb.shadow_color = team_color
+		sb.shadow_size = 14
+	panel.add_theme_stylebox_override("panel", sb)
+
 func _render_question(state: Dictionary) -> void:
 	var q = state.get("activeQuestionPublic", null)
 	if q == null:
-		_question_label.text = "—"
+		_question_panel.visible = false
 		return
 	var points = GameTheme.TIER_POINTS.get(q.get("tier", "T5"), 0)
 	var phase: String = str(state.get("phase", ""))
-	if phase in ["reading", "buzzing", "adjudicating"]:
+	_question_panel.visible = phase in ["reading", "buzzing", "adjudicating"]
+	if phase in ["reading", "buzzing"]:
 		_question_label.text = "%s  ·  %s  ·  %d pts\n\n%s" % [q.get("category", ""), q.get("tier", ""), points, q.get("prompt", "")]
-		_question_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_question_panel.custom_minimum_size = Vector2(0, 180)
-	else:
-		_question_label.text = "%s  ·  %s  ·  %d pts" % [q.get("category", ""), q.get("tier", ""), points]
-		_question_panel.custom_minimum_size = Vector2(0, 90)
+	elif phase == "adjudicating":
+		_question_label.text = ""
 
 func _render_map(map: Dictionary) -> void:
 	for c in _map_column.get_children():
@@ -361,24 +408,29 @@ func _render_map(map: Dictionary) -> void:
 			continue
 		var row := HBoxContainer.new()
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override("separation", 24)
+		row.add_theme_constant_override("separation", 54)
 
 		for n in by_step[step]:
 			var dot := PanelContainer.new()
-			dot.custom_minimum_size = Vector2(108, 66)
+			dot.custom_minimum_size = Vector2(142, 74)
 			var status: String = n.get("status", "available")
 			var color: Color = GameTheme.NODE_STATUS_COLOR.get(status, GameTheme.BG_PANEL)
 			var sb := StyleBoxFlat.new()
 			sb.bg_color = color
-			sb.corner_radius_top_left = 22
-			sb.corner_radius_top_right = 22
-			sb.corner_radius_bottom_left = 15
-			sb.corner_radius_bottom_right = 15
+			sb.corner_radius_top_left = 30
+			sb.corner_radius_top_right = 30
+			sb.corner_radius_bottom_left = 22
+			sb.corner_radius_bottom_right = 22
 			sb.border_width_left = 2
 			sb.border_width_right = 2
 			sb.border_width_top = 2
 			sb.border_width_bottom = 2
-			sb.border_color = Color("#765638")
+			var tier: String = str(n.get("tier", "T5"))
+			var tier_colors := { "T1": Color("#D1AA4E"), "T2": Color("#A8614E"), "T3": Color("#766392"), "T4": Color("#5D8275"), "T5": Color("#687986") }
+			sb.border_color = tier_colors.get(tier, Color("#765638"))
+			if status == "rejected":
+				sb.bg_color = Color("#171412")
+				sb.border_color = Color("#3A332D")
 			if status == "selected" or status == "completed":
 				sb.border_width_left = 3
 				sb.border_width_right = 3
@@ -393,11 +445,10 @@ func _render_map(map: Dictionary) -> void:
 			if n.get("id", "") == "START":
 				lbl.text = "START"
 			else:
-				var tier: String = str(n.get("tier", "T5"))
-				var category: String = str(n.get("category", "Unknown"))
+				var category: String = str(n.get("category", "Ukjent"))
 				var tier_sigil: String = GameTheme.TIER_SIGILS.get(tier, "◆")
 				lbl.text = "%s\n%s  %s" % [category, tier_sigil, tier]
-			lbl.add_theme_font_size_override("font_size", 12)
+			lbl.add_theme_font_size_override("font_size", 15)
 			lbl.add_theme_color_override("font_color", GameTheme.CREAM)
 			dot.add_child(lbl)
 			node_controls[str(n.get("id", ""))] = dot
