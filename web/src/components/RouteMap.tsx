@@ -1,4 +1,5 @@
 import type { MapNode, RouteMap as RouteMapState, Tier } from "../types";
+import type { CSSProperties } from "react";
 import { TIER_POINTS } from "../types";
 
 const TIER_GLYPHS: Record<Tier, string> = {
@@ -80,6 +81,7 @@ function MapNodeButton({
     <button
       type="button"
       className={`map-node map-node--${node.status} map-node--${tier.toLowerCase()} ${legal ? "map-node--legal" : ""}`}
+      style={{ gridColumn: node.slot + 1 } as CSSProperties}
       disabled={!enabled}
       onClick={() => enabled && onChoose?.(node.id)}
       aria-label={`${node.category}, ${tier}, ${TIER_POINTS[tier]} points${enabled ? ", choose route" : ""}`}
