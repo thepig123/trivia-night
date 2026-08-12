@@ -36,6 +36,7 @@ export interface MapNode {
   step: number; // 0 = START
   slot: number; // 0..2 within the step, START has slot 0 only
   tier: Tier | null; // null for START
+  category: string | null; // visible before selection so route choice is strategic
   status: NodeStatus;
   questionId: string | null; // assigned only when activated
 }
