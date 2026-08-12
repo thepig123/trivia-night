@@ -17,7 +17,7 @@ var _status_label: Label
 var _game_layer: CanvasLayer
 var _room_label: Label
 var _phase_label: Label
-var _scoreboard: HBoxContainer
+var _scoreboard: VBoxContainer
 var _question_panel: PanelContainer
 var _question_label: Label
 var _map_scroll: ScrollContainer
@@ -64,34 +64,34 @@ func _build_connect_overlay() -> void:
 	v.add_child(title)
 
 	var subtitle := Label.new()
-	subtitle.text = "TV / Shared Game Client"
+	subtitle.text = "TV / Felles spillskjerm"
 	subtitle.add_theme_color_override("font_color", GameTheme.TEAL)
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(subtitle)
 
 	_url_input = LineEdit.new()
 	_url_input.text = "ws://127.0.0.1:8080"
-	_url_input.placeholder_text = "Server URL"
+	_url_input.placeholder_text = "Serveradresse"
 	v.add_child(_url_input)
 
 	_room_input = LineEdit.new()
-	_room_input.placeholder_text = "Room code (from the host panel)"
+	_room_input.placeholder_text = "Romkode (fra vertspanelet)"
 	v.add_child(_room_input)
 
 	var connect_btn := Button.new()
-	connect_btn.text = "Connect"
+	connect_btn.text = "Koble til"
 	connect_btn.custom_minimum_size = Vector2(0, 48)
 	connect_btn.pressed.connect(_on_connect_pressed)
 	v.add_child(connect_btn)
 
 	_status_label = Label.new()
-	_status_label.text = "Not connected."
+	_status_label.text = "Ikke tilkoblet."
 	_status_label.add_theme_color_override("font_color", GameTheme.CREAM)
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(_status_label)
 
 func _on_connect_pressed() -> void:
-	_status_label.text = "Connecting…"
+	_status_label.text = "Kobler til…"
 	# Say hello once connected — handled by ServerConnection when the socket opens,
 	# but we set the pending room code now so it fires as soon as it's ready.
 	ServerConnection.set_pending_room(_room_input.text.strip_edges().to_upper())
@@ -99,10 +99,10 @@ func _on_connect_pressed() -> void:
 
 func _on_connection_changed(is_connected: bool) -> void:
 	_connected = is_connected
-	_status_label.text = "Connected. Waiting for room state…" if is_connected else "Disconnected. Retrying…"
+	_status_label.text = "Tilkoblet. Venter på rommet…" if is_connected else "Frakoblet. Prøver igjen…"
 
 func _on_server_error(message: String) -> void:
-	_status_label.text = "Error: " + message
+	_status_label.text = "Feil: " + message
 
 # ---------------- Main game layer ----------------
 
@@ -119,6 +119,7 @@ func _build_game_layer() -> void:
 	root_h.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root_h.add_theme_constant_override("separation", 14)
 	_game_layer.add_child(root_h)
+	root_h.add_child(_build_tier_legend())
 
 	var root_v := VBoxContainer.new()
 	root_v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -148,12 +149,6 @@ func _build_game_layer() -> void:
 	_phase_label.add_theme_color_override("font_color", GameTheme.TEAL)
 	root_v.add_child(_phase_label)
 
-	# --- Scoreboard ---
-	_scoreboard = HBoxContainer.new()
-	_scoreboard.add_theme_constant_override("separation", 14)
-	_scoreboard.custom_minimum_size = Vector2(0, 110)
-	root_v.add_child(_scoreboard)
-
 	# --- Active question banner ---
 	_question_panel = PanelContainer.new()
 	_question_panel.custom_minimum_size = Vector2(0, 90)
@@ -178,7 +173,26 @@ func _build_game_layer() -> void:
 	_map_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_map_scroll.add_child(_map_column)
 
-	root_h.add_child(_build_tier_legend())
+	root_h.add_child(_build_team_sidebar())
+
+func _build_team_sidebar() -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(245, 0)
+	_style_panel(panel, GameTheme.BG_PANEL)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 12)
+	panel.add_child(v)
+	var heading := Label.new()
+	heading.text = "LAGENE"
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	heading.add_theme_color_override("font_color", GameTheme.YELLOW)
+	heading.add_theme_font_size_override("font_size", 19)
+	v.add_child(heading)
+	_scoreboard = VBoxContainer.new()
+	_scoreboard.add_theme_constant_override("separation", 12)
+	_scoreboard.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(_scoreboard)
+	return panel
 
 func _build_tier_legend() -> PanelContainer:
 	var panel := PanelContainer.new()
@@ -190,7 +204,7 @@ func _build_tier_legend() -> PanelContainer:
 	panel.add_child(v)
 
 	var heading := Label.new()
-	heading.text = "TIER BOUNTY"
+	heading.text = "POENGTABELL"
 	heading.add_theme_font_size_override("font_size", 19)
 	heading.add_theme_color_override("font_color", GameTheme.YELLOW)
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -218,7 +232,7 @@ func _build_tier_legend() -> PanelContainer:
 		v.add_child(row)
 
 	var note := Label.new()
-	note.text = "Harder encounters\nyield greater rewards."
+	note.text = "Vanskeligere spørsmål\ngir flere poeng."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_color_override("font_color", Color("#B8A98D"))
 	note.add_theme_font_size_override("font_size", 13)
@@ -246,8 +260,8 @@ func _on_state_received(state: Dictionary) -> void:
 		_connect_layer.visible = false
 		_game_layer.visible = true
 
-	_room_label.text = "ROOM " + str(state.get("roomCode", ""))
-	_phase_label.text = "PHASE: " + str(state.get("phase", "")).to_upper()
+	_room_label.text = "ROM " + str(state.get("roomCode", ""))
+	_phase_label.text = "FASE: " + str(state.get("phase", "")).to_upper()
 
 	_render_scoreboard(state.get("teams", []), state.get("currentResponderId", ""), state.get("lockedOutTeamIds", []), state.get("targetScore", 10000))
 	_render_question(state)
@@ -286,20 +300,20 @@ func _render_scoreboard(teams: Array, current_responder_id, locked: Array, targe
 			progress_label.text = "FINALIST"
 			progress_label.add_theme_color_override("font_color", GameTheme.YELLOW)
 		else:
-			progress_label.text = "%d TO FINAL" % max(0, target_score - int(team.get("score", 0)))
+			progress_label.text = "%d TIL FINALEN" % max(0, target_score - int(team.get("score", 0)))
 			progress_label.add_theme_color_override("font_color", Color("#B8A98D"))
 		progress_label.add_theme_font_size_override("font_size", 11)
 		v.add_child(progress_label)
 
 		if team.get("id", "") in locked:
 			var lock_label := Label.new()
-			lock_label.text = "LOCKED OUT"
+			lock_label.text = "UTELÅST"
 			lock_label.add_theme_color_override("font_color", GameTheme.CORAL)
 			lock_label.add_theme_font_size_override("font_size", 12)
 			v.add_child(lock_label)
 		elif is_first:
 			var buzz_label := Label.new()
-			buzz_label.text = "BUZZED IN"
+			buzz_label.text = "BUZZET INN"
 			buzz_label.add_theme_color_override("font_color", GameTheme.YELLOW)
 			buzz_label.add_theme_font_size_override("font_size", 12)
 			v.add_child(buzz_label)
@@ -327,6 +341,7 @@ func _render_map(map: Dictionary) -> void:
 
 	var nodes: Array = map.get("nodes", [])
 	var steps: int = map.get("steps", 15)
+	var node_controls := {}
 
 	# Group nodes by step so we can draw one row per step.
 	var by_step := {}
@@ -380,18 +395,40 @@ func _render_map(map: Dictionary) -> void:
 			else:
 				var tier: String = str(n.get("tier", "T5"))
 				var category: String = str(n.get("category", "Unknown"))
-				lbl.text = "%s\n%s · %d" % [category, tier, GameTheme.TIER_POINTS.get(tier, 0)]
+				var tier_sigil: String = GameTheme.TIER_SIGILS.get(tier, "◆")
+				lbl.text = "%s\n%s  %s" % [category, tier_sigil, tier]
 			lbl.add_theme_font_size_override("font_size", 12)
 			lbl.add_theme_color_override("font_color", GameTheme.CREAM)
 			dot.add_child(lbl)
+			node_controls[str(n.get("id", ""))] = dot
 
 			row.add_child(dot)
 
 		_map_column.add_child(row)
 		_map_column.move_child(row, 0)
 
+	# Draw the real server-provided connections after containers have laid out
+	# their node controls. Node2D children do not affect VBox layout.
+	await get_tree().process_frame
+	for n in nodes:
+		var from_id: String = str(n.get("id", ""))
+		if not node_controls.has(from_id):
+			continue
+		for target_id_value in n.get("nextNodeIds", []):
+			var target_id: String = str(target_id_value)
+			if not node_controls.has(target_id):
+				continue
+			var line := Line2D.new()
+			var from_control: Control = node_controls[from_id]
+			var target_control: Control = node_controls[target_id]
+			line.add_point(from_control.global_position - _map_column.global_position + from_control.size / 2.0)
+			line.add_point(target_control.global_position - _map_column.global_position + target_control.size / 2.0)
+			line.width = 3.0
+			line.default_color = GameTheme.YELLOW if n.get("status", "") in ["selected", "completed"] and target_id in map.get("selectedPath", []) else Color("#765638")
+			line.z_index = -1
+			_map_column.add_child(line)
+
 	# The current step is now the TOP-most row (since higher steps get
 	# pushed to the front). Scroll there so the active edge of the climb
 	# stays in view as the game progresses.
-	await get_tree().process_frame
 	_map_scroll.scroll_vertical = 0
