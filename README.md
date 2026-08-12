@@ -60,9 +60,13 @@ restyle.
 The route is an endless procedural climb. The server keeps five connected rows
 ahead of the players and extends the map as they advance. Each row contains a
 shuffled easy/medium/hard spread for that section of the climb. Encounter nodes
-show category, tier, and point bounty; real route lines determine which nodes
+show category and tier sigil; the separate tier table carries point values. Real route lines determine which nodes
 can be reached. Phones render a compact window around the current position.
 Merely previewing or rejecting a node never consumes a question.
+
+Routes may contain deliberate committed stretches with one available node, but
+never for more than three consecutive encounters. The next row then branches or
+reconnects to restore a meaningful choice.
 
 ## How a round works end-to-end
 
@@ -98,6 +102,8 @@ buzzer. Every active team privately chooses from the configured player roster;
 the host reveals when ready, all correct teams score, and the lowest-scoring
 correct non-finalist receives route control. Five starter examples are included
 in `questions.json` and are intended to be replaced with real group stories.
+The current build is Norwegian-first (Bokmål), and this category is presented
+as `Gutta` throughout the map and question data.
 
 ## Decisions I made to get to a playable build
 
