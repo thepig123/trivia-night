@@ -8,6 +8,8 @@ export default function TeamFlow() {
   const [teamName, setTeamName] = useState("");
   const [playerOne, setPlayerOne] = useState("");
   const [playerTwo, setPlayerTwo] = useState("");
+  const [teamPhoto, setTeamPhoto] = useState<string | undefined>();
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [joined, setJoined] = useState(false);
 
   useEffect(() => {
@@ -38,7 +40,17 @@ export default function TeamFlow() {
             <div className="field"><label>Spiller 1</label><input value={playerOne} onChange={(e) => setPlayerOne(e.target.value)} placeholder="Navn" maxLength={24} /></div>
             <div className="field"><label>Spiller 2</label><input value={playerTwo} onChange={(e) => setPlayerTwo(e.target.value)} placeholder="Navn" maxLength={24} /></div>
           </div>
-          <button className="btn teal" disabled={!connected || !roomInput.trim() || !teamName.trim() || !playerOne.trim() || !playerTwo.trim()} onClick={() => send({ type: "team:join", roomCode: roomInput.trim(), teamName: teamName.trim(), players: [playerOne.trim(), playerTwo.trim()] })}>
+          <div className="field team-photo-field">
+            <label>Lagbilde (valgfritt og helst litt teit)</label>
+            <input type="file" accept="image/*" onChange={async (event) => {
+              const file = event.target.files?.[0];
+              if (!file) return;
+              setPhotoBusy(true);
+              try { setTeamPhoto(await compressTeamPhoto(file)); } finally { setPhotoBusy(false); }
+            }} />
+            {teamPhoto && <img src={teamPhoto} alt="Forhåndsvisning av lagbildet" />}
+          </div>
+          <button className="btn teal" disabled={!connected || photoBusy || !roomInput.trim() || !teamName.trim() || !playerOne.trim() || !playerTwo.trim()} onClick={() => send({ type: "team:join", roomCode: roomInput.trim(), teamName: teamName.trim(), players: [playerOne.trim(), playerTwo.trim()], photoDataUrl: teamPhoto })}>
             Opprett lag og bli med
           </button>
         </div>
@@ -47,6 +59,19 @@ export default function TeamFlow() {
   }
 
   return <TeamController roomCode={roomCode!} teamId={teamId!} publicState={publicState} send={send} />;
+}
+
+async function compressTeamPhoto(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  const size = 640;
+  const canvas = document.createElement("canvas");
+  canvas.width = size; canvas.height = size;
+  const context = canvas.getContext("2d")!;
+  const scale = Math.max(size / bitmap.width, size / bitmap.height);
+  const width = bitmap.width * scale, height = bitmap.height * scale;
+  context.drawImage(bitmap, (size - width) / 2, (size - height) / 2, width, height);
+  bitmap.close();
+  return canvas.toDataURL("image/jpeg", 0.68);
 }
 
 function TeamController({ roomCode, teamId, publicState, send }: any) {

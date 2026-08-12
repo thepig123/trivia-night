@@ -154,6 +154,22 @@ type in `server/src/types.ts` (category, tier, prompt, answer, accepted
 alternatives, host note, status). Add, edit, or bulk-replace this file to
 build your real 50-75 question set — no code changes needed.
 
+### Media and visual clue placeholders
+
+Questions can optionally include a `media` object. The TV renders it inside
+the question card. Audio and video stop automatically when somebody buzzes
+because the card closes at that point.
+
+```json
+"media": { "type": "audio", "url": "/media/song-sample.mp3" }
+"media": { "type": "image", "url": "/media/movie-poster.jpg" }
+"media": { "type": "image", "url": "/media/face.jpg", "effect": "pixelated" }
+```
+
+Emoji riddles and rhyme clues need no special mode: put the emoji sequence or
+rhyme in `prompt`. Media files can be added later under `web/public/media/`;
+the current question content is intentionally placeholder data.
+
 ## Visual direction
 
 Palette is defined once per surface and kept in sync by convention:

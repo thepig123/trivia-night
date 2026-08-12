@@ -141,7 +141,7 @@ wss.on("connection", (ws) => {
         case "team:join": {
           const room = rooms.get(msg.roomCode);
           if (!room) return sendError(ws, `Room ${msg.roomCode} not found.`);
-          const team = room.registerTeam(msg.teamName, msg.players);
+          const team = room.registerTeam(msg.teamName, msg.players, msg.photoDataUrl);
           if (!team) return sendError(ws, "Skriv inn lagnavn og to spillernavn. Rommet støtter opptil fem lag.");
           const sessionToken = nanoid(32);
           teamSessionTokens.get(msg.roomCode)?.set(team.id, sessionToken);

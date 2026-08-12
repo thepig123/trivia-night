@@ -28,9 +28,11 @@ test("pause blocks phase changes and buzzes until resumed", () => {
 
 test("teams self-register with two players and rooms cap at five teams", () => {
   const game = new GameEngine("LOBBY");
-  const team = game.registerTeam("Night Owls", ["Alice", "Bob"]);
+  const photo = "data:image/jpeg;base64,c2lsbHk=";
+  const team = game.registerTeam("Night Owls", ["Alice", "Bob"], photo);
   assert.equal(team?.name, "Night Owls");
   assert.deepEqual(team?.players, ["Alice", "Bob"]);
+  assert.equal(team?.photoDataUrl, photo);
   for (let index = 2; index <= 5; index++) assert.ok(game.registerTeam(`Team ${index}`, [`P${index}A`, `P${index}B`]));
   assert.equal(game.registerTeam("Too many", ["Nine", "Ten"]), null);
 });
@@ -75,6 +77,9 @@ test("the opening encounter is one random starting node, not a route choice", ()
   assert.equal(opening.length, 1);
   assert.equal(opening[0].slot, 1);
   assert.deepEqual(game.map.nodes.find((node) => node.id === "START")?.nextNodeIds, [opening[0].id]);
+  const firstChoices = game.map.nodes.filter((node) => node.step === 2);
+  assert.equal(firstChoices.length, 3);
+  assert.deepEqual(new Set(opening[0].nextNodeIds), new Set(firstChoices.map((node) => node.id)));
 });
 
 test("a route never forces more than three single-choice encounters", () => {

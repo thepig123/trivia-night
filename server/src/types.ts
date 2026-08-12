@@ -24,7 +24,7 @@ export interface Question {
   answer: string;
   acceptedAlternatives: string[];
   hostNote?: string;
-  media?: { type: "image" | "audio" | "video"; url: string };
+  media?: { type: "image" | "audio" | "video"; url: string; effect?: "none" | "pixelated" | "blurred" };
   status: QuestionStatus;
   lastUsedSession?: string;
   mode?: "buzzer" | "friend_group";
@@ -60,6 +60,7 @@ export interface Team {
   qualifiedForFinal: boolean;
   finalScore?: number;
   players: string[];
+  photoDataUrl?: string;
 }
 
 export type GamePhase =
@@ -128,6 +129,7 @@ export interface PublicGameState {
     prompt: string;
     mode?: "buzzer" | "friend_group";
     choices?: string[];
+    media?: Question["media"];
   } | null;
   buzzOrder: { teamId: string }[]; // no timestamps needed publicly
   lockedOutTeamIds: string[];
@@ -147,7 +149,7 @@ export type ClientMessage =
   | { type: "host:update_team"; roomCode: string; teamId: string; name: string; players: string[] }
   | { type: "host:set_target"; roomCode: string; targetScore: number }
   | { type: "host:resume_room"; roomCode: string; sessionToken: string }
-  | { type: "team:join"; roomCode: string; teamName: string; players: string[] }
+  | { type: "team:join"; roomCode: string; teamName: string; players: string[]; photoDataUrl?: string }
   | { type: "team:resume"; roomCode: string; teamId: string; sessionToken: string }
   | { type: "team:buzz"; roomCode: string; teamId: string }
   | { type: "team:choose_route"; roomCode: string; teamId: string; nodeId: string }

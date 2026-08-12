@@ -2,7 +2,9 @@ import { useState } from "react";
 import type { CSSProperties } from "react";
 import RouteMap from "../components/RouteMap";
 import { useGameSocket } from "../lib/ws";
-import type { Team } from "../types";
+import type { PublicGameState, Team } from "../types";
+
+type PublicQuestion = NonNullable<PublicGameState["activeQuestionPublic"]>;
 
 export default function Tv() {
   const { connected, publicState, lastError, send } = useGameSocket("tv");
@@ -40,7 +42,7 @@ export default function Tv() {
         <RouteMap map={publicState.map} legalNodeIds={publicState.legalNextNodeIds} rowsAhead={6} />
         {showQuestion && (
           <section className="tv-question" aria-label="Aktivt spørsmål">
-            <p>{publicState.activeQuestionPublic!.prompt}</p>
+            <QuestionContent question={publicState.activeQuestionPublic!} />
           </section>
         )}
       </div>
@@ -60,10 +62,23 @@ export default function Tv() {
   );
 }
 
+function QuestionContent({ question }: { question: PublicQuestion }) {
+  const media = question.media;
+  return (
+    <div className="tv-question__content">
+      {question.prompt && <p>{question.prompt}</p>}
+      {media?.type === "audio" && media.url && <audio className="tv-question__audio" src={media.url} autoPlay controls />}
+      {media?.type === "image" && media.url && <img className={`tv-question__image tv-question__image--${media.effect ?? "none"}`} src={media.url} alt="Visuell ledetråd" />}
+      {media?.type === "video" && media.url && <video className="tv-question__video" src={media.url} autoPlay controls />}
+      {media && !media.url && <div className="tv-question__placeholder">MEDIEPLASSHOLDER</div>}
+    </div>
+  );
+}
+
 function TeamBanner({ team, targetScore, isResponder, isLocked }: { team: Team; targetScore: number; isResponder: boolean; isLocked: boolean }) {
   const status = team.qualifiedForFinal ? "FINALIST" : isResponder ? "SVARER" : isLocked ? "UTELÅST" : `${Math.max(0, targetScore - team.score).toLocaleString("nb-NO")} TIL FINALEN`;
   return (
-    <article className={`tv-team ${isResponder ? "tv-team--active" : ""} ${isLocked ? "tv-team--locked" : ""}`} style={{ "--team-color": team.color } as CSSProperties}>
+    <article className={`tv-team ${isResponder ? "tv-team--active" : ""} ${isLocked ? "tv-team--locked" : ""} ${team.photoDataUrl ? "tv-team--photo" : ""}`} style={{ "--team-color": team.color, "--team-photo": team.photoDataUrl ? `url(${team.photoDataUrl})` : "none" } as CSSProperties}>
       <h2>{team.name}</h2>
       <strong>{team.score.toLocaleString("nb-NO")}</strong>
       <span>{status}</span>

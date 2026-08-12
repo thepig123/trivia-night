@@ -29,6 +29,8 @@ function connectRows(nodes: MapNode[], fromStep: number, toStep: number) {
     const isCommittedRow = cycle >= 1 && cycle <= 3;
     const targets = fromStep === 0
       ? new Set([1])
+      : fromStep === 1
+        ? new Set([0, 1, 2])
       : isCommittedRow
         ? new Set([node.slot])
         : new Set([node.slot, node.slot === 2 ? 1 : node.slot + 1]);
