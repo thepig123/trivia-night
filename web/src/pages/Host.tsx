@@ -46,11 +46,14 @@ function AdminPanel({ state, roomCode, send }: any) {
           {state.teams.length === 0 && <div style={{ opacity: 0.5, fontSize: "0.85rem" }}>No teams have joined yet.</div>}
           {state.teams.map((t: any) => (
             <div className="team-row" key={t.id}>
-              <span>
+              {state.phase === "lobby" ? <div className="host-team-editor">
+                <input defaultValue={t.name} onBlur={(event) => rc("host:update_team", { teamId: t.id, name: event.target.value, players: t.players })} />
+                <div><input placeholder="Player 1" defaultValue={t.players?.[0]} onBlur={(event) => rc("host:update_team", { teamId: t.id, name: t.name, players: [event.target.value, t.players?.[1] ?? ""] })} /><input placeholder="Player 2" defaultValue={t.players?.[1]} onBlur={(event) => rc("host:update_team", { teamId: t.id, name: t.name, players: [t.players?.[0] ?? "", event.target.value] })} /></div>
+              </div> : <span>
                 <span className="team-dot" style={{ background: t.color }} />
                 {t.name} {!t.connected && "⚠️"}
                 {t.qualifiedForFinal && " 🏆"}
-              </span>
+              </span>}
               <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <b>{t.score}</b>
                 <button className="btn ghost" style={{ width: "auto", padding: "2px 8px" }} onClick={() => rc("host:adjust_score", { teamId: t.id, delta: -100 })}>
@@ -59,23 +62,30 @@ function AdminPanel({ state, roomCode, send }: any) {
                 <button className="btn ghost" style={{ width: "auto", padding: "2px 8px" }} onClick={() => rc("host:adjust_score", { teamId: t.id, delta: 100 })}>
                   +
                 </button>
+                {state.phase === "lobby" && state.teams.length > 3 && <button className="btn ghost" style={{ width: "auto", padding: "2px 8px" }} onClick={() => rc("host:remove_team", { teamId: t.id })}>×</button>}
               </span>
             </div>
           ))}
+          {state.phase === "lobby" && state.teams.length < 5 && <button className="btn ghost" onClick={() => rc("host:add_team")}>+ Add team</button>}
         </div>
 
         <div className="card">
           <h3 style={{ marginBottom: 10, fontSize: "1rem" }}>Progress</h3>
           <div style={{ fontSize: "0.85rem", opacity: 0.75 }}>
-            Step {state.map.currentStep} / {state.map.steps}
+            Climb stage: {state.map.currentStep}
             <br />
-            Target score: {state.targetScore}
+            Target score: {state.targetScore.toLocaleString()}
             <br />
             Questions left: {state.questionPoolRemaining} / {state.questionPoolTotal}
           </div>
         </div>
 
         <TierLegend />
+
+        <div className="target-control">
+          <span>Final target</span><strong>{state.targetScore.toLocaleString()}</strong>
+          <div><button onClick={() => rc("host:set_target", { targetScore: state.targetScore - 500 })}>−500</button><button onClick={() => rc("host:set_target", { targetScore: state.targetScore + 500 })}>+500</button></div>
+        </div>
 
         <div className="card" style={{ flex: 1 }}>
           <h3 style={{ marginBottom: 10, fontSize: "1rem" }}>Event log</h3>
@@ -154,6 +164,7 @@ function AdminPanel({ state, roomCode, send }: any) {
                   Open buzzers
                 </button>
               )}
+              {state.phase === "buzzing" && state.activeQuestion?.mode === "friend_group" && <button className="btn teal" onClick={() => rc("host:reveal_friend_answers")}>Reveal answers ({Object.keys(state.friendAnswers).length}/{state.teams.filter((t: any) => !t.qualifiedForFinal).length})</button>}
               <button className="btn ghost" onClick={() => rc("host:skip_question")}>
                 Skip question
               </button>
