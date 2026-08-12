@@ -125,6 +125,7 @@ export interface PublicGameState {
     category: string;
     tier: Tier;
     points: number;
+    prompt: string;
     mode?: "buzzer" | "friend_group";
     choices?: string[];
   } | null;
@@ -146,8 +147,7 @@ export type ClientMessage =
   | { type: "host:update_team"; roomCode: string; teamId: string; name: string; players: string[] }
   | { type: "host:set_target"; roomCode: string; targetScore: number }
   | { type: "host:resume_room"; roomCode: string; sessionToken: string }
-  | { type: "team:join"; roomCode: string; teamId: string }
-  | { type: "team:view_room"; roomCode: string }
+  | { type: "team:join"; roomCode: string; teamName: string; players: string[] }
   | { type: "team:resume"; roomCode: string; teamId: string; sessionToken: string }
   | { type: "team:buzz"; roomCode: string; teamId: string }
   | { type: "team:choose_route"; roomCode: string; teamId: string; nodeId: string }
