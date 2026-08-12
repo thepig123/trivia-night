@@ -90,7 +90,7 @@ export class GameEngine {
     if (!node || node.tier === null) return;
     if (node.questionId) return; // already activated
 
-    const question = this.pickQuestion(node.tier);
+    const question = this.pickQuestion(node.tier, node.category);
     if (!question) {
       this.log(`No unused questions left for tier ${node.tier} — pool exhausted.`);
       return;
@@ -102,11 +102,17 @@ export class GameEngine {
     this.phase = "map";
     this.buzzOrder = [];
     this.lockedOutTeamIds = [];
+    // A depleted category/tier pair falls back to the tier pool. Keep the node
+    // label truthful if that happens during a long session.
+    node.category = question.category;
     this.log(`Activated ${node.tier} question in ${question.category} (${TIER_POINTS[node.tier]} pts).`);
   }
 
-  private pickQuestion(tier: Tier): Question | undefined {
-    const eligible = this.questionPool.filter((q) => q.status === "unused" && q.tier === tier);
+  private pickQuestion(tier: Tier, category: string | null): Question | undefined {
+    const exact = this.questionPool.filter(
+      (q) => q.status === "unused" && q.tier === tier && q.category === category,
+    );
+    const eligible = exact.length > 0 ? exact : this.questionPool.filter((q) => q.status === "unused" && q.tier === tier);
     if (eligible.length === 0) return undefined;
     return eligible[Math.floor(Math.random() * eligible.length)];
   }
