@@ -47,7 +47,7 @@ test("public state exposes the prompt but never the answer", () => {
 
 test("route is fully previewable with category and tier metadata", () => {
   const game = new GameEngine("MAP01");
-  assert.equal(game.map.nodes.length, 1 + game.map.steps * 3);
+  assert.equal(game.map.nodes.length, 2 + (game.map.steps - 1) * 3);
   for (const node of game.map.nodes.filter((candidate) => candidate.id !== "START")) {
     assert.ok(node.category);
     assert.ok(node.tier);
@@ -63,10 +63,18 @@ test("map extends indefinitely and each row has a shuffled tier spread", () => {
   for (let round = 0; round < 12; round++) {
     const legal = game.map.nodes.filter((node) => node.status === "available");
     const row = game.map.nodes.filter((node) => node.step === legal[0].step);
-    assert.equal(new Set(row.map((node) => node.tier)).size, 3);
+    if (row[0].step > 1) assert.equal(new Set(row.map((node) => node.tier)).size, 3);
     game.map = chooseTestRoute(game, legal[0].id);
   }
   assert.ok(game.map.steps >= 17);
+});
+
+test("the opening encounter is one random starting node, not a route choice", () => {
+  const game = new GameEngine("OPENING");
+  const opening = game.map.nodes.filter((node) => node.step === 1);
+  assert.equal(opening.length, 1);
+  assert.equal(opening[0].slot, 1);
+  assert.deepEqual(game.map.nodes.find((node) => node.id === "START")?.nextNodeIds, [opening[0].id]);
 });
 
 test("a route never forces more than three single-choice encounters", () => {
