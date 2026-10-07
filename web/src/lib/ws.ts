@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ClientMessage, HostGameState, PublicGameState, ServerMessage } from "../types";
 
-// Change this if your server runs somewhere other than localhost:8080,
-// e.g. set VITE_WS_URL in a .env file at web/.env for LAN play.
-const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:8080";
+// Follow the browser's hostname so phones on the LAN reach the host laptop.
+// Set VITE_WS_URL in web/.env when the backend uses a different host or port.
+const WS_URL = import.meta.env.VITE_WS_URL ?? `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:8080`;
 
 export interface UseGameSocket {
   connected: boolean;
