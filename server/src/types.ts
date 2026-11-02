@@ -113,6 +113,7 @@ export interface HostGameState {
   questionPoolTotal: number;
   friendAnswers: Record<string, string>;
   canRevealQuestion: boolean;
+  legalNextNodeIds: string[];
 }
 
 /** Sanitized state broadcast to the TV client and team controllers — no answers. */
@@ -147,6 +148,7 @@ export interface PublicGameState {
 
 export type ClientMessage =
   | { type: "host:create_room" }
+  | { type: "host:choose_route"; roomCode: string; nodeId: string }
   | { type: "host:add_team"; roomCode: string }
   | { type: "host:remove_team"; roomCode: string; teamId: string }
   | { type: "host:update_team"; roomCode: string; teamId: string; name: string; players: string[] }

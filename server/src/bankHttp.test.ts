@@ -58,3 +58,21 @@ test("bank API protects answers, persists uploads and edits, and freezes room co
     for(const ws of sockets)ws.terminate();if(server)await stop(server.child);rmSync(directory,{recursive:true,force:true});
   }
 });
+
+test("team presence survives closing one of two resumed connections; TV cannot use host override", {timeout:15000}, async()=>{
+  const directory=mkdtempSync(join(tmpdir(),"trivia-presence-"));let server:Awaited<ReturnType<typeof start>>|undefined;const sockets:WebSocket[]=[];
+  const headers={Authorization:"Bearer integration-test-key","Content-Type":"application/json"};
+  try {
+    server=await start(directory);const base=server.base;
+    const bank=await(await fetch(base+"/api/bank",{headers})).json() as any;
+    bank.questions=[{id:"ONE",category:"Test",tier:"T5",prompt:"Test?",answer:"Ja",acceptedAlternatives:[],status:"unused",format:"text",selection:"PICK",readiness:"ready",source:"test",sourceUrl:"",assetBrief:"",notes:"",originalFormat:""}];bank.packs[0].questionIds=["ONE"];
+    await fetch(base+"/api/bank",{headers,method:"PUT",body:JSON.stringify(bank)});
+    const host=await connect(base);sockets.push(host);let next=message(host,"state:host");host.send(JSON.stringify({type:"host:create_room"}));const code=(await next).state.roomCode;
+    const a=await connect(base);sockets.push(a);let joined=message(a,"team:joined");a.send(JSON.stringify({type:"team:join",roomCode:code,teamName:"A",players:["P1","P2"]}));const identity=await joined;
+    const b=await connect(base);sockets.push(b);joined=message(b,"team:joined");b.send(JSON.stringify({type:"team:resume",roomCode:code,teamId:identity.teamId,sessionToken:identity.sessionToken}));await joined;
+    next=message(host,"state:host");a.close();assert.equal((await next).state.teams[0].connected,true);
+    next=message(host,"state:host");b.close();assert.equal((await next).state.teams[0].connected,false);
+    const tv=await connect(base);sockets.push(tv);let publicNext=message(tv,"state:public");tv.send(JSON.stringify({type:"tv:hello",roomCode:code}));await publicNext;
+    const error=message(tv,"error");tv.send(JSON.stringify({type:"host:choose_route",roomCode:code,nodeId:"any"}));assert.match((await error).message,/vert/);
+  } finally {for(const ws of sockets)ws.terminate();if(server)await stop(server.child);rmSync(directory,{recursive:true,force:true});}
+});

@@ -238,3 +238,11 @@ test("friend answer includes the host even when the host is not playing", () => 
   game.revealFriendAnswers();
   assert.equal(team.score, TIER_POINTS[opening.tier!]);
 });
+
+test("host can rescue a disconnected route controller but cannot select illegal routes", () => {
+  const {game,team}=activeGame();game.startReading();game.openBuzzers();game.registerBuzz(team.id);game.markCorrect(team.id);
+  game.setConnected(team.id,false);
+  game.chooseRouteByHost("illegal");assert.equal(game.phase,"route_choice");
+  const node=game.toHostState().legalNextNodeIds[0];game.pause();game.chooseRouteByHost(node);assert.equal(game.phase,"route_choice");
+  game.resume();game.chooseRouteByHost(node);assert.equal(game.phase,"map");assert.equal(game.controllingTeamId,null);assert.ok(game.activeQuestion);
+});

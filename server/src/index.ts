@@ -55,6 +55,19 @@ function requireTeam(ws: WebSocket, info: ClientInfo, roomCode: string, teamId: 
   return null;
 }
 
+function refreshPresence(roomCode: string, teamId: string) {
+  const connected = [...clients.values()].some(client => client.roomCode === roomCode && client.teamId === teamId && client.role === "team" && client.ws.readyState === WebSocket.OPEN);
+  rooms.get(roomCode)?.setConnected(teamId, connected);
+}
+function identify(info: ClientInfo, role: Role, roomCode: string, teamId: string | null = null) {
+  const oldRoom = info.roomCode, oldTeam = info.teamId;
+  info.role = role; info.roomCode = roomCode; info.teamId = teamId;
+  if (oldRoom && oldTeam && (oldRoom !== roomCode || oldTeam !== teamId)) {
+    refreshPresence(oldRoom, oldTeam); broadcast(oldRoom);
+  }
+  if (teamId) refreshPresence(roomCode, teamId);
+}
+
 /** Broadcast the current state to everyone connected to a room, role-appropriately. */
 function broadcast(roomCode: string) {
   const room = rooms.get(roomCode);
@@ -71,9 +84,21 @@ function broadcast(roomCode: string) {
   }
 }
 
-const wss = new WebSocketServer({ server: httpServer });
+const wss = new WebSocketServer({ server: httpServer, maxPayload: 600_000 });
+const alive = new WeakSet<WebSocket>();
+const heartbeat = setInterval(() => {
+  for (const ws of wss.clients) {
+    if (!alive.has(ws)) { ws.terminate(); continue; }
+    alive.delete(ws); ws.ping();
+  }
+}, 15_000);
+heartbeat.unref();
+wss.on("close", () => clearInterval(heartbeat));
 
 wss.on("connection", (ws) => {
+  alive.add(ws);
+  ws.on("pong", () => alive.add(ws));
+  ws.on("error", () => {});
   clients.set(ws, { ws, role: null, roomCode: null, teamId: null });
 
   ws.on("message", (raw) => {
@@ -99,8 +124,7 @@ wss.on("connection", (ws) => {
           const sessionToken = nanoid(32);
           hostSessionTokens.set(code, sessionToken);
           teamSessionTokens.set(code, new Map());
-          info.role = "host";
-          info.roomCode = code;
+          identify(info, "host", code);
           send(ws, { type: "room:created", roomCode: code, sessionToken });
           broadcast(code);
           break;
@@ -112,7 +136,7 @@ wss.on("connection", (ws) => {
         }
         case "host:remove_team": {
           const room = requireHost(ws, info, msg.roomCode); if (!room) return;
-          room.removeTeam(msg.teamId); broadcast(msg.roomCode); break;
+          room.removeTeam(msg.teamId); if (!room.teams.some(team => team.id === msg.teamId)) teamSessionTokens.get(msg.roomCode)?.delete(msg.teamId); broadcast(msg.roomCode); break;
         }
         case "host:update_team": {
           const room = requireHost(ws, info, msg.roomCode); if (!room) return;
@@ -127,8 +151,7 @@ wss.on("connection", (ws) => {
           const room = rooms.get(msg.roomCode);
           if (!room) return sendError(ws, `Room ${msg.roomCode} not found.`);
           if (hostSessionTokens.get(msg.roomCode) !== msg.sessionToken) return sendError(ws, "Invalid host session.");
-          info.role = "host";
-          info.roomCode = msg.roomCode;
+          identify(info, "host", msg.roomCode);
           broadcast(msg.roomCode);
           break;
         }
@@ -136,8 +159,7 @@ wss.on("connection", (ws) => {
         case "tv:hello": {
           const room = rooms.get(msg.roomCode);
           if (!room) return sendError(ws, `Room ${msg.roomCode} not found.`);
-          info.role = "tv";
-          info.roomCode = msg.roomCode;
+          identify(info, "tv", msg.roomCode);
           broadcast(msg.roomCode);
           break;
         }
@@ -149,9 +171,7 @@ wss.on("connection", (ws) => {
           if (!team) return sendError(ws, "Skriv inn lagnavn og to spillernavn. Rommet støtter opptil fem lag.");
           const sessionToken = nanoid(32);
           teamSessionTokens.get(msg.roomCode)?.set(team.id, sessionToken);
-          info.role = "team";
-          info.roomCode = msg.roomCode;
-          info.teamId = team.id;
+          identify(info, "team", msg.roomCode, team.id);
           send(ws, { type: "team:joined", teamId: team.id, roomCode: msg.roomCode, sessionToken });
           broadcast(msg.roomCode);
           break;
@@ -164,10 +184,7 @@ wss.on("connection", (ws) => {
             return sendError(ws, "Invalid team session.");
           }
           if (!room.teams.some((team) => team.id === msg.teamId)) return sendError(ws, "Team not found.");
-          info.role = "team";
-          info.roomCode = msg.roomCode;
-          info.teamId = msg.teamId;
-          room.setConnected(msg.teamId, true);
+          identify(info, "team", msg.roomCode, msg.teamId);
           send(ws, { type: "team:joined", teamId: msg.teamId, roomCode: msg.roomCode, sessionToken: msg.sessionToken });
           broadcast(msg.roomCode);
           break;
@@ -181,6 +198,10 @@ wss.on("connection", (ws) => {
           break;
         }
 
+        case "host:choose_route": {
+          const room = requireHost(ws, info, msg.roomCode); if (!room) return;
+          room.chooseRouteByHost(msg.nodeId); broadcast(msg.roomCode); break;
+        }
         case "team:choose_route": {
           const room = requireTeam(ws, info, msg.roomCode, msg.teamId);
           if (!room) return;
@@ -290,7 +311,8 @@ wss.on("connection", (ws) => {
     const info = clients.get(ws);
     if (info?.role === "team" && info.roomCode && info.teamId) {
       const room = rooms.get(info.roomCode);
-      room?.setConnected(info.teamId, false);
+      clients.delete(ws);
+      refreshPresence(info.roomCode, info.teamId);
       broadcast(info.roomCode);
     }
     clients.delete(ws);

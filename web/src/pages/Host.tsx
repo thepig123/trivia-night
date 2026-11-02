@@ -28,10 +28,10 @@ export default function Host() {
     );
   }
 
-  return <AdminPanel state={hostState} roomCode={roomCode!} send={send} />;
+  return <AdminPanel state={hostState} roomCode={roomCode!} send={send} connected={connected} lastError={lastError} />;
 }
 
-function AdminPanel({ state, roomCode, send }: any) {
+function AdminPanel({ state, roomCode, send, connected, lastError }: any) {
   const rc = (type: string, extra: object = {}) => send({ type, roomCode, ...extra });
   const activeNode = state.map.nodes.find((n: any) => n.id === state.activeNodeId);
 
@@ -96,6 +96,9 @@ function AdminPanel({ state, roomCode, send }: any) {
       </aside>
 
       <main className="admin-main">
+        {!connected && <div role="status" className="error-banner">Mistet forbindelsen. Venter på serveren…</div>}
+        {lastError && <div role="alert" className="error-banner">{lastError}</div>}
+        {state.phase === "route_choice" && <div className="card"><h3>Verten kan velge rute</h3><p>Bruk dette hvis laget trenger hjelp eller har mistet forbindelsen.</p><div className="control-row">{state.legalNextNodeIds.map((id: string) => {const node=state.map.nodes.find((n: any)=>n.id===id);return <button key={id} disabled={!connected||state.paused} onClick={()=>rc("host:choose_route",{nodeId:id})}>{node.category} · {node.tier}</button>;})}</div></div>}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h2 style={{ textTransform: "uppercase", letterSpacing: "0.04em" }}>
             Fase: <span style={{ color: "var(--teal)" }}>{state.phase}</span>

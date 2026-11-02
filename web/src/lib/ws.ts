@@ -29,15 +29,14 @@ export function useGameSocket(role: ClientRole): UseGameSocket {
 
   useEffect(() => {
     let cancelled = false;
-    let socket: WebSocket;
     let reconnectTimer: number | undefined;
 
     function connect() {
-      socket = new WebSocket(WS_URL);
+      const socket = new WebSocket(WS_URL);
       wsRef.current = socket;
 
       socket.onopen = () => {
-        if (cancelled) return;
+        if (cancelled || wsRef.current !== socket) return;
         setConnected(true);
         setLastError(null);
         if (role === "tv") {
@@ -61,12 +60,13 @@ export function useGameSocket(role: ClientRole): UseGameSocket {
         }
       };
       socket.onclose = () => {
-        if (cancelled) return;
+        if (cancelled || wsRef.current !== socket) return;
         setConnected(false);
         reconnectTimer = window.setTimeout(connect, 1500);
       };
       socket.onerror = () => socket.close();
       socket.onmessage = (event) => {
+        if (cancelled || wsRef.current !== socket) return;
         const msg: ServerMessage = JSON.parse(event.data);
         switch (msg.type) {
           case "room:created":

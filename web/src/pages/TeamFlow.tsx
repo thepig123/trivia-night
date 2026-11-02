@@ -59,7 +59,7 @@ export default function TeamFlow() {
     );
   }
 
-  return <TeamController roomCode={roomCode!} teamId={teamId!} publicState={publicState} send={send} />;
+  return <TeamController roomCode={roomCode!} teamId={teamId!} publicState={publicState} send={send} connected={connected} lastError={lastError} />;
 }
 
 async function compressTeamPhoto(file: File): Promise<string> {
@@ -76,14 +76,14 @@ async function compressTeamPhoto(file: File): Promise<string> {
   return canvas.toDataURL("image/jpeg", 0.68);
 }
 
-function TeamController({ roomCode, teamId, publicState, send }: any) {
+function TeamController({ roomCode, teamId, publicState, send, connected, lastError }: any) {
   const me = publicState?.teams.find((t: any) => t.id === teamId);
   const phase = publicState?.phase;
   const iBuzzed = publicState?.buzzOrder?.some((b: any) => b.teamId === teamId);
   const iAmLocked = publicState?.lockedOutTeamIds?.includes(teamId);
   const iAmFirst = publicState?.currentResponderId === teamId;
-  const canBuzz = !publicState?.paused && phase === "buzzing" && !iBuzzed && !iAmLocked;
-  const isControlling = !publicState?.paused && phase === "route_choice" && publicState?.controllingTeamId === teamId;
+  const canBuzz = connected && !publicState?.paused && phase === "buzzing" && !iBuzzed && !iAmLocked;
+  const isControlling = connected && !publicState?.paused && phase === "route_choice" && publicState?.controllingTeamId === teamId;
   const isFriendRound = ["friend_group", "private_choice"].includes(publicState?.activeQuestionPublic?.mode);
   const friendSubmitted = publicState?.friendAnswersSubmitted?.includes(teamId);
   const qualified = me?.qualifiedForFinal;
@@ -102,6 +102,8 @@ function TeamController({ roomCode, teamId, publicState, send }: any) {
 
   return (
     <div className="screen">
+      {!connected && <div role="status" className="error-banner">Mistet forbindelsen. Kobler til igjen…</div>}
+      {lastError && <div role="alert" className="error-banner">{lastError}</div>}
       <div style={{ width: "100%", maxWidth: 480, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>ROM {roomCode}</div>
@@ -130,7 +132,7 @@ function TeamController({ roomCode, teamId, publicState, send }: any) {
       ) : isFriendRound && phase === "buzzing" ? (
         <div className="friend-answer-panel">
           <h3>Velg svar</h3>
-          {publicState.activeQuestionPublic.choices?.map((choice: string) => <button className="btn ghost" key={choice} disabled={friendSubmitted} onClick={() => send({ type: "team:submit_friend_answer", roomCode, teamId, answer: choice })}>{choice}</button>)}
+          {publicState.activeQuestionPublic.choices?.map((choice: string) => <button className="btn ghost" key={choice} disabled={friendSubmitted || !connected || publicState.paused} onClick={() => send({ type: "team:submit_friend_answer", roomCode, teamId, answer: choice })}>{choice}</button>)}
           {friendSubmitted && <p>Svaret er låst. Venter på avsløringen…</p>}
         </div>
       ) : (

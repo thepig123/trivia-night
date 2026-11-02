@@ -74,7 +74,7 @@ export class GameEngine {
   }
 
   removeTeam(teamId: string) {
-    if (this.phase !== "lobby" || this.teams.length <= 3) return;
+    if (this.phase !== "lobby") return;
     this.teams = this.teams.filter((team) => team.id !== teamId);
   }
 
@@ -97,7 +97,7 @@ export class GameEngine {
   registerTeam(name: string, players: string[], photoDataUrl?: string): Team | null {
     if (this.phase !== "lobby" || this.teams.length >= 5) return null;
     const cleanPlayers = players.slice(0, 2).map((player) => player.trim().slice(0, 24));
-    if (!name.trim() || cleanPlayers.some((player) => !player)) return null;
+    if (cleanPlayers.length !== 2 || !name.trim() || cleanPlayers.some((player) => !player)) return null;
     const team = this.addTeam(name);
     team.players = cleanPlayers;
     if (photoDataUrl?.startsWith("data:image/") && photoDataUrl.length <= 450_000) team.photoDataUrl = photoDataUrl;
@@ -313,6 +313,15 @@ export class GameEngine {
     this.activateCurrentNode();
   }
 
+  chooseRouteByHost(nodeId: string) {
+    if (this.paused || this.phase !== "route_choice" || !legalNextNodeIds(this.map).includes(nodeId)) return;
+    this.map = chooseRoute(this.map, nodeId, this.questionPool);
+    this.controllingTeamId = null;
+    this.phase = "map";
+    this.log("Verten valgte neste rute manuelt.");
+    this.activateCurrentNode();
+  }
+
   private checkQualification(team: Team) {
     if (team.qualifiedForFinal) return;
     if (team.score < this.targetScore) return;
@@ -449,6 +458,7 @@ export class GameEngine {
       questionPoolTotal: this.questionPool.length,
       friendAnswers: this.friendAnswers,
       canRevealQuestion: this.completedQuestion !== null,
+      legalNextNodeIds: this.phase === "route_choice" ? legalNextNodeIds(this.map) : [],
     };
   }
 
