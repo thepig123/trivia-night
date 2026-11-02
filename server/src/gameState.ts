@@ -105,7 +105,7 @@ export class GameEngine {
   }
 
   setTargetScore(value: number) {
-    if (this.finalState) return;
+    if (this.finalState || !Number.isFinite(value) || !["lobby", "map", "route_choice"].includes(this.phase)) return;
     const previous = this.targetScore;
     this.targetScore = Math.max(1000, Math.min(20000, Math.round(value / 500) * 500));
     this.log(`Poengmålet ble endret fra ${previous} til ${this.targetScore}.`);
@@ -256,25 +256,30 @@ export class GameEngine {
     if (this.paused) return;
     if (this.phase !== "adjudicating") return;
     if (this.currentResponderId() !== teamId) return;
+    const team = this.teams.find(team => team.id === teamId)!;
+    const points = TIER_POINTS[this.activeQuestion!.tier];
+    team.score -= points;
     this.lockedOutTeamIds.push(teamId);
-    this.log(`${this.teamName(teamId)} svarte feil og er utelåst.`);
+    this.log(`${team.name} svarte feil (−${points}) og er utelåst. Poeng: ${team.score}.`);
     // Doc section 5: lockout/rebound rule is still to be finalized.
     // Default behavior: any team not yet locked out (whether they've already
     // buzzed and are waiting, or haven't buzzed yet) may still answer.
-    const stillEligible = this.teams.some((t) => !t.qualifiedForFinal && !this.lockedOutTeamIds.includes(t.id));
+    const stillEligible = this.teams.some((t) => t.connected && !t.qualifiedForFinal && !this.lockedOutTeamIds.includes(t.id));
     if (stillEligible) {
       // If another team already buzzed earlier, they become the new current
       // responder immediately; otherwise buzzers stay open for fresh buzzes.
       this.phase = this.currentResponderId() ? "adjudicating" : "buzzing";
     } else {
       // Nobody left to answer — question is dead, host must skip.
-      this.log("Ingen lag kan svare. Hopp over spørsmålet for å gå videre.");
+      this.phase = "dead_question";
+      this.completedQuestion = this.activeQuestion;
+      this.log("Ingen lag kan svare. Vis fasit eller hopp over spørsmålet.");
     }
   }
 
   skipQuestion() {
     if (this.paused) return;
-    if (!this.activeNodeId || !["map", "reading", "buzzing", "adjudicating"].includes(this.phase)) return;
+    if (!this.activeNodeId || !["map", "reading", "buzzing", "adjudicating", "dead_question"].includes(this.phase)) return;
     this.completedQuestion = this.activeQuestion;
     this.activeQuestion = null;
     if (this.activeNodeId) {
@@ -430,8 +435,8 @@ export class GameEngine {
 
   adjustScore(teamId: string, delta: number) {
     const team = this.teams.find((t) => t.id === teamId);
-    if (!team) return;
-    team.score = Math.max(0, team.score + delta);
+    if (!team || !Number.isSafeInteger(delta) || Math.abs(delta) > 100000) return;
+    team.score += delta;
     this.log(`Verten justerte poengene til ${team.name} med ${delta > 0 ? "+" : ""}${delta}.`);
   }
 

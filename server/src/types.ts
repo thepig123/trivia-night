@@ -69,6 +69,7 @@ export type GamePhase =
   | "map" // node activated, waiting for host to start reading
   | "reading" // host reading the question aloud, buzzers closed
   | "buzzing" // buzzers open, waiting for / collecting buzzes
+  | "dead_question" // no eligible teams remain; host can reveal or skip
   | "adjudicating" // host is judging a spoken answer
   | "route_choice" // controlling team is choosing the next node
   | "final" // final round in progress

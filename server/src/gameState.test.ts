@@ -246,3 +246,21 @@ test("host can rescue a disconnected route controller but cannot select illegal 
   const node=game.toHostState().legalNextNodeIds[0];game.pause();game.chooseRouteByHost(node);assert.equal(game.phase,"route_choice");
   game.resume();game.chooseRouteByHost(node);assert.equal(game.phase,"map");assert.equal(game.controllingTeamId,null);assert.ok(game.activeQuestion);
 });
+
+test("wrong answers deduct the full value once and allow negative scores", () => {
+  const {game,team}=activeGame();const other=game.addTeam("B");const points=TIER_POINTS[game.activeQuestion!.tier];
+  game.startReading();game.openBuzzers();game.registerBuzz(team.id);game.markWrong(team.id);
+  assert.equal(team.score,-points);assert.equal(game.phase,"buzzing");
+  game.markWrong(team.id);assert.equal(team.score,-points);assert.equal(game.registerBuzz(team.id),false);
+  game.registerBuzz(other.id);game.markWrong(other.id);assert.equal(game.phase,"dead_question");
+  game.openBuzzers();assert.equal(game.phase,"dead_question");
+  game.skipQuestion();assert.equal(game.phase,"map");
+  game.adjustScore(team.id,-100);assert.equal(team.score,-points-100);
+  game.adjustScore(team.id,NaN);assert.equal(team.score,-points-100);
+});
+
+test("target changes are rejected during an active question", () => {
+  const {game}=activeGame();game.startReading();const before=game.targetScore;
+  game.setTargetScore(2000);assert.equal(game.targetScore,before);
+  game.pause();game.setTargetScore(2000);assert.equal(game.targetScore,before);
+});

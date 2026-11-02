@@ -78,7 +78,7 @@ function AdminPanel({ state, roomCode, send, connected, lastError }: any) {
 
         <div className="target-control">
           <span>Poengmål for finale</span><strong>{state.targetScore.toLocaleString()}</strong>
-          <div><button onClick={() => rc("host:set_target", { targetScore: state.targetScore - 500 })}>−500</button><button onClick={() => rc("host:set_target", { targetScore: state.targetScore + 500 })}>+500</button></div>
+          <div><button disabled={!connected || !["lobby","map","route_choice"].includes(state.phase)} onClick={() => rc("host:set_target", { targetScore: state.targetScore - 500 })}>−500</button><button disabled={!connected || !["lobby","map","route_choice"].includes(state.phase)} onClick={() => rc("host:set_target", { targetScore: state.targetScore + 500 })}>+500</button></div>
         </div>
 
         <div className="card" style={{ flex: 1 }}>
@@ -145,6 +145,7 @@ function AdminPanel({ state, roomCode, send, connected, lastError }: any) {
               )}
             </div>
 
+            {state.phase === "dead_question" && <p className="error-banner">Ingen lag kan svare. Vis fasit eller hopp over spørsmålet.</p>}
             <div className="control-row">
               {state.canRevealQuestion && <button className="btn teal" onClick={() => rc("host:reveal_question")}>Vis fasit på TV</button>}
               {state.phase === "map" && (

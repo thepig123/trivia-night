@@ -153,7 +153,7 @@ function TeamController({ roomCode, teamId, publicState, send, connected, lastEr
       <div style={{ opacity: 0.55, fontSize: "0.8rem", marginTop: 16, textTransform: "uppercase", letterSpacing: "0.06em" }}>
         {publicState?.paused ? "Spillet er satt på pause" : phaseLabel(phase)}
       </div>
-      {me && !qualified && <div className="final-progress"><div><span>Veien til finalen</span><b>{Math.max(0, publicState.targetScore - me.score).toLocaleString()} poeng igjen</b></div><progress value={me.score} max={publicState.targetScore} /></div>}
+      {me && !qualified && <div className="final-progress"><div><span>Veien til finalen</span><b>{Math.max(0, publicState.targetScore - me.score).toLocaleString()} poeng igjen</b></div><progress value={Math.max(0,me.score)} max={publicState.targetScore} /></div>}
     </div>
   );
 }
@@ -168,6 +168,8 @@ function phaseLabel(phase: string | undefined) {
       return "Verten leser spørsmålet";
     case "buzzing":
       return "Buzzerne er åpne!";
+    case "dead_question":
+      return "Spørsmålet er avsluttet. Venter på verten.";
     case "adjudicating":
       return "Verten vurderer svaret";
     case "route_choice":
