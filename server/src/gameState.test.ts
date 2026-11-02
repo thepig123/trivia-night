@@ -299,3 +299,18 @@ test("restored games keep scores, question usage and Final state but pause and c
   restored.advanceFinal();assert.equal(restored.finalState!.currentIndex,0);
   restored.resume();restored.advanceFinal();assert.equal(restored.finalState!.currentIndex,1);
 });
+
+test("undo restores adjudication and scores, pauses the game and preserves live presence",()=>{
+  const {game,team}=activeGame();const id=game.activeQuestion!.id;game.startReading();game.openBuzzers();game.registerBuzz(team.id);game.markCorrect(team.id);
+  assert.ok(game.toHostState().canUndo);assert.equal(game.activeQuestion,null);
+  game.setConnected(team.id,false);game.undo();
+  const restored=game.teams.find(t=>t.id===team.id)!;
+  assert.equal(restored.score,0);assert.equal(restored.connected,false);assert.equal(game.paused,true);assert.equal(game.phase,"adjudicating");assert.equal(game.activeQuestion!.id,id);
+  game.resume();game.markWrong(team.id);assert.ok(restored.score<0);game.undo();assert.equal(game.teams[0].score,0);
+});
+
+test("replacement clears answers and buzzes without reusing the old question; undo restores it",()=>{
+  const {game,team}=activeGame();game.startReading();game.openBuzzers();game.registerBuzz(team.id);const old=game.activeQuestion!.id;
+  assert.equal(game.replaceQuestion(),true);assert.notEqual(game.activeQuestion!.id,old);assert.equal(game.phase,"map");assert.deepEqual(game.buzzOrder,[]);assert.equal(game.questionPool.find(q=>q.id===old)!.status,"used");
+  game.undo();assert.equal(game.activeQuestion!.id,old);assert.equal(game.phase,"adjudicating");assert.equal(game.currentResponderId(),team.id);
+});

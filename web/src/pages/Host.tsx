@@ -90,6 +90,8 @@ function AdminPanel({ state, roomCode, send, connected, lastError }: any) {
           </ul>
         </div>
 
+        {state.canUndo && <button className="btn ghost" disabled={!connected} onClick={()=>rc("host:undo")}>Angre: {state.undoLabel}</button>}
+        {state.canReplaceQuestion && <button className="btn ghost" disabled={!connected} onClick={()=>rc("host:replace_question")}>Bytt aktivt spørsmål</button>}
         <button className="btn ghost" onClick={() => rc(state.paused ? "host:resume" : "host:pause")}>
           {state.paused ? "Fortsett spillet" : "Sett på pause"}
         </button>

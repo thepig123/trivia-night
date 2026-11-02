@@ -2,6 +2,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { nanoid } from "nanoid";
 import { httpServer, bankStore } from "./bankHttp.js";
 import { playableQuestions } from "./bank.js";
+import { validateMessage } from "./protocol.js";
 import { RoomStore } from "./roomStore.js";
 import { GameEngine } from "./gameState.js";
 import type { ClientMessage, ServerMessage } from "./types.js";
@@ -120,9 +121,9 @@ wss.on("connection", (ws) => {
   ws.on("message", (raw) => {
     let msg: ClientMessage;
     try {
-      msg = JSON.parse(raw.toString());
-    } catch {
-      sendError(ws, "Ugyldig melding.");
+      msg = validateMessage(JSON.parse(raw.toString()));
+    } catch (error) {
+      sendError(ws, error instanceof SyntaxError ? "Ugyldig JSON-melding." : error instanceof Error ? error.message : "Ugyldig melding.");
       return;
     }
 
@@ -165,8 +166,8 @@ wss.on("connection", (ws) => {
 
         case "host:resume_room": {
           const room = rooms.get(msg.roomCode);
-          if (!room) return sendError(ws, `Room ${msg.roomCode} not found.`);
-          if (hostSessionTokens.get(msg.roomCode) !== msg.sessionToken) return sendError(ws, "Invalid host session.");
+          if (!room) return sendError(ws, `Fant ikke rom ${msg.roomCode}.`);
+          if (hostSessionTokens.get(msg.roomCode) !== msg.sessionToken) return sendError(ws, "Ugyldig vertsøkt. Last siden på nytt eller opprett et nytt rom.");
           identify(info, "host", msg.roomCode);
           broadcast(msg.roomCode);
           break;
@@ -174,7 +175,7 @@ wss.on("connection", (ws) => {
 
         case "tv:hello": {
           const room = rooms.get(msg.roomCode);
-          if (!room) return sendError(ws, `Room ${msg.roomCode} not found.`);
+          if (!room) return sendError(ws, `Fant ikke rom ${msg.roomCode}.`);
           identify(info, "tv", msg.roomCode);
           broadcast(msg.roomCode);
           break;
@@ -182,7 +183,7 @@ wss.on("connection", (ws) => {
 
         case "team:join": {
           const room = rooms.get(msg.roomCode);
-          if (!room) return sendError(ws, `Room ${msg.roomCode} not found.`);
+          if (!room) return sendError(ws, `Fant ikke rom ${msg.roomCode}.`);
           const team = room.registerTeam(msg.teamName, msg.players, msg.photoDataUrl);
           if (!team) return sendError(ws, "Skriv inn lagnavn og to spillernavn. Rommet støtter opptil fem lag.");
           const sessionToken = nanoid(32);
@@ -195,11 +196,11 @@ wss.on("connection", (ws) => {
 
         case "team:resume": {
           const room = rooms.get(msg.roomCode);
-          if (!room) return sendError(ws, `Room ${msg.roomCode} not found.`);
+          if (!room) return sendError(ws, `Fant ikke rom ${msg.roomCode}.`);
           if (teamSessionTokens.get(msg.roomCode)?.get(msg.teamId) !== msg.sessionToken) {
-            return sendError(ws, "Invalid team session.");
+            return sendError(ws, "Ugyldig lagøkt. Be verten om hjelp.");
           }
-          if (!room.teams.some((team) => team.id === msg.teamId)) return sendError(ws, "Team not found.");
+          if (!room.teams.some((team) => team.id === msg.teamId)) return sendError(ws, "Fant ikke laget.");
           identify(info, "team", msg.roomCode, msg.teamId);
           send(ws, { type: "team:joined", teamId: msg.teamId, roomCode: msg.roomCode, sessionToken: msg.sessionToken });
           broadcast(msg.roomCode);
@@ -298,6 +299,15 @@ wss.on("connection", (ws) => {
           break;
         }
 
+        case "host:undo": {
+          const room = requireHost(ws, info, msg.roomCode); if (!room) return;
+          room.undo(); broadcast(msg.roomCode); break;
+        }
+        case "host:replace_question": {
+          const room = requireHost(ws, info, msg.roomCode); if (!room) return;
+          if (!room.replaceQuestion()) sendError(ws,"Ingen alternative spørsmål igjen i kveldspakken.");
+          broadcast(msg.roomCode); break;
+        }
         case "host:finish_route": {
           const room = requireHost(ws, info, msg.roomCode); if (!room) return;
           room.finishRoutePhase(); broadcast(msg.roomCode); break;
@@ -323,11 +333,11 @@ wss.on("connection", (ws) => {
         }
 
         default:
-          sendError(ws, `Unknown message type.`);
+          sendError(ws, "Ukjent meldingstype.");
       }
     } catch (err) {
       console.error(err);
-      sendError(ws, "Server error handling message.");
+      sendError(ws, "Serveren kunne ikke behandle meldingen.");
     }
   });
 

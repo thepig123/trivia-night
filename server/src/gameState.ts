@@ -38,6 +38,7 @@ export class GameEngine {
   private completedQuestion: Question | null = null;
   reservedFinalQuestionIds: string[] = [];
   finalCandidateIds: string[] = [];
+  private undoHistory: {label:string;state:Record<string,unknown>}[] = [];
   revealedQuestion: PublicGameState["revealedQuestion"] = null;
 
   constructor(roomCode: string, questions: Question[] = questionsData as Question[]) {
@@ -58,6 +59,42 @@ export class GameEngine {
     for(const team of game.teams) team.connected=false;
     if(!["lobby","ended"].includes(game.phase)) game.paused=true;
     return game;
+  }
+
+  private checkpoint(label: string) {
+    const state=this.exportState(); delete state.undoHistory;
+    this.undoHistory.push({label,state});
+    if(this.undoHistory.length>5)this.undoHistory.shift();
+  }
+  undo() {
+    const previous=this.undoHistory.pop();if(!previous)return;
+    const history=this.undoHistory;
+    const presence=new Map(this.teams.map(t=>[t.id,t.connected]));
+    Object.assign(this,previous.state);
+    this.undoHistory=history;
+    for(const team of this.teams)team.connected=presence.get(team.id)??false;
+    this.paused=true;
+    this.log(`Angret: ${previous.label}. Spillet er satt på pause for kontroll.`);
+  }
+  replaceQuestion(): boolean {
+    if(!this.activeQuestion || !["map","reading","buzzing","adjudicating","dead_question","final"].includes(this.phase))return false;
+    const pool=(this.phase==="final"?this.questionPool:this.routePool()).filter(q=>q.status==="unused");
+    const replacement=pool.find(q=>q.tier===this.activeQuestion!.tier&&q.category===this.activeQuestion!.category)??pool.find(q=>q.tier===this.activeQuestion!.tier)??pool[0];
+    if(!replacement)return false;
+    this.checkpoint("byttet spørsmål");
+    replacement.status="used";
+    this.activeQuestion=replacement;
+    this.buzzOrder=[];this.lockedOutTeamIds=[];this.friendAnswers={};this.completedQuestion=null;this.revealedQuestion=null;
+    if(this.phase==="final") {
+      this.finalState!.questionIds[this.finalState!.currentIndex]=replacement.id;
+      this.finalState!.roundPhase="ready";
+    } else {
+      const node=this.map.nodes.find(n=>n.id===this.activeNodeId)!;
+      node.questionId=replacement.id;node.category=replacement.category;node.tier=replacement.tier;
+      this.phase="map";
+    }
+    this.log("Verten byttet spørsmål. Det gamle spørsmålet trekkes ikke igjen.");
+    return true;
   }
 
   private log(message: string) {
@@ -121,6 +158,7 @@ export class GameEngine {
 
   setTargetScore(value: number) {
     if (this.finalState || !Number.isFinite(value) || !["lobby", "map", "route_choice"].includes(this.phase)) return;
+    this.checkpoint("endret poengmål");
     const previous = this.targetScore;
     this.targetScore = Math.max(1000, Math.min(20000, Math.round(value / 500) * 500));
     this.log(`Poengmålet ble endret fra ${previous} til ${this.targetScore}.`);
@@ -249,6 +287,7 @@ export class GameEngine {
     if (this.paused) return;
     if (this.questionPhase() !== "adjudicating") return;
     if (this.currentResponderId() !== teamId) return; // only the team currently up can be adjudicated
+    this.checkpoint("riktig svar");
     if (this.phase === "final") {
       const team = this.teams.find(t => t.id === teamId)!;
       this.award(team, TIER_POINTS[this.activeQuestion!.tier]);
@@ -292,6 +331,7 @@ export class GameEngine {
     if (this.paused) return;
     if (this.questionPhase() !== "adjudicating") return;
     if (this.currentResponderId() !== teamId) return;
+    this.checkpoint("feil svar");
     const team = this.teams.find(team => team.id === teamId)!;
     const points = TIER_POINTS[this.activeQuestion!.tier];
     this.award(team, -points);
@@ -317,10 +357,11 @@ export class GameEngine {
   skipQuestion() {
     if (this.paused) return;
     if (this.phase === "final") {
-      if (this.activeQuestion) this.resolveFinalQuestion();
+      if (this.activeQuestion) { this.checkpoint("hoppet over finalespørsmål"); this.resolveFinalQuestion(); }
       return;
     }
     if (!this.activeNodeId || !["map", "reading", "buzzing", "adjudicating", "dead_question"].includes(this.phase)) return;
+    this.checkpoint("hoppet over spørsmål");
     this.completedQuestion = this.activeQuestion;
     this.activeQuestion = null;
     if (this.activeNodeId) {
@@ -352,6 +393,7 @@ export class GameEngine {
     if (this.controllingTeamId !== teamId) return;
     const legal = legalNextNodeIds(this.map);
     if (!legal.includes(nodeId)) return;
+    this.checkpoint("valgte rute");
     this.map = chooseRoute(this.map, nodeId, this.routePool());
     this.controllingTeamId = null;
     this.phase = "map";
@@ -361,6 +403,7 @@ export class GameEngine {
 
   chooseRouteByHost(nodeId: string) {
     if (this.paused || this.phase !== "route_choice" || !legalNextNodeIds(this.map).includes(nodeId)) return;
+    this.checkpoint("vertens rutevalg");
     this.map = chooseRoute(this.map, nodeId, this.routePool());
     this.controllingTeamId = null;
     this.phase = "map";
@@ -398,6 +441,7 @@ export class GameEngine {
 
   revealFriendAnswers() {
     if (this.paused || this.questionPhase() !== "buzzing" || !["friend_group", "private_choice"].includes(this.activeQuestion?.mode ?? "")) return;
+    this.checkpoint("avslørte private svar");
     if (this.phase === "final") {
       const correct = this.teams.filter(t => this.finalState!.finalists.includes(t.id) && this.friendAnswers[t.id] === this.activeQuestion!.answer);
       for (const team of correct) this.award(team, TIER_POINTS[this.activeQuestion!.tier]);
@@ -430,6 +474,7 @@ export class GameEngine {
 
   finishRoutePhase(force = false) {
     if (this.finalState || this.paused || (!force && !["lobby", "map", "route_choice", "qualification"].includes(this.phase))) return;
+    if(!force)this.checkpoint("avsluttet hovedrunden");
     const required = this.teams.filter(t => t.qualifiedForFinal);
     const remaining = this.teams.filter(t => !t.qualifiedForFinal).sort((a,b) => b.score - a.score);
     const slots = Math.max(0, 2 - required.length);
@@ -450,6 +495,7 @@ export class GameEngine {
     if (this.paused || this.phase !== "qualification" || ids.length !== 2 || new Set(ids).size !== 2) return;
     if (ids.some(id => !this.finalCandidateIds.includes(id))) return;
     if (this.teams.some(t => t.qualifiedForFinal && !ids.includes(t.id))) return;
+    this.checkpoint("valgte finalister");
     for (const team of this.teams) team.qualifiedForFinal = ids.includes(team.id);
     this.startFinal();
   }
@@ -492,6 +538,7 @@ export class GameEngine {
   advanceFinal() {
     const final = this.finalState;
     if (this.paused || this.phase !== "final" || !final || final.roundPhase !== "resolved") return;
+    this.checkpoint("gikk videre i finalen");
     const next = final.currentIndex + 1;
     if (next < final.questionIds.length) {
       final.currentIndex = next;
@@ -519,7 +566,8 @@ export class GameEngine {
 
   adjustScore(teamId: string, delta: number) {
     const team = this.teams.find((t) => t.id === teamId);
-    if (!team || !Number.isSafeInteger(delta) || Math.abs(delta) > 100000) return;
+    if (this.phase === "ended" || !team || !Number.isSafeInteger(delta) || Math.abs(delta) > 100000) return;
+    this.checkpoint("justerte poeng");
     this.award(team, delta);
     this.log(`Verten justerte poengene til ${team.name} med ${delta > 0 ? "+" : ""}${delta}.`);
   }
@@ -547,6 +595,9 @@ export class GameEngine {
       questionPoolTotal: this.questionPool.length,
       friendAnswers: this.friendAnswers,
       canRevealQuestion: this.completedQuestion !== null,
+      canUndo: this.undoHistory.length > 0,
+      undoLabel: this.undoHistory.at(-1)?.label ?? null,
+      canReplaceQuestion: !!this.activeQuestion && (this.phase === "final" ? this.questionPool : this.routePool()).some(q=>q.status==="unused"),
       finalCandidateIds: this.finalCandidateIds,
       legalNextNodeIds: this.phase === "route_choice" ? legalNextNodeIds(this.map) : [],
     };

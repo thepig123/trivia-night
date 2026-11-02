@@ -119,6 +119,9 @@ export interface HostGameState {
   questionPoolTotal: number;
   friendAnswers: Record<string, string>;
   canRevealQuestion: boolean;
+  canUndo: boolean;
+  undoLabel: string | null;
+  canReplaceQuestion: boolean;
   legalNextNodeIds: string[];
   finalCandidateIds: string[];
 }
@@ -176,6 +179,8 @@ export type ClientMessage =
   | { type: "host:pause"; roomCode: string }
   | { type: "host:resume"; roomCode: string }
   | { type: "host:adjust_score"; roomCode: string; teamId: string; delta: number }
+  | { type: "host:undo"; roomCode: string }
+  | { type: "host:replace_question"; roomCode: string }
   | { type: "host:finish_route"; roomCode: string }
   | { type: "host:select_finalists"; roomCode: string; teamIds: string[] }
   | { type: "host:advance_final"; roomCode: string }

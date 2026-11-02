@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node --watch --import tsx src/index.ts",
     "build": "tsc -p .",
-    "test": "node --import tsx --test src/gameState.test.ts src/bank.test.ts src/bankHttp.test.ts ../web/tvSession.test.ts ../web/bankModel.test.ts",
+    "test": "node --import tsx --test src/gameState.test.ts src/bank.test.ts src/bankHttp.test.ts src/protocol.test.ts ../web/tvSession.test.ts ../web/bankModel.test.ts",
     "start": "node dist/index.js"
   },
   "dependencies": {
