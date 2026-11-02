@@ -193,3 +193,42 @@ test("provisional Final advances and ends cleanly", () => {
   assert.equal(qualifying.phase, "ended");
   assert.equal(qualifying.activeQuestion, null);
 });
+
+
+test("exhausted tier falls back to available questions with truthful points", () => {
+  const game = new GameEngine("EMPTYTIER");
+  game.addTeam("A");
+  const opening = game.map.nodes.find(node => node.step === 1)!;
+  for (const q of game.questionPool) if (q.tier === opening.tier) q.status = "used";
+  game.activateCurrentNode();
+  assert.ok(game.activeQuestion);
+  const node = game.map.nodes.find(node => node.id === game.activeNodeId)!;
+  assert.equal(node.tier, game.activeQuestion.tier);
+  assert.equal(node.category, game.activeQuestion.category);
+  game.startReading(); game.openBuzzers();
+  assert.equal(game.registerBuzz(game.teams[0].id), true);
+});
+
+test("empty question pool safely enters Final instead of stalling", () => {
+  const game = new GameEngine("EMPTY");
+  game.addTeam("A"); game.addTeam("B");
+  for (const q of game.questionPool) q.status = "used";
+  game.activateCurrentNode();
+  assert.equal(game.phase, "final");
+  assert.equal(game.activeQuestion, null);
+  game.advanceFinal();
+  assert.equal(game.phase, "ended");
+});
+
+test("friend answer includes the host even when the host is not playing", () => {
+  const game = new GameEngine("HOST");
+  const team = game.registerTeam("Boys", ["Mathias", "Lasse"])!;
+  const opening = game.map.nodes.find(node => node.step === 1)!;
+  game.questionPool = [{ id: "friend", category: "Gutta", tier: opening.tier!, prompt: "Hvem er vert?", answer: "Martin", acceptedAlternatives: [], choices: ["Rune"], status: "unused", mode: "friend_group" }];
+  game.activateCurrentNode();
+  assert.deepEqual(game.activeQuestion!.choices, ["Rune", "Mathias", "Lasse", "Martin"]);
+  game.startReading(); game.openBuzzers();
+  game.submitFriendAnswer(team.id, "Martin");
+  game.revealFriendAnswers();
+  assert.equal(team.score, TIER_POINTS[opening.tier!]);
+});

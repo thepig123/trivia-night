@@ -1,0 +1,22 @@
+{
+  "name": "trivia-night",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": ["server", "web"],
+  "engines": {
+    "node": ">=22.12.0",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "start": "npm run dev",
+    "dev": "concurrently --kill-others --names server,web \"npm run dev --workspace=server\" \"npm run dev --workspace=web\"",
+    "dev:lan": "concurrently --kill-others --names server,web \"npm run dev --workspace=server\" \"npm run dev --workspace=web -- --host 0.0.0.0\"",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspace=server",
+    "start:server": "npm run start --workspace=server",
+    "start:built": "concurrently --kill-others --names server,web \"npm run start --workspace=server\" \"npm run preview --workspace=web -- --host 0.0.0.0\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

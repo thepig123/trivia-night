@@ -34,6 +34,8 @@ export default function Tv() {
 
   return (
     <main className="tv-screen">
+      {!connected && <div role="status" className="error-banner">Mistet forbindelsen. Kobler til igjen…</div>}
+      {lastError && <div role="alert" className="error-banner">{lastError}</div>}
       <header className="tv-header">
         <h1>TRIVIA NIGHT</h1>
         {publicState.phase === "lobby" && <span>ROM {publicState.roomCode}</span>}

@@ -138,13 +138,14 @@ export class GameEngine {
 
     const question = this.pickQuestion(node.tier, node.category);
     if (!question) {
-      this.log(`Ingen ubrukte spørsmål igjen for ${node.tier}.`);
+      this.log(`Ingen ubrukte spørsmål igjen. Går videre til finalen.`);
+      this.finishRoutePhase();
       return;
     }
     question.status = "used";
     if (question.mode === "friend_group") {
       const playerNames = [...new Set(this.teams.flatMap((team) => team.players).filter(Boolean))];
-      question.choices = playerNames.length ? playerNames : this.teams.map((team) => team.name);
+      question.choices = [...new Set([...(question.choices ?? []), ...playerNames, question.answer].filter(Boolean))];
       this.friendAnswers = {};
     }
     node.questionId = question.id;
@@ -156,6 +157,7 @@ export class GameEngine {
     // A depleted category/tier pair falls back to the tier pool. Keep the node
     // label truthful if that happens during a long session.
     node.category = question.category;
+    node.tier = question.tier;
     this.log(`Aktiverte ${node.tier}-spørsmål i ${question.category} (${TIER_POINTS[node.tier]} poeng).`);
   }
 
@@ -163,7 +165,8 @@ export class GameEngine {
     const exact = this.questionPool.filter(
       (q) => q.status === "unused" && q.tier === tier && q.category === category,
     );
-    const eligible = exact.length > 0 ? exact : this.questionPool.filter((q) => q.status === "unused" && q.tier === tier);
+    const sameTier = this.questionPool.filter((q) => q.status === "unused" && q.tier === tier);
+    const eligible = exact.length > 0 ? exact : sameTier.length > 0 ? sameTier : this.questionPool.filter((q) => q.status === "unused");
     if (eligible.length === 0) return undefined;
     return eligible[Math.floor(Math.random() * eligible.length)];
   }

@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "node --watch --import tsx src/index.ts",
     "build": "tsc -p .",
-    "test": "node --import tsx --test src/**/*.test.ts",
+    "test": "node --import tsx --test src/gameState.test.ts ../web/tvSession.test.ts",
     "start": "node dist/index.js"
   },
   "dependencies": {

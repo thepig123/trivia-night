@@ -1,9 +1,10 @@
+import { tvReconnectMessage } from "./tvSession";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ClientMessage, HostGameState, PublicGameState, ServerMessage } from "../types";
 
-// Change this if your server runs somewhere other than localhost:8080,
-// e.g. set VITE_WS_URL in a .env file at web/.env for LAN play.
-const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:8080";
+// Follow the browser's hostname so phones on the LAN reach the host laptop.
+// Set VITE_WS_URL in web/.env when the backend uses a different host or port.
+const WS_URL = import.meta.env.VITE_WS_URL ?? `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:8080`;
 
 export interface UseGameSocket {
   connected: boolean;
@@ -39,7 +40,10 @@ export function useGameSocket(role: ClientRole): UseGameSocket {
         if (cancelled) return;
         setConnected(true);
         setLastError(null);
-        if (role === "host") {
+        if (role === "tv") {
+          const hello = tvReconnectMessage(sessionStorage);
+          if (hello) socket.send(JSON.stringify(hello));
+        } else if (role === "host") {
           const saved = readSession(localStorage, "trivia-host-session");
           if (saved) socket.send(JSON.stringify({ type: "host:resume_room", ...saved } satisfies ClientMessage));
         } else if (role === "team") {
@@ -78,6 +82,7 @@ export function useGameSocket(role: ClientRole): UseGameSocket {
             );
             break;
           case "state:public":
+            if (role === "tv") sessionStorage.setItem("trivia-tv-room", msg.state.roomCode);
             setPublicState(msg.state);
             setRoomCode(msg.state.roomCode);
             break;
