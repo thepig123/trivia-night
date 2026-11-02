@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { createServer, type IncomingMessage } from "node:http";
 import { randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -5,7 +6,7 @@ import { resolve } from "node:path";
 import { BankStore } from "./bank.js";
 
 export const bankStore = new BankStore();
-const directory = resolve(process.env.BANK_DATA_DIR ?? new URL("../runtime/", import.meta.url).pathname);
+const directory = resolve(process.env.BANK_DATA_DIR ?? fileURLToPath(new URL("../runtime/", import.meta.url)));
 mkdirSync(directory, { recursive: true });
 const keyPath = resolve(directory, "admin-key.txt");
 let adminKey = process.env.BANK_ADMIN_KEY;

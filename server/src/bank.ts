@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { mkdirSync, readFileSync, writeFileSync, renameSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import seed from "./data/question-bank.json" with { type: "json" };
@@ -68,7 +69,7 @@ export function playableQuestions(bank: QuestionBank): Question[] {
 }
 export class BankStore {
   private bank: QuestionBank;
-  constructor(private path = resolve(process.env.BANK_DATA_DIR ?? new URL("../runtime/", import.meta.url).pathname, "question-bank.json")) {
+  constructor(private path = resolve(process.env.BANK_DATA_DIR ?? fileURLToPath(new URL("../runtime/", import.meta.url)), "question-bank.json")) {
     try { this.bank = validateBank(JSON.parse(readFileSync(path, "utf8"))); }
     catch (error: any) { if (error.code !== "ENOENT") throw error; this.bank = validateBank(seed); }
   }
