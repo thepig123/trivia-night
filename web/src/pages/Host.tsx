@@ -49,7 +49,7 @@ function AdminPanel({ state, roomCode, send, connected, lastError }: any) {
           <div className="team-overview__heading"><h3>Lag</h3><span>{state.teams.length}/5</span></div>
           {state.teams.length === 0 && <div className="empty-teams">Venter på lag. Én spiller fra hvert lag blir med via <b>/join</b>.</div>}
           {state.teams.map((t: any) => (
-            <div className="team-row" key={t.id}>
+            <div className="team-row" key={t.id} style={{flexWrap:"wrap"}}>
               <span className="team-overview__identity"><span className="team-dot" style={{ background: t.color }} /><span><b>{t.name}</b><small>{t.players?.filter(Boolean).join(" & ")}</small></span>{!t.connected && " ⚠️"}{t.qualifiedForFinal && " 🏆"}</span>
               <span className="team-overview__score">
                 <b>{(state.finalState?.scores[t.id] ?? t.score).toLocaleString()}</b>
@@ -60,6 +60,7 @@ function AdminPanel({ state, roomCode, send, connected, lastError }: any) {
                   +
                 </button>
               </span>
+              {state.phase === "lobby" && <TeamLobbyControls team={t} disabled={!connected} send={send} roomCode={roomCode}/>}
             </div>
           ))}
         </div>
@@ -208,6 +209,13 @@ function AdminPanel({ state, roomCode, send, connected, lastError }: any) {
       </main>
     </div>
   );
+}
+
+function TeamLobbyControls({team,disabled,send,roomCode}:any) {
+  const [editing,setEditing]=useState(false);
+  const [name,setName]=useState(team.name);
+  const [players,setPlayers]=useState<string[]>(team.players);
+  return <div style={{flexBasis:"100%",display:"flex",gap:6,flexWrap:"wrap"}}>{editing?<><label>Lagnavn<input maxLength={24} value={name} onChange={e=>setName(e.target.value)}/></label>{[0,1].map(index=><label key={index}>Spiller {index+1}<input maxLength={24} value={players[index]??""} onChange={e=>setPlayers(values=>[0,1].map(i=>i===index?e.target.value:values[i]))}/></label>)}<button disabled={disabled||!name.trim()||players.length!==2||players.some(p=>!p.trim())} onClick={()=>{send({type:"host:update_team",roomCode,teamId:team.id,name:name.trim(),players:players.map(p=>p.trim())});setEditing(false);}}>Lagre</button><button onClick={()=>setEditing(false)}>Avbryt</button></>:<><button disabled={disabled} onClick={()=>{setName(team.name);setPlayers(team.players);setEditing(true);}}>Rediger lag</button><button disabled={disabled} onClick={()=>send({type:"host:remove_team",roomCode,teamId:team.id})}>Fjern fra lobbyen</button></>}</div>;
 }
 
 function QualificationPanel({state,roomCode,send}: any) {

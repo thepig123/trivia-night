@@ -91,6 +91,8 @@ function TeamController({ roomCode, teamId, publicState, send, connected, lastEr
   const friendSubmitted = publicState?.friendAnswersSubmitted?.includes(teamId);
   const qualified = me?.qualifiedForFinal && !inFinal;
 
+  if(publicState && !me) return <div className="screen"><h2>Laget er fjernet fra lobbyen</h2><p>Du kan melde deg på igjen før spillet starter.</p><button className="btn teal" onClick={()=>{sessionStorage.removeItem("trivia-team-session");window.location.reload();}}>Til påmelding</button></div>;
+
   let buzzerClass = "buzzer";
   let buzzerLabel = "BUZZ";
   if (iAmFirst) {

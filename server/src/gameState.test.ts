@@ -344,3 +344,11 @@ test("a team strictly above a tied cutoff cannot lose its finalist slot to host 
   game.selectFinalists([b.id,c.id]);assert.equal(game.phase,"qualification");
   game.selectFinalists([a.id,b.id]);assert.equal(game.phase,"final");
 });
+
+test("lobby teams can be edited/removed, but the roster is locked once reading begins",()=>{
+  const game=new GameEngine("ROSTER");const a=game.registerTeam("A",["P1","P2"])!,b=game.registerTeam("B",["P3","P4"])!;
+  game.updateTeam(a.id,"Nytt navn",["Spiller 1","Spiller 2"]);assert.equal(a.name,"Nytt navn");
+  game.removeTeam(b.id);assert.equal(game.teams.length,1);
+  game.activateCurrentNode();game.startReading();game.removeTeam(a.id);game.updateTeam(a.id,"Feil",["X","Y"]);
+  assert.equal(game.teams.length,1);assert.equal(a.name,"Nytt navn");assert.equal(game.registerTeam("C",["P5","P6"]),null);
+});

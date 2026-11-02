@@ -255,7 +255,8 @@ feeling of climbing a dangerous branching map without copying any game assets.
 
 ## Host recovery controls and timing
 
-- At least two teams must join before the first question starts.
+- At least two teams must join before the first question starts. The host can
+  correct names/player names and remove teams while still in the lobby.
 - The host can override a legal route choice if the controlling phone is offline.
 - Presence is counted across all connections for a team; closing one tab does
   not disconnect another. Socket heartbeats detect stale connections. When the

@@ -147,7 +147,7 @@ export class GameEngine {
     const color = TEAM_COLORS[this.teams.length % TEAM_COLORS.length];
     const team: Team = {
       id: nanoid(8),
-      name: name.trim().slice(0, 24) || `Team ${this.teams.length + 1}`,
+      name: name.trim().slice(0, 24) || `Lag ${this.teams.length + 1}`,
       color,
       score: 0,
       connected: true,
@@ -324,7 +324,7 @@ export class GameEngine {
   }
 
   private teamName(id: string) {
-    return this.teams.find((t) => t.id === id)?.name ?? "Unknown team";
+    return this.teams.find((t) => t.id === id)?.name ?? "Ukjent lag";
   }
 
   markCorrect(teamId: string) {
