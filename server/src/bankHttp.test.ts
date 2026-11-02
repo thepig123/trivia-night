@@ -24,7 +24,7 @@ function message(ws:WebSocket,type:string):Promise<any>{
   });
 }
 async function connect(base:string){const ws=new WebSocket(base.replace("http:","ws:"));await new Promise<void>((resolve,reject)=>{ws.once("open",()=>resolve());ws.once("error",reject);});return ws;}
-async function stop(child:ChildProcess){const ended=new Promise(resolve=>child.once("exit",resolve));child.kill();await ended;}
+async function stop(child:ChildProcess,signal:NodeJS.Signals="SIGTERM"){const ended=new Promise(resolve=>child.once("exit",resolve));child.kill(signal);await ended;}
 
 test("bank API protects answers, persists uploads and edits, and freezes room content",{timeout:20000},async()=>{
   const directory=mkdtempSync(join(tmpdir(),"trivia-http-"));
@@ -40,7 +40,7 @@ test("bank API protects answers, persists uploads and edits, and freezes room co
     assert.equal((await fetch(base+"/api/bank",{headers,method:"PUT",body:JSON.stringify(bank)})).status,400);
     response=await fetch(base+"/api/bank/media",{headers,method:"POST",body:JSON.stringify({mime:"image/png",data:"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1EAAAAASUVORK5CYII="})});
     assert.equal(response.status,201);const media=await response.json() as any;assert.equal((await fetch(base+media.url)).status,200);
-    const host=await connect(base);sockets.push(host);let next=message(host,"state:host");host.send(JSON.stringify({type:"host:create_room"}));const state=(await next).state;
+    const host=await connect(base);sockets.push(host);let next=message(host,"state:host");const created=message(host,"room:created");host.send(JSON.stringify({type:"host:create_room"}));const state=(await next).state;const hostIdentity=await created;
     assert.equal(state.questionPoolTotal,1);assert.ok(state.map.nodes.filter((n:any)=>n.tier).every((n:any)=>n.category==="Gutta HTTP"));
     saved.questions.find((q:any)=>q.id==="GUT-HTTP").prompt="Endret etter rommet ble opprettet";
     assert.equal((await fetch(base+"/api/bank",{headers,method:"PUT",body:JSON.stringify(saved)})).status,200);
@@ -49,11 +49,14 @@ test("bank API protects answers, persists uploads and edits, and freezes room co
     assert.equal((await next).state.activeQuestion.prompt,"Hvem sa dette?");const publicState=(await publicNext).state;
     assert.equal(publicState.activeQuestionPublic.answer,undefined);assert.equal(publicState.revealedQuestion,null);
     for(const ws of sockets)ws.terminate();
-    await stop(server.child);server=undefined;
+    await stop(server.child,"SIGKILL");server=undefined;
     server=await start(directory);base=server.base;
     const restored=await(await fetch(base+"/api/bank",{headers})).json() as any;
     assert.equal(restored.questions.find((q:any)=>q.id==="GUT-HTTP").prompt,"Endret etter rommet ble opprettet");
     assert.equal((await fetch(base+media.url)).status,200);
+    const resumed=await connect(base);sockets.push(resumed);const recovered=message(resumed,"state:host");
+    resumed.send(JSON.stringify({type:"host:resume_room",roomCode:hostIdentity.roomCode,sessionToken:hostIdentity.sessionToken}));
+    const recovery=(await recovered).state;assert.equal(recovery.paused,true);assert.equal(recovery.phase,"reading");assert.equal(recovery.activeQuestion.prompt,"Hvem sa dette?");
   }finally{
     for(const ws of sockets)ws.terminate();if(server)await stop(server.child);rmSync(directory,{recursive:true,force:true});
   }
@@ -74,5 +77,10 @@ test("team presence survives closing one of two resumed connections; TV cannot u
     next=message(host,"state:host");b.close();assert.equal((await next).state.teams[0].connected,false);
     const tv=await connect(base);sockets.push(tv);let publicNext=message(tv,"state:public");tv.send(JSON.stringify({type:"tv:hello",roomCode:code}));await publicNext;
     const error=message(tv,"error");tv.send(JSON.stringify({type:"host:choose_route",roomCode:code,nodeId:"any"}));assert.match((await error).message,/vert/);
+    for(const ws of sockets)ws.terminate();await stop(server.child,"SIGKILL");server=undefined;
+    server=await start(directory);const recoveredTeam=await connect(server.base);sockets.push(recoveredTeam);
+    const rejoined=message(recoveredTeam,"team:joined");const recoveredPublic=message(recoveredTeam,"state:public");
+    recoveredTeam.send(JSON.stringify({type:"team:resume",roomCode:code,teamId:identity.teamId,sessionToken:identity.sessionToken}));
+    assert.equal((await rejoined).teamId,identity.teamId);assert.equal((await recoveredPublic).state.teams[0].connected,true);
   } finally {for(const ws of sockets)ws.terminate();if(server)await stop(server.child);rmSync(directory,{recursive:true,force:true});}
 });

@@ -290,3 +290,12 @@ test("private multiple choice also works for finalists and never accepts spectat
   game.revealFriendAnswers();assert.equal(game.finalState!.scores[a.id],200);assert.equal(game.finalState!.scores[b.id],0);assert.equal(game.finalState!.roundPhase,"resolved");
   assert.equal(game.toPublicState().revealedQuestion?.answer,"Ja");
 });
+
+test("restored games keep scores, question usage and Final state but pause and clear presence",()=>{
+  const {game,a}=finalGame();game.startReading();game.openBuzzers();game.registerBuzz(a.id);game.markCorrect(a.id);
+  const restored=BaseGameEngine.restore(game.exportState());
+  assert.equal(restored.paused,true);assert.ok(restored.teams.every(t=>!t.connected));
+  assert.deepEqual(restored.finalState,game.finalState);assert.deepEqual(restored.reservedFinalQuestionIds,game.reservedFinalQuestionIds);
+  restored.advanceFinal();assert.equal(restored.finalState!.currentIndex,0);
+  restored.resume();restored.advanceFinal();assert.equal(restored.finalState!.currentIndex,1);
+});

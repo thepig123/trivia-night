@@ -49,6 +49,17 @@ export class GameEngine {
     this.map = generateRouteMap(this.routePool());
   }
 
+  exportState(): Record<string, unknown> { return JSON.parse(JSON.stringify(this)); }
+
+  static restore(value: unknown): GameEngine {
+    const data=value as any;
+    if (!data || typeof data.roomCode !== "string" || !Array.isArray(data.questionPool) || !Array.isArray(data.teams) || !data.map || !data.gameId) throw new Error("Ugyldig lagret spill.");
+    const game=Object.assign(new GameEngine(data.roomCode,data.questionPool),data);
+    for(const team of game.teams) team.connected=false;
+    if(!["lobby","ended"].includes(game.phase)) game.paused=true;
+    return game;
+  }
+
   private log(message: string) {
     this.eventLog.push({ id: nanoid(6), ts: Date.now(), message });
     if (this.eventLog.length > 200) this.eventLog.shift();

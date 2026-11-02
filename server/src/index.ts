@@ -2,6 +2,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { nanoid } from "nanoid";
 import { httpServer, bankStore } from "./bankHttp.js";
 import { playableQuestions } from "./bank.js";
+import { RoomStore } from "./roomStore.js";
 import { GameEngine } from "./gameState.js";
 import type { ClientMessage, ServerMessage } from "./types.js";
 
@@ -20,6 +21,18 @@ const rooms = new Map<string, GameEngine>();
 const clients = new Map<WebSocket, ClientInfo>();
 const hostSessionTokens = new Map<string, string>();
 const teamSessionTokens = new Map<string, Map<string, string>>();
+
+const roomStore = new RoomStore();
+for (const saved of roomStore.load()) {
+  const game=GameEngine.restore(saved.state);
+  rooms.set(game.roomCode,game);
+  hostSessionTokens.set(game.roomCode,saved.hostToken);
+  teamSessionTokens.set(game.roomCode,new Map(saved.teamTokens));
+}
+function persistRooms() {
+  roomStore.save([...rooms].map(([code,game])=>({state:game.exportState(),hostToken:hostSessionTokens.get(code)!,teamTokens:[...(teamSessionTokens.get(code) ?? new Map<string,string>())]})));
+}
+for (const signal of ["SIGTERM","SIGINT"] as const) process.once(signal,()=>{ try{persistRooms();}finally{process.exit(0);} });
 
 function makeRoomCode(): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no ambiguous chars
@@ -72,12 +85,15 @@ function identify(info: ClientInfo, role: Role, roomCode: string, teamId: string
 function broadcast(roomCode: string) {
   const room = rooms.get(roomCode);
   if (!room) return;
+  let saveError: string | null = null;
+  try { persistRooms(); } catch { saveError = "Kunne ikke lagre spillfremdriften. Sjekk at runtime-mappen kan skrives til."; }
   const publicState = room.toPublicState();
   const hostState = room.toHostState();
   for (const [ws, info] of clients) {
     if (info.roomCode !== roomCode) continue;
     if (info.role === "host") {
       send(ws, { type: "state:host", state: hostState });
+      if (saveError) sendError(ws,saveError);
     } else {
       send(ws, { type: "state:public", state: publicState });
     }
