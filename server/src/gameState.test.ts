@@ -314,3 +314,33 @@ test("replacement clears answers and buzzes without reusing the old question; un
   assert.equal(game.replaceQuestion(),true);assert.notEqual(game.activeQuestion!.id,old);assert.equal(game.phase,"map");assert.deepEqual(game.buzzOrder,[]);assert.equal(game.questionPool.find(q=>q.id===old)!.status,"used");
   game.undo();assert.equal(game.activeQuestion!.id,old);assert.equal(game.phase,"adjudicating");assert.equal(game.currentResponderId(),team.id);
 });
+
+test("server answer clock penalizes silence once, reopens with at least five seconds and freezes during a spoken answer",()=>{
+  const {game,team}=activeGame();game.addTeam("B");game.startReading();game.openBuzzers();
+  assert.equal(game.clock.kind,"question");game.registerBuzz(team.id);assert.equal(game.clock.kind,"answer");
+  const due=game.clock.deadline!;assert.equal(game.tick(due-1),false);assert.equal(game.tick(due),true);
+  assert.equal(team.score,-TIER_POINTS[game.activeQuestion!.tier]);assert.equal(game.phase,"buzzing");assert.ok(game.clock.remainingMs>=5000);
+  const other=game.teams[1];game.registerBuzz(other.id);game.answerStarted();assert.equal(game.clock.kind,null);
+  assert.equal(game.tick(Date.now()+60000),false);assert.equal(game.phase,"adjudicating");
+});
+
+test("pause and recovery preserve remaining clock time; a late correct command cannot beat expiry",()=>{
+  const {game,team}=activeGame();game.startReading();game.openBuzzers();game.registerBuzz(team.id);
+  game.pause();const remaining=game.clock.remainingMs;assert.equal(game.clock.deadline,null);assert.equal(game.tick(Date.now()+60000),false);
+  const restored=BaseGameEngine.restore(game.exportState());assert.equal(restored.clock.remainingMs,remaining);assert.equal(restored.paused,true);restored.resume();assert.equal(restored.clock.kind,"answer");
+  game.resume();game.clock.deadline=Date.now()-1;game.markCorrect(team.id);assert.ok(team.score<0);assert.equal(game.phase,"dead_question");
+});
+
+test("question deadline ends normal buzzing and auto-reveals private choices",()=>{
+  const {game}=activeGame();game.startReading();game.openBuzzers();game.tick(game.clock.deadline!);assert.equal(game.phase,"dead_question");assert.equal(game.clock.kind,null);
+  const privateGame=activeGame();privateGame.game.activeQuestion!.mode="private_choice";privateGame.game.activeQuestion!.choices=["Ja","Nei"];privateGame.game.activeQuestion!.answer="Ja";
+  privateGame.game.startReading();privateGame.game.openBuzzers();privateGame.game.submitFriendAnswer(privateGame.team.id,"Ja");privateGame.game.tick(privateGame.game.clock.deadline!);
+  assert.ok(privateGame.team.score>0);assert.equal(privateGame.game.revealedQuestion?.answer,"Ja");
+});
+
+test("a team strictly above a tied cutoff cannot lose its finalist slot to host selection",()=>{
+  const game=new GameEngine("CUTOFF");const a=game.addTeam("A"),b=game.addTeam("B"),c=game.addTeam("C");a.score=600;b.score=400;c.score=400;
+  game.finishRoutePhase();assert.equal(game.phase,"qualification");assert.equal(a.qualifiedForFinal,true);
+  game.selectFinalists([b.id,c.id]);assert.equal(game.phase,"qualification");
+  game.selectFinalists([a.id,b.id]);assert.equal(game.phase,"final");
+});

@@ -16,10 +16,10 @@ function start(directory: string): Promise<{child:ChildProcess;base:string}> {
     child.once("error",reject);child.once("exit",code=>{clearTimeout(timer);if(code)reject(new Error(`Server exited: ${code}`));});
   });
 }
-function message(ws:WebSocket,type:string):Promise<any>{
+function message(ws:WebSocket,type:string,predicate:(message:any)=>boolean=()=>true):Promise<any>{
   return new Promise((resolve,reject)=>{
     const timer=setTimeout(()=>{ws.off("message",listener);reject(new Error(`No ${type}`));},5000);
-    const listener=(raw:any)=>{const msg=JSON.parse(raw.toString());if(msg.type===type){clearTimeout(timer);ws.off("message",listener);resolve(msg);}};
+    const listener=(raw:any)=>{const msg=JSON.parse(raw.toString());if(msg.type===type&&predicate(msg)){clearTimeout(timer);ws.off("message",listener);resolve(msg);}};
     ws.on("message",listener);
   });
 }
@@ -45,7 +45,8 @@ test("bank API protects answers, persists uploads and edits, and freezes room co
     saved.questions.find((q:any)=>q.id==="GUT-HTTP").prompt="Endret etter rommet ble opprettet";
     assert.equal((await fetch(base+"/api/bank",{headers,method:"PUT",body:JSON.stringify(saved)})).status,200);
     const tv=await connect(base);sockets.push(tv);let publicNext=message(tv,"state:public");tv.send(JSON.stringify({type:"tv:hello",roomCode:state.roomCode}));await publicNext;
-    next=message(host,"state:host");publicNext=message(tv,"state:public");host.send(JSON.stringify({type:"host:start_reading",roomCode:state.roomCode}));
+    for(let index=0;index<2;index++){const phone=await connect(base);sockets.push(phone);const joined=message(phone,"team:joined");phone.send(JSON.stringify({type:"team:join",roomCode:state.roomCode,teamName:`Lag ${index}`,players:[`P${index}a`,`P${index}b`]}));await joined;}
+    next=message(host,"state:host",m=>m.state.phase==="reading");publicNext=message(tv,"state:public",m=>m.state.phase==="reading");host.send(JSON.stringify({type:"host:start_reading",roomCode:state.roomCode}));
     assert.equal((await next).state.activeQuestion.prompt,"Hvem sa dette?");const publicState=(await publicNext).state;
     assert.equal(publicState.activeQuestionPublic.answer,undefined);assert.equal(publicState.revealedQuestion,null);
     for(const ws of sockets)ws.terminate();
@@ -82,5 +83,34 @@ test("team presence survives closing one of two resumed connections; TV cannot u
     const rejoined=message(recoveredTeam,"team:joined");const recoveredPublic=message(recoveredTeam,"state:public");
     recoveredTeam.send(JSON.stringify({type:"team:resume",roomCode:code,teamId:identity.teamId,sessionToken:identity.sessionToken}));
     assert.equal((await rejoined).teamId,identity.teamId);assert.equal((await recoveredPublic).state.teams[0].connected,true);
+  } finally {for(const ws of sockets)ws.terminate();if(server)await stop(server.child);rmSync(directory,{recursive:true,force:true});}
+});
+
+test("four real controllers complete route recovery, undo, qualification and a scored Final over WebSockets",{timeout:20000},async()=>{
+  const directory=mkdtempSync(join(tmpdir(),"trivia-match-"));let server:Awaited<ReturnType<typeof start>>|undefined;const sockets:WebSocket[]=[];
+  const headers={Authorization:"Bearer integration-test-key","Content-Type":"application/json"};
+  try {
+    server=await start(directory);const base=server.base;
+    const bank=await(await fetch(base+"/api/bank",{headers})).json() as any;
+    bank.questions=Array.from({length:12},(_,i)=>({id:`MATCH${i}`,category:"Generelt",tier:"T5",prompt:`Testspørsmål ${i}`,answer:"Svar",acceptedAlternatives:[],status:"unused",format:"text",selection:"PICK",readiness:"ready",source:"test",sourceUrl:"",assetBrief:"",notes:"",originalFormat:""}));bank.packs[0].questionIds=bank.questions.map((q:any)=>q.id);
+    await fetch(base+"/api/bank",{headers,method:"PUT",body:JSON.stringify(bank)});
+    const host=await connect(base);sockets.push(host);let next=message(host,"state:host");host.send(JSON.stringify({type:"host:create_room"}));let state=(await next).state;const code=state.roomCode;
+    const rpc=async(type:string,extra:object={},predicate:(m:any)=>boolean=()=>true)=>{const result=message(host,"state:host",predicate);host.send(JSON.stringify({type,roomCode:code,...extra}));return (await result).state;};
+    const teams:any[]=[];
+    for(let i=0;i<4;i++){const ws=await connect(base);sockets.push(ws);const joined=message(ws,"team:joined");ws.send(JSON.stringify({type:"team:join",roomCode:code,teamName:`Lag ${i}`,players:[`Spiller ${i}a`,`Spiller ${i}b`]}));teams.push({ws,...await joined});}
+    state=await rpc("host:start_reading",{},m=>m.state.phase==="reading");state=await rpc("host:open_buzzers",{},m=>m.state.phase==="buzzing");
+    const buzz=async(index:number)=>{const result=message(host,"state:host",m=>m.state.currentResponderId===teams[index].teamId);teams[index].ws.send(JSON.stringify({type:"team:buzz",roomCode:code,teamId:teams[index].teamId}));return(await result).state;};
+    await buzz(0);await rpc("host:answer_started");await rpc("host:mark_wrong",{teamId:teams[0].teamId});
+    state=await rpc("host:undo");assert.equal(state.paused,true);assert.equal(state.teams[0].score,0);assert.equal(state.phase,"adjudicating");
+    await rpc("host:resume");state=await rpc("host:mark_correct",{teamId:teams[0].teamId});assert.equal(state.phase,"route_choice");
+    state=await rpc("host:choose_route",{nodeId:state.legalNextNodeIds[0]});assert.equal(state.phase,"map");
+    state=await rpc("host:finish_route");assert.equal(state.phase,"qualification");
+    state=await rpc("host:select_finalists",{teamIds:[teams[0].teamId,teams[1].teamId]});assert.equal(state.phase,"final");
+    const count=state.finalState.questionIds.length;
+    for(let i=0;i<count;i++){
+      state=await rpc("host:start_reading");assert.equal(state.finalState.roundPhase,"reading");await rpc("host:open_buzzers");await buzz(0);
+      state=await rpc("host:mark_correct",{teamId:teams[0].teamId});assert.equal(state.finalState.roundPhase,"resolved");state=await rpc("host:advance_final");
+    }
+    assert.equal(state.phase,"ended");assert.deepEqual(state.finalState.winnerIds,[teams[0].teamId]);assert.equal(state.finalState.scores[teams[0].teamId],count*200);assert.equal(state.teams[0].score,200);
   } finally {for(const ws of sockets)ws.terminate();if(server)await stop(server.child);rmSync(directory,{recursive:true,force:true});}
 });

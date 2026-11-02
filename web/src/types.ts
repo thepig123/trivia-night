@@ -92,6 +92,14 @@ export interface FinalState {
   resultNote: string | null;
 }
 
+export interface QuestionClock {
+  kind: "question" | "answer" | null;
+  remainingMs: number;
+  deadline: number | null;
+  questionRemainingMs: number;
+  answerStarted: boolean;
+}
+
 export interface EventLogEntry {
   id: string;
   ts: number;
@@ -104,6 +112,7 @@ export interface HostGameState {
   gameId: string;
   phase: GamePhase;
   paused: boolean;
+  questionClock: QuestionClock;
   targetScore: number;
   teams: Team[];
   map: RouteMap;
@@ -131,6 +140,7 @@ export interface PublicGameState {
   roomCode: string;
   phase: GamePhase;
   paused: boolean;
+  questionClock: QuestionClock;
   targetScore: number;
   teams: Team[];
   map: RouteMap;
@@ -179,6 +189,7 @@ export type ClientMessage =
   | { type: "host:pause"; roomCode: string }
   | { type: "host:resume"; roomCode: string }
   | { type: "host:adjust_score"; roomCode: string; teamId: string; delta: number }
+  | { type: "host:answer_started"; roomCode: string }
   | { type: "host:undo"; roomCode: string }
   | { type: "host:replace_question"; roomCode: string }
   | { type: "host:finish_route"; roomCode: string }

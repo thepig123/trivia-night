@@ -9,6 +9,7 @@ import type {
   Question,
   Team,
   Tier,
+  QuestionClock,
 } from "./types.js";
 import { TIER_POINTS } from "./types.js";
 import { generateRouteMap, legalNextNodeIds, chooseRoute, markNodeCompleted } from "./map.js";
@@ -38,6 +39,7 @@ export class GameEngine {
   private completedQuestion: Question | null = null;
   reservedFinalQuestionIds: string[] = [];
   finalCandidateIds: string[] = [];
+  clock: QuestionClock = {kind:null, remainingMs:30000, deadline:null, questionRemainingMs:30000, answerStarted:false};
   private undoHistory: {label:string;state:Record<string,unknown>}[] = [];
   revealedQuestion: PublicGameState["revealedQuestion"] = null;
 
@@ -50,7 +52,12 @@ export class GameEngine {
     this.map = generateRouteMap(this.routePool());
   }
 
-  exportState(): Record<string, unknown> { return JSON.parse(JSON.stringify(this)); }
+  exportState(): Record<string, unknown> {
+    const state=JSON.parse(JSON.stringify(this));
+    if(state.clock.deadline!==null)state.clock.remainingMs=Math.max(0,state.clock.deadline-Date.now());
+    state.clock.deadline=null;
+    return state;
+  }
 
   static restore(value: unknown): GameEngine {
     const data=value as any;
@@ -63,6 +70,7 @@ export class GameEngine {
 
   private checkpoint(label: string) {
     const state=this.exportState(); delete state.undoHistory;
+    for(const team of state.teams as Team[])delete team.photoDataUrl;
     this.undoHistory.push({label,state});
     if(this.undoHistory.length>5)this.undoHistory.shift();
   }
@@ -70,9 +78,12 @@ export class GameEngine {
     const previous=this.undoHistory.pop();if(!previous)return;
     const history=this.undoHistory;
     const presence=new Map(this.teams.map(t=>[t.id,t.connected]));
+    const photos=new Map(this.teams.map(t=>[t.id,t.photoDataUrl]));
     Object.assign(this,previous.state);
     this.undoHistory=history;
-    for(const team of this.teams)team.connected=presence.get(team.id)??false;
+    for(const team of this.teams){team.connected=presence.get(team.id)??false;team.photoDataUrl=photos.get(team.id);}
+    this.clock.deadline=null;
+    if(this.clock.kind)this.clock.remainingMs=Math.max(5000,this.clock.remainingMs);
     this.paused=true;
     this.log(`Angret: ${previous.label}. Spillet er satt på pause for kontroll.`);
   }
@@ -84,6 +95,7 @@ export class GameEngine {
     this.checkpoint("byttet spørsmål");
     replacement.status="used";
     this.activeQuestion=replacement;
+    this.resetClock();
     this.buzzOrder=[];this.lockedOutTeamIds=[];this.friendAnswers={};this.completedQuestion=null;this.revealedQuestion=null;
     if(this.phase==="final") {
       this.finalState!.questionIds[this.finalState!.currentIndex]=replacement.id;
@@ -94,6 +106,33 @@ export class GameEngine {
       this.phase="map";
     }
     this.log("Verten byttet spørsmål. Det gamle spørsmålet trekkes ikke igjen.");
+    return true;
+  }
+
+  private resetClock() { this.clock={kind:null,remainingMs:30000,deadline:null,questionRemainingMs:30000,answerStarted:false}; }
+  private freezeClock(now=Date.now()) { if(this.clock.deadline!==null)this.clock.remainingMs=Math.max(0,this.clock.deadline-now);this.clock.deadline=null; }
+  private stopClock() { this.freezeClock();this.clock.kind=null;this.clock.answerStarted=false; }
+  private armClock(kind: "question" | "answer", milliseconds:number) { this.clock.kind=kind;this.clock.remainingMs=milliseconds;this.clock.deadline=this.paused?null:Date.now()+milliseconds; }
+  private clockSnapshot() { return {...this.clock,remainingMs:this.clock.deadline===null?this.clock.remainingMs:Math.max(0,this.clock.deadline-Date.now())}; }
+  answerStarted() {
+    if(this.paused || this.questionPhase()!=="adjudicating" || !this.currentResponderId() || this.tick())return;
+    this.stopClock();this.clock.answerStarted=true;
+    this.log("Laget har begynt å svare. Svartiden er stoppet.");
+  }
+  tick(now=Date.now()): boolean {
+    if(this.paused || this.clock.deadline===null || now<this.clock.deadline)return false;
+    const kind=this.clock.kind;this.clock.remainingMs=0;this.clock.deadline=null;
+    if(kind==="answer") {
+      const responder=this.currentResponderId();if(responder)this.markWrong(responder);
+    } else if(kind==="question") {
+      if(["private_choice","friend_group"].includes(this.activeQuestion?.mode??"")) this.revealFriendAnswers();
+      else {
+        this.checkpoint("spørsmålstiden løp ut");
+        this.completedQuestion=this.activeQuestion;
+        if(this.phase==="final")this.resolveFinalQuestion();else this.setQuestionPhase("dead_question");
+        this.stopClock();this.log("Tiden er ute. Verten kan vise fasit og gå videre.");
+      }
+    }
     return true;
   }
 
@@ -208,6 +247,7 @@ export class GameEngine {
     node.questionId = question.id;
     this.activeNodeId = node.id;
     this.activeQuestion = question;
+    this.resetClock();
     this.phase = "map";
     this.buzzOrder = [];
     this.lockedOutTeamIds = [];
@@ -243,6 +283,7 @@ export class GameEngine {
   startReading() {
     if (this.paused) return;
     if (!["map", "ready"].includes(this.questionPhase()) || !this.activeQuestion) return;
+    this.resetClock();
     this.revealedQuestion = null;
     this.completedQuestion = null;
     this.setQuestionPhase("reading");
@@ -254,19 +295,22 @@ export class GameEngine {
     if (!["reading", "map", "ready"].includes(this.questionPhase()) || !this.activeQuestion) return;
     this.revealedQuestion = null;
     this.setQuestionPhase("buzzing");
+    this.armClock("question",this.clock.questionRemainingMs);
     this.buzzOrder = [];
     this.lockedOutTeamIds = [];
     this.log("Buzzerne er åpne.");
   }
 
   registerBuzz(teamId: string): boolean {
-    if (this.paused) return false;
+    if (this.paused || this.tick()) return false;
     if (!this.teams.some((team) => team.id === teamId && this.eligible(team))) return false;
     if (this.questionPhase() !== "buzzing" || ["friend_group", "private_choice"].includes(this.activeQuestion?.mode ?? "")) return false;
     if (this.lockedOutTeamIds.includes(teamId)) return false;
     if (this.buzzOrder.some((b) => b.teamId === teamId)) return false;
     this.buzzOrder.push({ teamId, serverTimestamp: Date.now() });
     if (this.currentResponderId() === teamId) {
+      this.freezeClock();this.clock.questionRemainingMs=this.clock.remainingMs;
+      this.clock.answerStarted=false;this.armClock("answer",5000);
       this.setQuestionPhase("adjudicating");
       this.log(`${this.teamName(teamId)} buzzet inn.`);
     }
@@ -284,10 +328,11 @@ export class GameEngine {
   }
 
   markCorrect(teamId: string) {
-    if (this.paused) return;
+    if (this.paused || this.tick()) return;
     if (this.questionPhase() !== "adjudicating") return;
     if (this.currentResponderId() !== teamId) return; // only the team currently up can be adjudicated
     this.checkpoint("riktig svar");
+    this.stopClock();
     if (this.phase === "final") {
       const team = this.teams.find(t => t.id === teamId)!;
       this.award(team, TIER_POINTS[this.activeQuestion!.tier]);
@@ -328,10 +373,11 @@ export class GameEngine {
   }
 
   markWrong(teamId: string) {
-    if (this.paused) return;
+    if (this.paused || this.tick()) return;
     if (this.questionPhase() !== "adjudicating") return;
     if (this.currentResponderId() !== teamId) return;
     this.checkpoint("feil svar");
+    this.stopClock();
     const team = this.teams.find(team => team.id === teamId)!;
     const points = TIER_POINTS[this.activeQuestion!.tier];
     this.award(team, -points);
@@ -345,6 +391,9 @@ export class GameEngine {
       // If another team already buzzed earlier, they become the new current
       // responder immediately; otherwise buzzers stay open for fresh buzzes.
       this.setQuestionPhase(this.currentResponderId() ? "adjudicating" : "buzzing");
+      this.clock.answerStarted=false;
+      this.clock.questionRemainingMs=Math.max(5000,this.clock.questionRemainingMs);
+      this.armClock("question",this.clock.questionRemainingMs);
     } else {
       // Nobody left to answer — question is dead, host must skip.
       if (this.phase === "final") this.resolveFinalQuestion();
@@ -362,6 +411,7 @@ export class GameEngine {
     }
     if (!this.activeNodeId || !["map", "reading", "buzzing", "adjudicating", "dead_question"].includes(this.phase)) return;
     this.checkpoint("hoppet over spørsmål");
+    this.stopClock();
     this.completedQuestion = this.activeQuestion;
     this.activeQuestion = null;
     if (this.activeNodeId) {
@@ -432,7 +482,7 @@ export class GameEngine {
   }
 
   submitFriendAnswer(teamId: string, answer: string) {
-    if (this.paused || this.questionPhase() !== "buzzing" || !["friend_group", "private_choice"].includes(this.activeQuestion?.mode ?? "")) return;
+    if (this.paused || this.tick() || this.questionPhase() !== "buzzing" || !["friend_group", "private_choice"].includes(this.activeQuestion?.mode ?? "")) return;
     const team = this.teams.find((candidate) => candidate.id === teamId && this.eligible(candidate));
     if (!team || this.friendAnswers[teamId]) return;
     if (!this.activeQuestion?.choices?.includes(answer)) return;
@@ -442,6 +492,7 @@ export class GameEngine {
   revealFriendAnswers() {
     if (this.paused || this.questionPhase() !== "buzzing" || !["friend_group", "private_choice"].includes(this.activeQuestion?.mode ?? "")) return;
     this.checkpoint("avslørte private svar");
+    this.stopClock();
     if (this.phase === "final") {
       const correct = this.teams.filter(t => this.finalState!.finalists.includes(t.id) && this.friendAnswers[t.id] === this.activeQuestion!.answer);
       for (const team of correct) this.award(team, TIER_POINTS[this.activeQuestion!.tier]);
@@ -481,6 +532,7 @@ export class GameEngine {
     const cutoff = remaining[Math.min(slots, remaining.length) - 1]?.score;
     const candidates = remaining.filter(t => cutoff !== undefined && t.score >= cutoff);
     if (candidates.length > slots) {
+      for(const team of remaining.filter(t=>t.score>cutoff!))team.qualifiedForFinal=true;
       this.finalCandidateIds = [...required, ...candidates].map(t=>t.id);
       this.activeQuestion = null; this.activeNodeId = null; this.buzzOrder = [];
       this.phase = "qualification";
@@ -513,10 +565,12 @@ export class GameEngine {
     this.activeNodeId = null; this.controllingTeamId = null;
     this.buzzOrder = []; this.lockedOutTeamIds = []; this.friendAnswers = {}; this.revealedQuestion = null;
     this.phase = "final";
+    this.resetClock();
     this.log(`Finalen begynner: ${finalists.map(id=>this.teamName(id)).join(" mot ")}. Finale-poengene starter på null.`);
   }
 
   private resolveFinalQuestion() {
+    this.stopClock();
     this.completedQuestion = this.activeQuestion;
     this.activeQuestion = null;
     this.finalState!.roundPhase = "resolved";
@@ -524,6 +578,7 @@ export class GameEngine {
   }
 
   private endFinal(note: string | null = null) {
+    this.stopClock();
     const final = this.finalState!;
     const high = Math.max(...final.finalists.map(id=>final.scores[id]));
     final.winnerIds = final.finalists.filter(id=>final.scores[id] === high);
@@ -553,15 +608,19 @@ export class GameEngine {
       this.activeQuestion = question;
       this.log("Uavgjort finale. Nytt omspillsspørsmål.");
     }
+    this.resetClock();
     final.roundPhase = "ready"; this.revealedQuestion = null; this.completedQuestion = null;
     this.buzzOrder = []; this.lockedOutTeamIds = []; this.friendAnswers = {};
   }
 
   pause() {
+    this.tick();this.freezeClock();
     this.paused = true;
   }
   resume() {
+    if(!this.paused)return;
     this.paused = false;
+    if(this.clock.kind)this.armClock(this.clock.kind,this.clock.remainingMs);
   }
 
   adjustScore(teamId: string, delta: number) {
@@ -580,6 +639,7 @@ export class GameEngine {
       gameId: this.gameId,
       phase: this.phase,
       paused: this.paused,
+      questionClock: this.clockSnapshot(),
       targetScore: this.targetScore,
       teams: this.teams,
       map: this.map,
@@ -609,6 +669,7 @@ export class GameEngine {
       roomCode: this.roomCode,
       phase: this.phase,
       paused: this.paused,
+      questionClock: this.clockSnapshot(),
       targetScore: this.targetScore,
       teams: this.teams,
       map: this.map,

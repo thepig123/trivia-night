@@ -57,10 +57,10 @@ npm install
 npm run dev
 ```
 
-Starts a WebSocket server on `ws://localhost:8080`. Every room lives in
-memory (`GameEngine` in `src/gameState.ts`) — restarting the server clears
-all rooms, matching Phase 1 scope (persistence/reconnect hardening is Phase 2
-in your doc).
+Starts a WebSocket server on `ws://localhost:8080`. Rooms are saved atomically to `server/runtime/rooms.json`, including scores,
+question usage, Final state, host/team reconnect tokens and Undo history.
+A recovered game is paused and all teams start offline until they reconnect.
+The host must press Resume after checking the restored state.
 
 ## 2. Run the web app (team controllers + host panel)
 
@@ -159,8 +159,8 @@ I picked defaults so the MVP runs; all are easy to change in one place:
 |---|---|---|
 | Map length | Infinite; five connected rows generated ahead | `server/src/map.ts` → `LOOKAHEAD_ROWS` |
 | Tier pacing | Controlled three-tier spread, shuffled per row | `server/src/map.ts` → `tiersForStep` |
-| Wrong-answer handling | locks out that team only; buzzing reopens for the rest | `GameEngine.markWrong` in `server/src/gameState.ts` |
-| Final format | placeholder: top two scores at map-end also qualify; a 5-question final pool is drawn but scoring/win-condition UI isn't built out (doc explicitly leaves this undefined) | `GameEngine.startFinal`, `web/src/pages/Host.tsx` → `FinalPanel` |
+| Wrong-answer handling | subtract full question value, allow negative scores, lock out team, reopen for eligible teams | `GameEngine.markWrong` in `server/src/gameState.ts` |
+| Final format | Five questions, separate scores starting at zero, extra questions on ties, explicit winner/shared-result screen | `GameEngine.startFinal`, `web/src/pages/Host.tsx` → `FinalPanel` |
 | Question bank | Private import; 195 reviewed candidates + 55 archived examples after import | `/questions` |
 | Team colors | 8-color vibrant palette, auto-assigned on join | `server/src/palette.ts` |
 | Elite/wager nodes | not implemented (doc: "should not block the first vertical slice") | — |
@@ -219,8 +219,8 @@ to press Play on the TV before audio is allowed.
 Edits save atomically to `server/runtime/question-bank.json`; stale revisions
 are rejected instead of overwriting someone else's changes. Uploads live in
 `server/runtime/media/`, and the generated editor key is stored alongside them.
-This folder is ignored by Git and survives server restarts. Room progress is
-still in memory; question-bank persistence does not restore live rooms.
+This folder is ignored by Git and survives server restarts. Room progress and reconnect tokens are stored separately in `rooms.json`
+in the same runtime folder. Back up that folder to preserve the live game too.
 
 - Export JSON for the full bank and evening packs. Import previews new,
   updated and unchanged questions by stable ID before applying. Pack IDs are
@@ -253,10 +253,48 @@ roguelike expedition: weathered map surfaces, torch-gold highlights, muted
 gem tones, encounter sigils, and tier bounties. It takes inspiration from the
 feeling of climbing a dangerous branching map without copying any game assets.
 
-## What's next (from your Phase 2/3)
+## Host recovery controls and timing
 
-- Harden the existing token-based reconnect/resume handling, including
-  multiple connections for one team and recovery after server restarts.
-- Wire up a real Final format once you've decided it.
-- Elite/wager nodes.
-- Implement the remaining draft-only question mechanics and progressive reveals.
+- At least two teams must join before the first question starts.
+- The host can override a legal route choice if the controlling phone is offline.
+- Presence is counted across all connections for a team; closing one tab does
+  not disconnect another. Socket heartbeats detect stale connections. When the
+  last host connection closes, the game pauses until the host resumes it.
+- **Angre** restores up to five scoring/route/question actions and pauses the
+  game for inspection. Current connection status and team photos are preserved.
+- **Bytt aktivt spørsmål** swaps in an unused question, clears buzzes/private
+  answers and returns to reading preparation. The old question stays used.
+- Buzzing has a 30-second server clock. A buzz freezes the main clock and starts
+  five seconds to **begin** answering. Click **Laget har begynt å svare** as soon
+  as speech starts; it stops that clock so longer spoken answers are allowed.
+  Correct/Wrong can also be used directly. Silence incurs the normal penalty.
+- After a wrong answer, remaining teams get at least five seconds. With no
+  eligible teams, or when question time runs out, the host reveals/skips.
+  Private-choice questions reveal automatically on timeout.
+- Pause and restart recovery freeze clocks. Undo grants at least five seconds
+  on a restored running clock. Incoming commands are validated at runtime;
+  malformed fields cannot turn scores into strings/NaN or bypass role checks.
+
+## Final rules
+
+A room reserves up to five questions (at most one third of a small bank) for
+its Final. Both finalists start at zero Final points; route scores are retained
+separately. Other teams spectate. Ordinary questions use ± their tier value;
+private-choice questions award the full value to every correct finalist, with
+zero for incorrect answers. Host reading, buzz, timer, pause, replacement,
+Undo and reveal controls work in the Final too.
+
+After five questions (or a shorter available set), the highest Final score wins.
+A tie draws additional unused questions. In sudden death, a sole correct team
+wins immediately; all-wrong / tied private answers can lead to another question.
+If no new questions remain, the result explicitly says **delt seier** instead
+of inventing a winner. A tie at the route qualification cutoff is different:
+the host runs an oral tiebreak and selects two finalists; already qualified
+teams and teams strictly above the cutoff keep their places.
+
+## Remaining development
+
+- Implement closest-number, sorting, list challenges, wagers, progressive
+  image reveals and precision minigames currently available only as drafts.
+- Run a visual/mobile/LAN playtest on the actual TV and phones.
+- Recheck and supply media for the selected question bank before the event.

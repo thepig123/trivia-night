@@ -74,10 +74,14 @@ function refreshPresence(roomCode: string, teamId: string) {
   rooms.get(roomCode)?.setConnected(teamId, connected);
 }
 function identify(info: ClientInfo, role: Role, roomCode: string, teamId: string | null = null) {
-  const oldRoom = info.roomCode, oldTeam = info.teamId;
+  const oldRoom = info.roomCode, oldTeam = info.teamId, oldRole = info.role;
   info.role = role; info.roomCode = roomCode; info.teamId = teamId;
   if (oldRoom && oldTeam && (oldRoom !== roomCode || oldTeam !== teamId)) {
     refreshPresence(oldRoom, oldTeam); broadcast(oldRoom);
+  }
+  if (oldRoom && oldRole === "host" && (role !== "host" || oldRoom !== roomCode)) {
+    if (![...clients.values()].some(c=>c.role==="host"&&c.roomCode===oldRoom&&c.ws.readyState===WebSocket.OPEN)) rooms.get(oldRoom)?.pause();
+    broadcast(oldRoom);
   }
   if (teamId) refreshPresence(roomCode, teamId);
 }
@@ -148,7 +152,7 @@ wss.on("connection", (ws) => {
         }
 
         case "host:add_team": {
-          const room = requireHost(ws, info, msg.roomCode); if (!room || room.teams.length >= 5) return;
+          const room = requireHost(ws, info, msg.roomCode); if (!room || room.phase !== "lobby" || room.teams.length >= 5) return;
           room.addTeam(`Team ${room.teams.length + 1}`); room.teams.at(-1)!.connected = false; broadcast(msg.roomCode); break;
         }
         case "host:remove_team": {
@@ -234,6 +238,7 @@ wss.on("connection", (ws) => {
         case "host:start_reading": {
           const room = requireHost(ws, info, msg.roomCode);
           if (!room) return;
+          if (room.phase === "lobby" && room.teams.length < 2) return sendError(ws,"Minst to lag må være med før spillet starter.");
           // First activation from START has no node yet — activate on demand.
           if (!room.activeNodeId && room.phase === "lobby") {
             room.activateCurrentNode();
@@ -299,6 +304,10 @@ wss.on("connection", (ws) => {
           break;
         }
 
+        case "host:answer_started": {
+          const room = requireHost(ws, info, msg.roomCode); if (!room) return;
+          room.answerStarted(); broadcast(msg.roomCode); break;
+        }
         case "host:undo": {
           const room = requireHost(ws, info, msg.roomCode); if (!room) return;
           room.undo(); broadcast(msg.roomCode); break;
@@ -350,8 +359,17 @@ wss.on("connection", (ws) => {
       broadcast(info.roomCode);
     }
     clients.delete(ws);
+    if (info?.role === "host" && info.roomCode) {
+      if (![...clients.values()].some(c=>c.role==="host"&&c.roomCode===info.roomCode&&c.ws.readyState===WebSocket.OPEN)) rooms.get(info.roomCode)?.pause();
+      broadcast(info.roomCode);
+    }
   });
 });
+
+const clockTicker=setInterval(()=>{
+  for(const [code,room] of rooms)if(room.tick())broadcast(code);
+},200);
+clockTicker.unref();
 
 httpServer.listen(PORT, () => {
   const address = httpServer.address();

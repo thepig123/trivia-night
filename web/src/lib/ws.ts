@@ -106,7 +106,9 @@ export function useGameSocket(role: ClientRole): UseGameSocket {
   }, [role]);
 
   const send = useCallback((msg: ClientMessage) => {
-    wsRef.current?.readyState === WebSocket.OPEN && wsRef.current.send(JSON.stringify(msg));
+    if(wsRef.current?.readyState !== WebSocket.OPEN){setLastError("Ingen forbindelse til serveren. Vent på tilkobling.");return;}
+    setLastError(null);
+    wsRef.current.send(JSON.stringify(msg));
   }, []);
 
   return { connected, publicState, hostState, lastError, roomCode, teamId, send };
