@@ -4,3 +4,5 @@ dist/
 *.tsbuildinfo
 .godot/
 *.tmp
+
+server/runtime/

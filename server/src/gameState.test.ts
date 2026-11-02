@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { GameEngine } from "./gameState.js";
+import { GameEngine as BaseGameEngine } from "./gameState.js";
+import questions from "./data/questions.json" with { type: "json" };
+import type { Question } from "./types.js";
+// Ordinary-round fixtures must not randomly draw a private-answer example.
+class GameEngine extends BaseGameEngine {
+  constructor(code: string) { super(code, questions.filter(q => q.mode !== "friend_group") as Question[]); }
+}
 import { TIER_POINTS } from "./types.js";
 
 function activeGame() {

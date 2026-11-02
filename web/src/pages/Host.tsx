@@ -3,7 +3,7 @@ import { useGameSocket } from "../lib/ws";
 import { TierLegend } from "../components/RouteMap";
 
 export default function Host() {
-  const { connected, hostState, roomCode, send } = useGameSocket("host");
+  const { connected, hostState, roomCode, send, lastError } = useGameSocket("host");
   const [created, setCreated] = useState(false);
 
   useEffect(() => {
@@ -17,7 +17,9 @@ export default function Host() {
           Vertspanel
         </h1>
         <p className="brand-sub">{connected ? "Tilkoblet serveren" : "Kobler til…"}</p>
+        {lastError && <div className="error-banner">{lastError}</div>}
         <div className="panel">
+          <a className="btn ghost" href="/questions">Åpne spørsmålsbanken</a>
           <button className="btn violet" disabled={!connected} onClick={() => send({ type: "host:create_room" })}>
             Opprett nytt rom
           </button>
@@ -36,6 +38,7 @@ function AdminPanel({ state, roomCode, send }: any) {
   return (
     <div className="admin-shell">
       <aside className="admin-sidebar">
+        <a href="/questions" target="_blank" rel="noreferrer">Spørsmålsbank ↗</a>
         <div>
           <div style={{ fontSize: "0.7rem", opacity: 0.6, textAlign: "center" }}>ROMKODE</div>
           <div className="room-code">{roomCode}</div>
@@ -140,6 +143,7 @@ function AdminPanel({ state, roomCode, send }: any) {
             </div>
 
             <div className="control-row">
+              {state.canRevealQuestion && <button className="btn teal" onClick={() => rc("host:reveal_question")}>Vis fasit på TV</button>}
               {state.phase === "map" && (
                 <button className="btn teal" onClick={() => rc("host:start_reading")}>
                   Les opp spørsmålet
@@ -155,7 +159,7 @@ function AdminPanel({ state, roomCode, send }: any) {
                   Åpne buzzere
                 </button>
               )}
-              {state.phase === "buzzing" && state.activeQuestion?.mode === "friend_group" && <button className="btn teal" onClick={() => rc("host:reveal_friend_answers")}>Avslør svar ({Object.keys(state.friendAnswers).length}/{state.teams.filter((t: any) => !t.qualifiedForFinal).length})</button>}
+              {state.phase === "buzzing" && ["friend_group", "private_choice"].includes(state.activeQuestion?.mode) && <button className="btn teal" onClick={() => rc("host:reveal_friend_answers")}>Avslør svar ({Object.keys(state.friendAnswers).length}/{state.teams.filter((t: any) => !t.qualifiedForFinal).length})</button>}
               <button className="btn ghost" onClick={() => rc("host:skip_question")}>
                 Hopp over spørsmål
               </button>

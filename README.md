@@ -145,27 +145,10 @@ an equal-width cell, so three to five teams cannot overlap or resize each other.
 The current responder is highlighted inside its cell without moving layout.
 Tier values remain on the phone UI rather than occupying permanent TV space.
 
-Questions with `mode: "friend_group"` use simultaneous selection instead of a
-buzzer. Every active team privately chooses from the configured player roster;
-the host reveals when ready, all correct teams score, and the lowest-scoring
-correct non-finalist receives route control. Five starter examples are included
-in `questions.json` and are intended to be replaced with real group stories.
-The current build is Norwegian-first (Bokmål), and this category is presented
-as `Gutta` throughout the map and question data.
-
-## Planned non-text question modes
-
-The protocol should later grow beyond ordinary text trivia without forcing all
-modes into the buzzer flow. Ideas currently recorded for design after the
-standard loop is stable:
-
-- `Hvem sa det?` — identify which person sent or said a quoted message
-- image reveal — identify an emoji, movie, character, book cover, object, or person
-- audio/video clues
-- cropped or progressively revealed images
-
-These will use an explicit question `mode` plus optional media and choices, so
-the host panel, phones, and TV can render the correct interaction independently.
+Category and interaction are independent. A Gutta question can use text/emoji,
+image/audio buzzer, or private multiple choice just like any other category.
+Private-choice answers stay hidden until the host reveals; every correct team
+scores and the trailing correct non-finalist receives route control.
 
 ## Decisions I made to get to a playable build
 
@@ -178,32 +161,88 @@ I picked defaults so the MVP runs; all are easy to change in one place:
 | Tier pacing | Controlled three-tier spread, shuffled per row | `server/src/map.ts` → `tiersForStep` |
 | Wrong-answer handling | locks out that team only; buzzing reopens for the rest | `GameEngine.markWrong` in `server/src/gameState.ts` |
 | Final format | placeholder: top two scores at map-end also qualify; a 5-question final pool is drawn but scoring/win-condition UI isn't built out (doc explicitly leaves this undefined) | `GameEngine.startFinal`, `web/src/pages/Host.tsx` → `FinalPanel` |
-| Question budget | 50 questions shipped (5 categories × 5 tiers × 2), matching your primary target | `server/src/data/questions.json` |
+| Question bank | Private import; 195 reviewed candidates + 55 archived examples after import | `/questions` |
 | Team colors | 8-color vibrant palette, auto-assigned on join | `server/src/palette.ts` |
 | Elite/wager nodes | not implemented (doc: "should not block the first vertical slice") | — |
 
-## Editing questions
+## Question bank: `/questions`
 
-`server/src/data/questions.json` is a flat array matching the `Question`
-type in `server/src/types.ts` (category, tier, prompt, answer, accepted
-alternatives, host note, status). Add, edit, or bulk-replace this file to
-build your real 50-75 question set — no code changes needed.
+Start the app, open `http://localhost:5173/questions`, and enter the editor key
+printed in the server terminal. This key protects the full bank, including
+answers; it is separate from room codes and is kept only in the browser tab's
+session storage. You can also open the bank from the host panel.
 
-### Media and visual clue placeholders
+The repository starts with an empty bank. Import your private
+`Trivia_Night_Reviewed_Bank.json` via **Importer CSV / JSON**, review the
+summary, and apply it. This file was converted from
+`Trivia_Night_Question_Bank_Reviewed.xlsx` and is deliberately kept out of Git:
 
-Questions can optionally include a `media` object. The TV renders it inside
-the question card. Audio and video stop automatically when somebody buzzes
-because the card closes at that point.
+195 candidates with original IDs, PICK/MAYBE/UNREVIEWED decisions, notes,
+accepted answers, sources, asset briefs and original format descriptions.
+All 127 picks are in the imported evening pack; only 91 are initially playable.
+Media-dependent and unsupported formats remain drafts/need media. The 55 old
+examples are archived and excluded. `questions.json` is now only a legacy
+engine-test fixture; live rooms use the bank.
 
-```json
-"media": { "type": "audio", "url": "/media/song-sample.mp3" }
-"media": { "type": "image", "url": "/media/movie-poster.jpg" }
-"media": { "type": "image", "url": "/media/face.jpg", "effect": "pixelated" }
-```
+### Prepare an evening
 
-Emoji riddles and rhyme clues need no special mode: put the emoji sequence or
-rhyme in `prompt`. Media files can be added later under `web/public/media/`;
-the current question content is intentionally placeholder data.
+1. Search/filter by category, selection, format or readiness.
+2. Create, edit or duplicate questions. Category is free text; use Gutta for
+   friend-specific questions. Choose the interaction separately.
+3. For supported formats, fill the prompt, answer, accepted alternatives and
+   private host notes. Upload image/audio clues and optional reveal media.
+4. Preview TV, phone and host views. Mark PICK + Klar only when ready.
+5. Include questions with the pack checkboxes. Create an empty pack or copy
+   an existing one for another evening. The active pack supplies new rooms.
+
+Supported now: text/emoji buzzer, image/audio buzzer and private multiple choice.
+Closest-number, sorting, list challenges, wagers, progressive images and timer
+challenges can be authored and saved as drafts, but cannot be marked ready.
+Multiple choice needs at least two distinct choices and an exact matching
+correct answer. The editor and server both validate ready questions.
+
+Each new room gets a deep copy of its active pack at **room creation**, not
+start-reading. Bank edits afterward affect future rooms only. Maps derive
+category/tier choices from that room's selected pool. If an advertised pair
+runs out, activation falls back to remaining questions and updates the node's
+actual category/tier/points. Creating a room with no playable questions gives
+an actionable error.
+
+The host can reveal the previous question's answer and optional reveal media
+on TV with **Vis fasit på TV**. The next reading clears it. Private-choice
+rounds reveal automatically. Audio pauses on buzz/game pause and resumes after
+an incorrect answer without restarting the clip. Browsers may require someone
+to press Play on the TV before audio is allowed.
+
+### Persistence, import and backup
+
+Edits save atomically to `server/runtime/question-bank.json`; stale revisions
+are rejected instead of overwriting someone else's changes. Uploads live in
+`server/runtime/media/`, and the generated editor key is stored alongside them.
+This folder is ignored by Git and survives server restarts. Room progress is
+still in memory; question-bank persistence does not restore live rooms.
+
+- Export JSON for the full bank and evening packs. Import previews new,
+  updated and unchanged questions by stable ID before applying. Pack IDs are
+  also preserved; matching packs update and unrelated packs remain.
+- Export CSV to edit in Excel/Sheets, then import CSV back. Original QUESTION
+  BANK sheet column names are supported too; save that tab as UTF-8 CSV.
+  Quoted commas, Unicode and multiline cells are preserved. XLSX is not a
+  direct upload format.
+- Imports upsert; they never delete unrelated questions. A CSV import does
+  not automatically add new questions to an evening pack.
+- JSON/CSV exports do **not** contain media bytes. Back up/copy the whole
+  runtime folder to preserve uploads and the key when moving computers.
+
+Override `BANK_DATA_DIR` for a different persistent directory, or
+`BANK_ADMIN_KEY` for an explicit editor key. Keep runtime files out of Git.
+Image/audio uploads are limited to 15 MB. Accepted uploads: PNG, JPEG, GIF,
+WebP, MP3, WAV, OGG and M4A.
+
+Vite development and preview proxy `/api` and `/media` to port 8080. With a
+custom backend, set `TRIVIA_BACKEND_URL` for the proxy and `VITE_WS_URL` for
+WebSockets. A production reverse proxy must route both HTTP paths and the
+WebSocket connection to the backend.
 
 ## Visual direction
 
@@ -220,5 +259,4 @@ feeling of climbing a dangerous branching map without copying any game assets.
   multiple connections for one team and recovery after server restarts.
 - Wire up a real Final format once you've decided it.
 - Elite/wager nodes.
-- Question status tooling (mark retired/needs-revision from the admin panel
-  instead of only in the JSON file).
+- Implement the remaining draft-only question mechanics and progressive reveals.

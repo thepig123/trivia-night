@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { CSSProperties } from "react";
 import RouteMap from "../components/RouteMap";
 import { useGameSocket } from "../lib/ws";
@@ -43,9 +43,10 @@ export default function Tv() {
 
       <div className="tv-stage">
         <RouteMap map={publicState.map} legalNodeIds={publicState.legalNextNodeIds} rowsAhead={6} />
-        {showQuestionCard && (
+        {publicState.revealedQuestion && <section className="tv-question" aria-label="Fasit"><div className="tv-question__content"><p>{publicState.revealedQuestion.prompt}</p><p><b>{publicState.revealedQuestion.answer}</b></p>{publicState.revealedQuestion.media?.type === "image" && <img className="tv-question__image" src={publicState.revealedQuestion.media.url} alt="Fasitbilde"/>}{publicState.revealedQuestion.media?.type === "audio" && <audio controls src={publicState.revealedQuestion.media.url}/>}</div></section>}
+        {!publicState.revealedQuestion && showQuestionCard && (
           <section className={`tv-question ${showQuestionContent ? "" : "tv-question--blank"}`} aria-label="Aktivt spørsmål">
-            {showQuestionContent && <QuestionContent question={publicState.activeQuestionPublic!} />}
+            <div style={{visibility:showQuestionContent?"visible":"hidden"}}><QuestionContent key={publicState.activeNodeId} question={publicState.activeQuestionPublic!} paused={publicState.paused || !showQuestionContent} /></div>
           </section>
         )}
       </div>
@@ -65,14 +66,22 @@ export default function Tv() {
   );
 }
 
-function QuestionContent({ question }: { question: PublicQuestion }) {
+function QuestionContent({ question, paused }: { question: PublicQuestion; paused: boolean }) {
+  const audio = useRef<HTMLAudioElement>(null);
+  const video = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    for (const media of [audio.current, video.current]) {
+      if (!media) continue;
+      if (paused) media.pause(); else void media.play().catch(() => { /* Browser may require the TV operator to press Play. */ });
+    }
+  }, [paused, question.media?.url]);
   const media = question.media;
   return (
     <div className="tv-question__content">
       {question.prompt && <p>{question.prompt}</p>}
-      {media?.type === "audio" && media.url && <audio className="tv-question__audio" src={media.url} autoPlay controls />}
+      {media?.type === "audio" && media.url && <audio ref={audio} className="tv-question__audio" src={media.url} autoPlay controls />}
       {media?.type === "image" && media.url && <img className={`tv-question__image tv-question__image--${media.effect ?? "none"}`} src={media.url} alt="Visuell ledetråd" />}
-      {media?.type === "video" && media.url && <video className="tv-question__video" src={media.url} autoPlay controls />}
+      {media?.type === "video" && media.url && <video ref={video} className="tv-question__video" src={media.url} autoPlay controls />}
       {media && !media.url && <div className="tv-question__placeholder">MEDIEPLASSHOLDER</div>}
     </div>
   );

@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "revision": 1,
+  "questions": [],
+  "packs": [
+    {
+      "id": "default",
+      "name": "Min f\u00f8rste kveld",
+      "questionIds": []
+    }
+  ],
+  "activePackId": "default"
+}

@@ -1,5 +1,7 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { nanoid } from "nanoid";
+import { httpServer, bankStore } from "./bankHttp.js";
+import { playableQuestions } from "./bank.js";
 import { GameEngine } from "./gameState.js";
 import type { ClientMessage, ServerMessage } from "./types.js";
 
@@ -69,7 +71,7 @@ function broadcast(roomCode: string) {
   }
 }
 
-const wss = new WebSocketServer({ port: PORT });
+const wss = new WebSocketServer({ server: httpServer });
 
 wss.on("connection", (ws) => {
   clients.set(ws, { ws, role: null, roomCode: null, teamId: null });
@@ -89,7 +91,9 @@ wss.on("connection", (ws) => {
       switch (msg.type) {
         case "host:create_room": {
           const code = makeRoomCode();
-          const room = new GameEngine(code);
+          const pool = playableQuestions(bankStore.get());
+          if (!pool.length) return sendError(ws, "Kveldspakken har ingen klare, valgte spørsmål. Åpne spørsmålsbanken først.");
+          const room = new GameEngine(code, pool);
           room.initializeDefaultTeams();
           rooms.set(code, room);
           const sessionToken = nanoid(32);
@@ -264,6 +268,10 @@ wss.on("connection", (ws) => {
           broadcast(msg.roomCode);
           break;
         }
+        case "host:reveal_question": {
+          const room = requireHost(ws, info, msg.roomCode); if (!room) return;
+          room.revealQuestion(); broadcast(msg.roomCode); break;
+        }
         case "host:reveal_friend_answers": {
           const room = requireHost(ws, info, msg.roomCode); if (!room) return;
           room.revealFriendAnswers(); broadcast(msg.roomCode); break;
@@ -289,4 +297,7 @@ wss.on("connection", (ws) => {
   });
 });
 
-console.log(`TRIVIA NIGHT server listening on ws://localhost:${PORT}`);
+httpServer.listen(PORT, () => {
+  const address = httpServer.address();
+  console.log(`TRIVIA NIGHT server listening on ws://localhost:${typeof address === "object" && address ? address.port : PORT}`);
+});

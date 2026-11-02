@@ -608,3 +608,57 @@ button {
 .tv-team--active { background: linear-gradient(180deg, color-mix(in srgb, var(--team-color) 60%, #211b19), #211b19); box-shadow: inset 0 8px 0 var(--yellow), inset 0 0 28px color-mix(in srgb, var(--team-color) 45%, transparent), 0 0 24px var(--team-color); }
 .tv-team--active h2, .tv-team--active span { color: var(--yellow); }
 .tv-team--locked { filter: grayscale(0.72) brightness(0.62); }
+
+/* Private question preparation workspace. */
+.bank-shell { max-width: 1680px; margin: auto; padding: 28px; }
+.bank-login { max-width: 520px; margin: 10vh auto; padding: 32px; }
+.bank-shell h1 { font-size: clamp(1.8rem,3vw,3rem); margin: 10px 0; }
+.bank-shell a,.bank-login a {color:var(--teal);}
+.bank-heading {display:flex;justify-content:space-between;gap:24px;align-items:center;margin-bottom:24px;}
+.bank-shell p {line-height:1.6;}
+.bank-shell small {display:block;opacity:.72;font-size:.76rem;line-height:1.5;}
+.bank-shell button,.bank-file {background:var(--bg-panel,#282039);border:1px solid #ffffff30;border-radius:9px;padding:9px 13px;color:var(--cream,#fff);cursor:pointer;font:inherit;font-size:.82rem;}
+.bank-shell button:hover,.bank-file:hover {border-color:var(--teal);}
+.bank-shell button:disabled {opacity:.4;cursor:default;}
+.bank-shell button[aria-pressed=true] {background:#14736c;}
+.bank-shell input:not([type=checkbox]):not([type=file]),.bank-shell select,.bank-shell textarea {width:100%;box-sizing:border-box;background:#141020;color:#faf5e9;border:1px solid #ffffff35;padding:10px;border-radius:7px;font:inherit;font-size:.85rem;}
+.bank-shell input[type=checkbox] {accent-color:var(--teal);width:19px;height:19px;vertical-align:middle;}
+.bank-shell textarea {min-height:85px;resize:vertical;}
+.bank-shell label {display:block;font-size:.8rem;line-height:1.8;}
+.bank-shell .panel {max-width:none;}
+.bank-actions {display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.bank-pack {display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:18px;}
+.bank-pack strong {display:block;color:var(--teal);margin:12px 0 4px;}
+.bank-pack-create {display:flex;gap:8px;flex-wrap:wrap;align-content:center;}
+.bank-toolbar {display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+.bank-toolbar>input {flex:2;min-width:240px;}
+.bank-toolbar>select {flex:1;min-width:130px;}
+.bank-transfer {margin-bottom:18px;}
+.bank-file {position:relative;overflow:hidden;}
+.bank-file input {position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;}
+.bank-workspace--editing {display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,530px);gap:24px;align-items:start;}
+.bank-table-wrap {overflow:auto;max-height:75vh;border:1px solid #ffffff20;border-radius:12px;}
+.bank-table {width:100%;border-collapse:collapse;font-size:.83rem;}
+.bank-table th {position:sticky;top:0;background:#2c2341;z-index:1;text-align:left;padding:14px;}
+.bank-table td {padding:13px;border-bottom:1px solid #ffffff15;vertical-align:top;}
+.bank-table td:nth-child(3) {min-width:180px;max-width:450px;line-height:1.5;}
+.bank-table td:last-child button {margin-bottom:6px;}
+.bank-archived {opacity:.55;}
+.bank-pill {display:inline-block;border-radius:6px;padding:3px 7px;font-size:.7rem;background:#ffffff15;}
+.bank-pill--pick {background:#164f43;color:#a4ffe0;}
+.bank-pill--maybe {background:#655010;color:#ffe2a4;}
+.bank-editor {display:flex;flex-direction:column;gap:14px;}
+.bank-fields {display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.bank-editor fieldset {border:1px solid #ffffff25;border-radius:8px;overflow-wrap:anywhere;}
+.bank-editor fieldset label {margin-bottom:15px;}
+.bank-notice {background:#164f43;padding:14px;border-radius:8px;margin-bottom:16px;}
+.bank-validation {border-left:3px solid #ffc96b;padding:4px 14px;background:#ffc96b15;font-size:.83rem;}
+.bank-import {margin-bottom:20px;}
+.bank-import button {margin:12px 8px 0 0;}
+.bank-preview {padding:22px;background:#110c20;border:1px solid #ffffff30;border-radius:12px;overflow:hidden;}
+.bank-preview>p {font-size:1.25rem;white-space:pre-wrap;}
+.bank-preview img {width:100%;max-height:240px;object-fit:contain;}
+.bank-preview audio {width:100%;}
+.bank-preview .buzzer {width:130px;height:130px;font-size:1.3rem;}
+.bank-preview button {margin:6px;}
+@media(max-width:1000px){.bank-workspace--editing{display:flex;flex-direction:column-reverse;}.bank-workspace>*{width:100%;box-sizing:border-box;}.bank-heading{align-items:start;flex-direction:column;}.bank-pack{grid-template-columns:1fr;}.bank-shell{padding:16px;}}

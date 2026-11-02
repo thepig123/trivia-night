@@ -25,7 +25,7 @@ export class GameEngine {
   paused = false;
   targetScore = TARGET_SCORE;
   teams: Team[] = [];
-  map = generateRouteMap();
+  map: ReturnType<typeof generateRouteMap>;
   activeNodeId: string | null = null;
   activeQuestion: Question | null = null;
   buzzOrder: BuzzEntry[] = [];
@@ -35,11 +35,14 @@ export class GameEngine {
   eventLog: EventLogEntry[] = [];
   friendAnswers: Record<string, string> = {};
   questionPool: Question[];
+  private completedQuestion: Question | null = null;
+  revealedQuestion: PublicGameState["revealedQuestion"] = null;
 
-  constructor(roomCode: string) {
+  constructor(roomCode: string, questions: Question[] = questionsData as Question[]) {
     this.roomCode = roomCode;
     this.gameId = nanoid(10);
-    this.questionPool = JSON.parse(JSON.stringify(questionsData)) as Question[];
+    this.questionPool = JSON.parse(JSON.stringify(questions)) as Question[];
+    this.map = generateRouteMap(this.questionPool);
   }
 
   private log(message: string) {
@@ -128,7 +131,7 @@ export class GameEngine {
       const opening = legalNextNodeIds(this.map);
       if (opening.length === 0) return;
       const pick = opening[Math.floor(Math.random() * opening.length)];
-      this.map = chooseRoute(this.map, pick);
+      this.map = chooseRoute(this.map, pick, this.questionPool);
       this.log("Åpningsruten ble valgt automatisk.");
       node = this.map.nodes.find((n) => n.id === this.map.selectedPath[this.map.selectedPath.length - 1]);
     }
@@ -143,6 +146,7 @@ export class GameEngine {
       return;
     }
     question.status = "used";
+    this.friendAnswers = {};
     if (question.mode === "friend_group") {
       const playerNames = [...new Set(this.teams.flatMap((team) => team.players).filter(Boolean))];
       question.choices = [...new Set([...(question.choices ?? []), ...playerNames, question.answer].filter(Boolean))];
@@ -174,6 +178,8 @@ export class GameEngine {
   startReading() {
     if (this.paused) return;
     if (this.phase !== "map") return;
+    this.revealedQuestion = null;
+    this.completedQuestion = null;
     this.phase = "reading";
     this.log("Verten begynte å lese spørsmålet.");
   }
@@ -190,7 +196,7 @@ export class GameEngine {
   registerBuzz(teamId: string): boolean {
     if (this.paused) return false;
     if (!this.teams.some((team) => team.id === teamId && team.connected && !team.qualifiedForFinal)) return false;
-    if (this.phase !== "buzzing") return false;
+    if (this.phase !== "buzzing" || ["friend_group", "private_choice"].includes(this.activeQuestion?.mode ?? "")) return false;
     if (this.lockedOutTeamIds.includes(teamId)) return false;
     if (this.buzzOrder.some((b) => b.teamId === teamId)) return false;
     this.buzzOrder.push({ teamId, serverTimestamp: Date.now() });
@@ -223,6 +229,7 @@ export class GameEngine {
     this.log(`${team.name} svarte riktig (+${TIER_POINTS[node.tier]}). Poeng: ${team.score}.`);
     this.map = markNodeCompleted(this.map, node.id);
     this.controllingTeamId = team.id;
+    this.completedQuestion = this.activeQuestion;
     this.activeQuestion = null;
     this.activeNodeId = null;
 
@@ -235,7 +242,7 @@ export class GameEngine {
     if (team.qualifiedForFinal) {
       const legal = legalNextNodeIds(this.map);
       if (legal.length) {
-        this.map = chooseRoute(this.map, legal[Math.floor(Math.random() * legal.length)]);
+        this.map = chooseRoute(this.map, legal[Math.floor(Math.random() * legal.length)], this.questionPool);
         this.controllingTeamId = null;
         this.activateCurrentNode();
       }
@@ -268,6 +275,7 @@ export class GameEngine {
   skipQuestion() {
     if (this.paused) return;
     if (!this.activeNodeId || !["map", "reading", "buzzing", "adjudicating"].includes(this.phase)) return;
+    this.completedQuestion = this.activeQuestion;
     this.activeQuestion = null;
     if (this.activeNodeId) {
       this.map = markNodeCompleted(this.map, this.activeNodeId);
@@ -286,7 +294,7 @@ export class GameEngine {
       return;
     }
     const pick = legal[Math.floor(Math.random() * legal.length)];
-    this.map = chooseRoute(this.map, pick);
+    this.map = chooseRoute(this.map, pick, this.questionPool);
     this.controllingTeamId = null;
     this.log("Neste rute ble valgt automatisk.");
     this.activateCurrentNode();
@@ -298,7 +306,7 @@ export class GameEngine {
     if (this.controllingTeamId !== teamId) return;
     const legal = legalNextNodeIds(this.map);
     if (!legal.includes(nodeId)) return;
-    this.map = chooseRoute(this.map, nodeId);
+    this.map = chooseRoute(this.map, nodeId, this.questionPool);
     this.controllingTeamId = null;
     this.phase = "map";
     this.log(`${this.teamName(teamId)} valgte neste rute.`);
@@ -326,17 +334,19 @@ export class GameEngine {
   }
 
   submitFriendAnswer(teamId: string, answer: string) {
-    if (this.paused || this.phase !== "buzzing" || this.activeQuestion?.mode !== "friend_group") return;
+    if (this.paused || this.phase !== "buzzing" || !["friend_group", "private_choice"].includes(this.activeQuestion?.mode ?? "")) return;
     const team = this.teams.find((candidate) => candidate.id === teamId && candidate.connected && !candidate.qualifiedForFinal);
     if (!team || this.friendAnswers[teamId]) return;
-    if (!this.activeQuestion.choices?.includes(answer)) return;
+    if (!this.activeQuestion?.choices?.includes(answer)) return;
     this.friendAnswers[teamId] = answer;
   }
 
   revealFriendAnswers() {
-    if (this.phase !== "buzzing" || this.activeQuestion?.mode !== "friend_group") return;
+    if (this.paused || this.phase !== "buzzing" || !["friend_group", "private_choice"].includes(this.activeQuestion?.mode ?? "")) return;
     const node = this.map.nodes.find((candidate) => candidate.id === this.activeNodeId);
     if (!node?.tier) return;
+    this.completedQuestion = this.activeQuestion;
+    this.revealQuestion();
     const correct = this.teams.filter((team) => this.friendAnswers[team.id] === this.activeQuestion?.answer);
     for (const team of correct) { team.score += TIER_POINTS[node.tier]; this.checkQualification(team); }
     if (this.finalState) return;
@@ -346,8 +356,14 @@ export class GameEngine {
     if (controller) { this.controllingTeamId = controller.id; this.phase = "route_choice"; }
     else {
       const legal = legalNextNodeIds(this.map);
-      if (legal.length) { this.map = chooseRoute(this.map, legal[Math.floor(Math.random() * legal.length)]); this.activateCurrentNode(); }
+      if (legal.length) { this.map = chooseRoute(this.map, legal[Math.floor(Math.random() * legal.length)], this.questionPool); this.activateCurrentNode(); }
     }
+  }
+
+  revealQuestion() {
+    if (!this.completedQuestion) return;
+    const q = this.completedQuestion;
+    this.revealedQuestion = {prompt:q.prompt, answer:q.answer, media:q.revealMedia ?? q.media};
   }
 
   private finishRoutePhase() {
@@ -432,6 +448,7 @@ export class GameEngine {
       questionPoolRemaining: this.questionPool.filter((q) => q.status === "unused").length,
       questionPoolTotal: this.questionPool.length,
       friendAnswers: this.friendAnswers,
+      canRevealQuestion: this.completedQuestion !== null,
     };
   }
 
@@ -456,6 +473,7 @@ export class GameEngine {
       finalState: this.finalState,
       legalNextNodeIds: this.phase === "route_choice" ? legalNextNodeIds(this.map) : [],
       friendAnswersSubmitted: Object.keys(this.friendAnswers),
+      revealedQuestion: this.revealedQuestion,
     };
   }
 }

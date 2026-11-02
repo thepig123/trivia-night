@@ -84,7 +84,7 @@ function TeamController({ roomCode, teamId, publicState, send }: any) {
   const iAmFirst = publicState?.currentResponderId === teamId;
   const canBuzz = !publicState?.paused && phase === "buzzing" && !iBuzzed && !iAmLocked;
   const isControlling = !publicState?.paused && phase === "route_choice" && publicState?.controllingTeamId === teamId;
-  const isFriendRound = publicState?.activeQuestionPublic?.mode === "friend_group";
+  const isFriendRound = ["friend_group", "private_choice"].includes(publicState?.activeQuestionPublic?.mode);
   const friendSubmitted = publicState?.friendAnswersSubmitted?.includes(teamId);
   const qualified = me?.qualifiedForFinal;
 

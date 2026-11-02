@@ -25,9 +25,10 @@ export interface Question {
   acceptedAlternatives: string[];
   hostNote?: string;
   media?: { type: "image" | "audio" | "video"; url: string; effect?: "none" | "pixelated" | "blurred" };
+  revealMedia?: { type: "image" | "audio"; url: string };
   status: QuestionStatus;
   lastUsedSession?: string;
-  mode?: "buzzer" | "friend_group";
+  mode?: "buzzer" | "friend_group" | "private_choice";
   choices?: string[];
 }
 
@@ -111,6 +112,7 @@ export interface HostGameState {
   questionPoolRemaining: number;
   questionPoolTotal: number;
   friendAnswers: Record<string, string>;
+  canRevealQuestion: boolean;
 }
 
 /** Sanitized state broadcast to the TV client and team controllers — no answers. */
@@ -127,7 +129,7 @@ export interface PublicGameState {
     tier: Tier;
     points: number;
     prompt: string;
-    mode?: "buzzer" | "friend_group";
+    mode?: "buzzer" | "friend_group" | "private_choice";
     choices?: string[];
     media?: Question["media"];
   } | null;
@@ -138,6 +140,7 @@ export interface PublicGameState {
   finalState: FinalState | null;
   legalNextNodeIds: string[];
   friendAnswersSubmitted: string[];
+  revealedQuestion: { prompt: string; answer: string; media?: Question["media"] } | null;
 }
 
 // ---------- Client -> Server messages ----------
@@ -164,7 +167,8 @@ export type ClientMessage =
   | { type: "host:resume"; roomCode: string }
   | { type: "host:adjust_score"; roomCode: string; teamId: string; delta: number }
   | { type: "host:advance_final"; roomCode: string }
-  | { type: "host:reveal_friend_answers"; roomCode: string };
+  | { type: "host:reveal_friend_answers"; roomCode: string }
+  | { type: "host:reveal_question"; roomCode: string };
 
 // ---------- Server -> Client messages ----------
 
