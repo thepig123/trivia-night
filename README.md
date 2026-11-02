@@ -253,6 +253,11 @@ roguelike expedition: weathered map surfaces, torch-gold highlights, muted
 gem tones, encounter sigils, and tier bounties. It takes inspiration from the
 feeling of climbing a dangerous branching map without copying any game assets.
 
+New host rooms require the editor key (remembered from `/questions` in the
+same tab). Without it, a player cannot create another host room to inspect the
+selected question bank. Existing host/team reconnect tokens still resume
+their own rooms without re-entering the editor key.
+
 ## Host recovery controls and timing
 
 - At least two teams must join before the first question starts. The host can

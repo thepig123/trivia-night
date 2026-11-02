@@ -14,6 +14,7 @@ if (!adminKey) {
   try { adminKey = readFileSync(keyPath, "utf8").trim(); }
   catch { adminKey = randomBytes(24).toString("hex"); writeFileSync(keyPath, adminKey, { mode: 0o600 }); }
 }
+export function isEditorKey(value: unknown): boolean { return typeof value === "string" && value === adminKey; }
 console.log(`Spørsmålsbank: /questions — redaktørnøkkel: ${adminKey}`);
 async function body(req: IncomingMessage) {
   const chunks: Buffer[] = []; let size = 0;

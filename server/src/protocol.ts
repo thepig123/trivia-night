@@ -2,7 +2,7 @@ import type { ClientMessage } from "./types.js";
 
 const fields: Record<string,string[]> = {
   "host:answer_started":[], "host:undo":[], "host:replace_question":[],
-  "host:create_room":[], "host:add_team":[], "host:remove_team":["teamId"], "host:update_team":["teamId","name","players"],
+  "host:create_room":["adminKey"], "host:add_team":[], "host:remove_team":["teamId"], "host:update_team":["teamId","name","players"],
   "host:set_target":["targetScore"], "host:resume_room":["sessionToken"], "team:join":["teamName","players","photoDataUrl?"],
   "team:resume":["teamId","sessionToken"], "team:buzz":["teamId"], "team:choose_route":["teamId","nodeId"],
   "host:choose_route":["nodeId"], "team:submit_friend_answer":["teamId","answer"], "tv:hello":[],
@@ -28,6 +28,7 @@ export function validateMessage(value: unknown): ClientMessage {
       case "teamIds":valid=Array.isArray(item)&&item.length===2&&item.every(id)&&new Set(item).size===2;break;
       case "teamName":case "name":valid=text(item,24);break;
       case "players":valid=Array.isArray(item)&&item.length===2&&item.every(v=>text(v,24));break;
+      case "adminKey":valid=text(item,512);break;
       case "sessionToken":valid=text(item,128);break;
       case "answer":valid=text(item,20000);break;
       case "photoDataUrl":valid=typeof item==="string"&&item.length<=450000&&/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(item);break;

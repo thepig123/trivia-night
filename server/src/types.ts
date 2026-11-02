@@ -168,7 +168,7 @@ export interface PublicGameState {
 // ---------- Client -> Server messages ----------
 
 export type ClientMessage =
-  | { type: "host:create_room" }
+  | { type: "host:create_room"; adminKey: string }
   | { type: "host:choose_route"; roomCode: string; nodeId: string }
   | { type: "host:add_team"; roomCode: string }
   | { type: "host:remove_team"; roomCode: string; teamId: string }

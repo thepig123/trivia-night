@@ -6,6 +6,7 @@ import { TierLegend } from "../components/RouteMap";
 export default function Host() {
   const { connected, hostState, roomCode, send, lastError } = useGameSocket("host");
   const [created, setCreated] = useState(false);
+  const [editorKey,setEditorKey]=useState(()=>sessionStorage.getItem("trivia-bank-key")??"");
 
   useEffect(() => {
     if (roomCode) setCreated(true);
@@ -21,7 +22,8 @@ export default function Host() {
         {lastError && <div className="error-banner">{lastError}</div>}
         <div className="panel">
           <a className="btn ghost" href="/questions">Åpne spørsmålsbanken</a>
-          <button className="btn violet" disabled={!connected} onClick={() => send({ type: "host:create_room" })}>
+          <label className="field">Redaktørnøkkel<input type="password" value={editorKey} onChange={e=>setEditorKey(e.target.value)} autoComplete="off" placeholder="Fra serverterminalen"/></label>
+          <button className="btn violet" disabled={!connected || !editorKey} onClick={() => {sessionStorage.setItem("trivia-bank-key",editorKey);send({ type: "host:create_room", adminKey:editorKey });}}>
             Opprett nytt rom
           </button>
         </div>

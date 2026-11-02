@@ -40,7 +40,7 @@ test("bank API protects answers, persists uploads and edits, and freezes room co
     assert.equal((await fetch(base+"/api/bank",{headers,method:"PUT",body:JSON.stringify(bank)})).status,400);
     response=await fetch(base+"/api/bank/media",{headers,method:"POST",body:JSON.stringify({mime:"image/png",data:"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1EAAAAASUVORK5CYII="})});
     assert.equal(response.status,201);const media=await response.json() as any;assert.equal((await fetch(base+media.url)).status,200);
-    const host=await connect(base);sockets.push(host);let next=message(host,"state:host");const created=message(host,"room:created");host.send(JSON.stringify({type:"host:create_room"}));const state=(await next).state;const hostIdentity=await created;
+    const host=await connect(base);sockets.push(host);const denied=message(host,"error");host.send(JSON.stringify({type:"host:create_room",adminKey:"wrong-key"}));assert.match((await denied).message,/redaktørnøkkel/);let next=message(host,"state:host");const created=message(host,"room:created");host.send(JSON.stringify({type:"host:create_room",adminKey:"integration-test-key"}));const state=(await next).state;const hostIdentity=await created;
     assert.equal(state.questionPoolTotal,1);assert.ok(state.map.nodes.filter((n:any)=>n.tier).every((n:any)=>n.category==="Gutta HTTP"));
     saved.questions.find((q:any)=>q.id==="GUT-HTTP").prompt="Endret etter rommet ble opprettet";
     assert.equal((await fetch(base+"/api/bank",{headers,method:"PUT",body:JSON.stringify(saved)})).status,200);
@@ -71,7 +71,7 @@ test("team presence survives closing one of two resumed connections; TV cannot u
     const bank=await(await fetch(base+"/api/bank",{headers})).json() as any;
     bank.questions=[{id:"ONE",category:"Test",tier:"T5",prompt:"Test?",answer:"Ja",acceptedAlternatives:[],status:"unused",format:"text",selection:"PICK",readiness:"ready",source:"test",sourceUrl:"",assetBrief:"",notes:"",originalFormat:""}];bank.packs[0].questionIds=["ONE"];
     await fetch(base+"/api/bank",{headers,method:"PUT",body:JSON.stringify(bank)});
-    const host=await connect(base);sockets.push(host);let next=message(host,"state:host");host.send(JSON.stringify({type:"host:create_room"}));const code=(await next).state.roomCode;
+    const host=await connect(base);sockets.push(host);let next=message(host,"state:host");host.send(JSON.stringify({type:"host:create_room",adminKey:"integration-test-key"}));const code=(await next).state.roomCode;
     const a=await connect(base);sockets.push(a);let joined=message(a,"team:joined");a.send(JSON.stringify({type:"team:join",roomCode:code,teamName:"A",players:["P1","P2"]}));const identity=await joined;
     const b=await connect(base);sockets.push(b);joined=message(b,"team:joined");b.send(JSON.stringify({type:"team:resume",roomCode:code,teamId:identity.teamId,sessionToken:identity.sessionToken}));await joined;
     next=message(host,"state:host");a.close();assert.equal((await next).state.teams[0].connected,true);
@@ -94,7 +94,7 @@ test("four real controllers complete route recovery, undo, qualification and a s
     const bank=await(await fetch(base+"/api/bank",{headers})).json() as any;
     bank.questions=Array.from({length:12},(_,i)=>({id:`MATCH${i}`,category:"Generelt",tier:"T5",prompt:`Testspørsmål ${i}`,answer:"Svar",acceptedAlternatives:[],status:"unused",format:"text",selection:"PICK",readiness:"ready",source:"test",sourceUrl:"",assetBrief:"",notes:"",originalFormat:""}));bank.packs[0].questionIds=bank.questions.map((q:any)=>q.id);
     await fetch(base+"/api/bank",{headers,method:"PUT",body:JSON.stringify(bank)});
-    const host=await connect(base);sockets.push(host);let next=message(host,"state:host");host.send(JSON.stringify({type:"host:create_room"}));let state=(await next).state;const code=state.roomCode;
+    const host=await connect(base);sockets.push(host);let next=message(host,"state:host");host.send(JSON.stringify({type:"host:create_room",adminKey:"integration-test-key"}));let state=(await next).state;const code=state.roomCode;
     const rpc=async(type:string,extra:object={},predicate:(m:any)=>boolean=()=>true)=>{const result=message(host,"state:host",predicate);host.send(JSON.stringify({type,roomCode:code,...extra}));return (await result).state;};
     const teams:any[]=[];
     for(let i=0;i<4;i++){const ws=await connect(base);sockets.push(ws);const joined=message(ws,"team:joined");ws.send(JSON.stringify({type:"team:join",roomCode:code,teamName:`Lag ${i}`,players:[`Spiller ${i}a`,`Spiller ${i}b`]}));teams.push({ws,...await joined});}

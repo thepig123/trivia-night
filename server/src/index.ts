@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { nanoid } from "nanoid";
-import { httpServer, bankStore } from "./bankHttp.js";
+import { httpServer, bankStore, isEditorKey } from "./bankHttp.js";
 import { playableQuestions } from "./bank.js";
 import { validateMessage } from "./protocol.js";
 import { RoomStore } from "./roomStore.js";
@@ -136,6 +136,7 @@ wss.on("connection", (ws) => {
     try {
       switch (msg.type) {
         case "host:create_room": {
+          if (!isEditorKey(msg.adminKey)) return sendError(ws,"Gyldig redaktørnøkkel kreves for å opprette et vertsrom.");
           const code = makeRoomCode();
           const pool = playableQuestions(bankStore.get());
           if (!pool.length) return sendError(ws, "Kveldspakken har ingen klare, valgte spørsmål. Åpne spørsmålsbanken først.");
