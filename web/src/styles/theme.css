@@ -662,3 +662,8 @@ button {
 .bank-preview .buzzer {width:130px;height:130px;font-size:1.3rem;}
 .bank-preview button {margin:6px;}
 @media(max-width:1000px){.bank-workspace--editing{display:flex;flex-direction:column-reverse;}.bank-workspace>*{width:100%;box-sizing:border-box;}.bank-heading{align-items:start;flex-direction:column;}.bank-pack{grid-template-columns:1fr;}.bank-shell{padding:16px;}}
+
+.tv-results {align-self:center;text-align:center;max-width:900px;margin:auto;padding:32px;color:var(--cream);}
+.tv-results h1 {font-size:clamp(2rem,6vw,5rem);color:var(--yellow);}
+.tv-results h2 {font-size:clamp(1.5rem,3vw,3rem);}
+.tv-final-title {position:absolute;top:12px;left:0;right:0;text-align:center;letter-spacing:.2em;font-size:1.5rem;color:var(--yellow);}

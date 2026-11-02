@@ -78,15 +78,17 @@ async function compressTeamPhoto(file: File): Promise<string> {
 
 function TeamController({ roomCode, teamId, publicState, send, connected, lastError }: any) {
   const me = publicState?.teams.find((t: any) => t.id === teamId);
-  const phase = publicState?.phase;
+  const inFinal = !!publicState?.finalState;
+  const isFinalist = publicState?.finalState?.finalists.includes(teamId);
+  const phase = publicState?.phase === "final" ? publicState.finalState.roundPhase : publicState?.phase;
   const iBuzzed = publicState?.buzzOrder?.some((b: any) => b.teamId === teamId);
   const iAmLocked = publicState?.lockedOutTeamIds?.includes(teamId);
   const iAmFirst = publicState?.currentResponderId === teamId;
-  const canBuzz = connected && !publicState?.paused && phase === "buzzing" && !iBuzzed && !iAmLocked;
+  const canBuzz = connected && !publicState?.paused && phase === "buzzing" && (!inFinal || isFinalist) && !iBuzzed && !iAmLocked;
   const isControlling = connected && !publicState?.paused && phase === "route_choice" && publicState?.controllingTeamId === teamId;
   const isFriendRound = ["friend_group", "private_choice"].includes(publicState?.activeQuestionPublic?.mode);
   const friendSubmitted = publicState?.friendAnswersSubmitted?.includes(teamId);
-  const qualified = me?.qualifiedForFinal;
+  const qualified = me?.qualifiedForFinal && !inFinal;
 
   let buzzerClass = "buzzer";
   let buzzerLabel = "BUZZ";
@@ -112,12 +114,12 @@ function TeamController({ roomCode, teamId, publicState, send, connected, lastEr
         <div style={{ textAlign: "right" }}>
           <div style={{ fontSize: "0.7rem", opacity: 0.6 }}>POENG</div>
           <div style={{ fontFamily: "var(--font-display)", fontSize: "1.8rem", color: "var(--yellow)" }}>
-            {me?.score ?? 0}
+            {(isFinalist ? publicState.finalState.scores[teamId] : me?.score) ?? 0}
           </div>
         </div>
       </div>
 
-      {qualified ? <div className="qualified-card"><strong>FINALIST</strong><span>Finaleplassen er sikret. Følg kampen mellom de andre lagene.</span></div> : isControlling ? (
+      {publicState?.phase === "ended" ? <div className="qualified-card"><strong>{publicState.finalState.winnerIds.includes(teamId) ? "🏆 GRATULERER!" : "SPILLET ER FERDIG"}</strong><span>{publicState.finalState.winnerIds.map((id:string)=>publicState.teams.find((t:any)=>t.id===id)?.name).join(" og ")} vant.</span></div> : inFinal && !isFinalist ? <div className="qualified-card"><strong>FINALE</strong><span>Følg finalen på TV.</span></div> : qualified ? <div className="qualified-card"><strong>FINALIST</strong><span>Finaleplassen er sikret. Følg kampen mellom de andre lagene.</span></div> : isControlling ? (
         <div className="map-choice-wrap">
           <h3>Velg rute</h3>
           <p>Velg mellom de lysende kategoriene.</p>
@@ -160,6 +162,12 @@ function TeamController({ roomCode, teamId, publicState, send, connected, lastEr
 
 function phaseLabel(phase: string | undefined) {
   switch (phase) {
+    case "ready":
+      return "Finalespørsmålet er klart";
+    case "resolved":
+      return "Venter på neste finalespørsmål";
+    case "qualification":
+      return "Verten avgjør finaleplassen";
     case "lobby":
       return "Venter på at verten skal starte";
     case "map":

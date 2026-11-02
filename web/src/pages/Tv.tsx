@@ -29,8 +29,9 @@ export default function Tv() {
     );
   }
 
-  const showQuestionCard = ["reading", "buzzing", "adjudicating"].includes(publicState.phase) && publicState.activeQuestionPublic;
-  const showQuestionContent = publicState.phase !== "adjudicating";
+  const questionPhase = publicState.phase === "final" ? publicState.finalState?.roundPhase : publicState.phase;
+  const showQuestionCard = ["reading", "buzzing", "adjudicating"].includes(questionPhase ?? "") && publicState.activeQuestionPublic;
+  const showQuestionContent = questionPhase !== "adjudicating";
 
   return (
     <main className="tv-screen">
@@ -42,7 +43,7 @@ export default function Tv() {
       </header>
 
       <div className="tv-stage">
-        <RouteMap map={publicState.map} legalNodeIds={publicState.legalNextNodeIds} rowsAhead={6} />
+        {publicState.phase === "ended" ? <section className="tv-results"><h2>🏆 {publicState.finalState!.winnerIds.length>1?"Delt seier":"Vinner"}</h2><h1>{publicState.finalState!.winnerIds.map(id=>publicState.teams.find(t=>t.id===id)?.name).join(" og ")}</h1><p>{publicState.finalState!.resultNote}</p></section> : publicState.phase === "qualification" ? <section className="tv-results"><h2>Omspill om finaleplassen</h2><p>Verten avgjør hvem som går videre.</p></section> : publicState.phase === "final" ? <div className="tv-final-title">{publicState.finalState?.suddenDeath?"OMSPILL":"FINALE"}</div> : <RouteMap map={publicState.map} legalNodeIds={publicState.legalNextNodeIds} rowsAhead={6} />}
         {publicState.revealedQuestion && <section className="tv-question" aria-label="Fasit"><div className="tv-question__content"><p>{publicState.revealedQuestion.prompt}</p><p><b>{publicState.revealedQuestion.answer}</b></p>{publicState.revealedQuestion.media?.type === "image" && <img className="tv-question__image" src={publicState.revealedQuestion.media.url} alt="Fasitbilde"/>}{publicState.revealedQuestion.media?.type === "audio" && <audio controls src={publicState.revealedQuestion.media.url}/>}</div></section>}
         {!publicState.revealedQuestion && showQuestionCard && (
           <section className={`tv-question ${showQuestionContent ? "" : "tv-question--blank"}`} aria-label="Aktivt spørsmål">
@@ -55,7 +56,7 @@ export default function Tv() {
         {publicState.teams.map((team) => (
           <TeamBanner
             key={team.id}
-            team={team}
+            team={publicState.finalState?.finalists.includes(team.id) ? {...team,score:publicState.finalState.scores[team.id]} : team}
             targetScore={publicState.targetScore}
             isResponder={publicState.currentResponderId === team.id}
             isLocked={publicState.lockedOutTeamIds.includes(team.id)}

@@ -170,35 +170,6 @@ test("second qualifier remains in the Final instead of returning to route choice
   assert.ok(game.activeQuestion);
 });
 
-test("provisional Final advances and ends cleanly", () => {
-  const game = new GameEngine("TEST3");
-  const first = game.addTeam("First");
-  const second = game.addTeam("Second");
-  first.qualifiedForFinal = true;
-  second.qualifiedForFinal = true;
-
-  // Reaching the route limit invokes the same Final setup path.
-  game.map.currentStep = game.map.steps;
-  game.activateCurrentNode();
-  // Use the public transition by qualifying a fresh game instead; startFinal
-  // itself is deliberately private, so exercise it through a correct answer.
-  const qualifying = new GameEngine("TEST4");
-  const a = qualifying.addTeam("A");
-  const b = qualifying.addTeam("B");
-  a.qualifiedForFinal = true;
-  qualifying.activateCurrentNode();
-  const node = qualifying.map.nodes.find((candidate) => candidate.id === qualifying.activeNodeId)!;
-  b.score = qualifying.targetScore - TIER_POINTS[node.tier!];
-  qualifying.startReading();
-  qualifying.openBuzzers();
-  qualifying.registerBuzz(b.id);
-  qualifying.markCorrect(b.id);
-
-  const count = qualifying.finalState!.questionIds.length;
-  for (let i = 0; i < count; i++) qualifying.advanceFinal();
-  assert.equal(qualifying.phase, "ended");
-  assert.equal(qualifying.activeQuestion, null);
-});
 
 
 test("exhausted tier falls back to available questions with truthful points", () => {
@@ -263,4 +234,59 @@ test("target changes are rejected during an active question", () => {
   const {game}=activeGame();game.startReading();const before=game.targetScore;
   game.setTargetScore(2000);assert.equal(game.targetScore,before);
   game.pause();game.setTargetScore(2000);assert.equal(game.targetScore,before);
+});
+
+function finalGame(count=12) {
+  const pool: Question[]=Array.from({length:count},(_,i)=>({id:`F${i}`,category:"Test",tier:"T5",prompt:`Spørsmål ${i}`,answer:"Ja",acceptedAlternatives:[],status:"unused",mode:"buzzer"}));
+  const game=new BaseGameEngine("FINAL",pool);const a=game.addTeam("A"),b=game.addTeam("B"),c=game.addTeam("C");
+  a.score=400;b.score=200;c.score=-200;
+  game.finishRoutePhase();assert.equal(game.phase,"final");return {game,a,b,c};
+}
+
+test("five-question final awards separate scores, excludes spectators and declares a winner",()=>{
+  const {game,a,b,c}=finalGame();const count=game.finalState!.questionIds.length;
+  assert.equal(count,5);assert.equal(game.toPublicState().activeQuestionPublic?.prompt,game.activeQuestion?.prompt);
+  game.advanceFinal();assert.equal(game.finalState!.currentIndex,0);
+  for(let i=0;i<count;i++) {
+    game.startReading();game.openBuzzers();assert.equal(game.registerBuzz(c.id),false);
+    assert.equal(game.registerBuzz(a.id),true);
+    if(i===1){game.markWrong(a.id);assert.equal(game.finalState!.roundPhase,"buzzing");game.registerBuzz(b.id);game.markCorrect(b.id);}
+    else game.markCorrect(a.id);
+    assert.equal(game.finalState!.roundPhase,"resolved");game.advanceFinal();
+  }
+  assert.equal(game.phase,"ended");assert.deepEqual(game.finalState!.winnerIds,[a.id]);
+  assert.equal(game.finalState!.scores[a.id],600);assert.equal(game.finalState!.scores[b.id],200);
+  assert.equal(a.score,400);assert.equal(b.score,200);
+});
+
+test("tied final draws sudden-death questions and a correct answer settles it",()=>{
+  const {game,a}=finalGame();const count=game.finalState!.questionIds.length;
+  for(let i=0;i<count;i++){game.skipQuestion();game.advanceFinal();}
+  assert.equal(game.phase,"final");assert.equal(game.finalState!.suddenDeath,true);
+  assert.equal(game.finalState!.questionIds.length,count+1);
+  game.startReading();game.openBuzzers();game.registerBuzz(a.id);game.markCorrect(a.id);
+  assert.equal(game.phase,"ended");assert.deepEqual(game.finalState!.winnerIds,[a.id]);
+});
+
+test("ties at the route cutoff require an explicit host decision",()=>{
+  const game=new GameEngine("TIE");const a=game.addTeam("A"),b=game.addTeam("B"),c=game.addTeam("C");
+  a.qualifiedForFinal=true;a.score=10000;b.score=400;c.score=400;
+  game.finishRoutePhase();assert.equal(game.phase,"qualification");
+  game.selectFinalists([b.id,c.id]);assert.equal(game.phase,"qualification");
+  game.selectFinalists([a.id,c.id]);assert.equal(game.phase,"final");assert.deepEqual(game.finalState!.finalists,[a.id,c.id]);
+});
+
+test("route exhaustion preserves a reserved final set and an empty tied final ends explicitly shared",()=>{
+  const {game,a,b}=finalGame();assert.ok(game.reservedFinalQuestionIds.length>0);
+  const empty=new BaseGameEngine("EMPTYFINAL",[]);empty.addTeam("A");empty.addTeam("B");
+  empty.finishRoutePhase();empty.advanceFinal();assert.equal(empty.phase,"ended");assert.equal(empty.finalState!.winnerIds.length,2);assert.match(empty.finalState!.resultNote!,/delt seier/);
+});
+
+test("private multiple choice also works for finalists and never accepts spectator answers",()=>{
+  const {game,a,b,c}=finalGame();
+  game.activeQuestion!.mode="private_choice";game.activeQuestion!.choices=["Ja","Nei"];
+  game.startReading();game.openBuzzers();game.submitFriendAnswer(a.id,"Ja");game.submitFriendAnswer(b.id,"Nei");game.submitFriendAnswer(c.id,"Ja");
+  assert.deepEqual(game.toPublicState().friendAnswersSubmitted,[a.id,b.id]);
+  game.revealFriendAnswers();assert.equal(game.finalState!.scores[a.id],200);assert.equal(game.finalState!.scores[b.id],0);assert.equal(game.finalState!.roundPhase,"resolved");
+  assert.equal(game.toPublicState().revealedQuestion?.answer,"Ja");
 });

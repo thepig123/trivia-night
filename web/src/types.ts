@@ -72,6 +72,7 @@ export type GamePhase =
   | "dead_question" // no eligible teams remain; host can reveal or skip
   | "adjudicating" // host is judging a spoken answer
   | "route_choice" // controlling team is choosing the next node
+  | "qualification" // tied cutoff requires host adjudication
   | "final" // final round in progress
   | "ended";
 
@@ -85,6 +86,10 @@ export interface FinalState {
   questionIds: string[];
   currentIndex: number;
   scores: Record<string, number>;
+  roundPhase: "ready" | "reading" | "buzzing" | "adjudicating" | "resolved";
+  winnerIds: string[];
+  suddenDeath: boolean;
+  resultNote: string | null;
 }
 
 export interface EventLogEntry {
@@ -115,6 +120,7 @@ export interface HostGameState {
   friendAnswers: Record<string, string>;
   canRevealQuestion: boolean;
   legalNextNodeIds: string[];
+  finalCandidateIds: string[];
 }
 
 /** Sanitized state broadcast to the TV client and team controllers — no answers. */
@@ -141,6 +147,7 @@ export interface PublicGameState {
   controllingTeamId: string | null;
   finalState: FinalState | null;
   legalNextNodeIds: string[];
+  finalCandidateIds: string[];
   friendAnswersSubmitted: string[];
   revealedQuestion: { prompt: string; answer: string; media?: Question["media"] } | null;
 }
@@ -169,6 +176,8 @@ export type ClientMessage =
   | { type: "host:pause"; roomCode: string }
   | { type: "host:resume"; roomCode: string }
   | { type: "host:adjust_score"; roomCode: string; teamId: string; delta: number }
+  | { type: "host:finish_route"; roomCode: string }
+  | { type: "host:select_finalists"; roomCode: string; teamIds: string[] }
   | { type: "host:advance_final"; roomCode: string }
   | { type: "host:reveal_friend_answers"; roomCode: string }
   | { type: "host:reveal_question"; roomCode: string };

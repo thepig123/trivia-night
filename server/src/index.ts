@@ -218,7 +218,7 @@ wss.on("connection", (ws) => {
           const room = requireHost(ws, info, msg.roomCode);
           if (!room) return;
           // First activation from START has no node yet — activate on demand.
-          if (!room.activeNodeId) {
+          if (!room.activeNodeId && room.phase === "lobby") {
             room.activateCurrentNode();
           }
           room.startReading();
@@ -282,6 +282,14 @@ wss.on("connection", (ws) => {
           break;
         }
 
+        case "host:finish_route": {
+          const room = requireHost(ws, info, msg.roomCode); if (!room) return;
+          room.finishRoutePhase(); broadcast(msg.roomCode); break;
+        }
+        case "host:select_finalists": {
+          const room = requireHost(ws, info, msg.roomCode); if (!room) return;
+          room.selectFinalists(msg.teamIds); broadcast(msg.roomCode); break;
+        }
         case "host:advance_final": {
           const room = requireHost(ws, info, msg.roomCode);
           if (!room) return;
