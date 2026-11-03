@@ -116,6 +116,7 @@ function AdminPanel({ state, roomCode, send, connected, lastError, testControlle
       <main className="admin-main">
         {!connected && <div role="status" className="error-banner">Mistet forbindelsen. Venter på serveren…</div>}
         {lastError && <div role="alert" className="error-banner">{lastError}</div>}
+        {state.paused && <div role="status" className="error-banner"><p>Spillet er satt på pause. Trykk Fortsett spillet for å åpne spillerkontrollene igjen.</p><button className="btn teal" disabled={!connected} onClick={() => rc("host:resume")}>Fortsett spillet</button></div>}
         {state.phase === "route_choice" && <div className="card"><h3>Verten kan velge rute</h3><p>Bruk dette hvis laget trenger hjelp eller har mistet forbindelsen.</p><div className="control-row">{state.legalNextNodeIds.map((id: string) => {const node=state.map.nodes.find((n: any)=>n.id===id);return <button key={id} disabled={!connected||state.paused} onClick={()=>rc("host:choose_route",{nodeId:id})}>{node.category} · {questionPoints(node)} poeng</button>;})}</div></div>}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h2 style={{ textTransform: "uppercase", letterSpacing: "0.04em" }}>

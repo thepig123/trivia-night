@@ -463,3 +463,36 @@ test("a correct route answer automatically reveals fasit and the host can toggle
   game.revealQuestion();
   assert.equal(game.toPublicState().revealedQuestion?.answer, question.answer);
 });
+
+test("end round, undo and resume restore route ownership, scores, pool and a working player choice", () => {
+  const {game, team} = activeGame();
+  game.addTeam("Beta");
+  game.startReading(); game.openBuzzers(); game.registerBuzz(team.id); game.markCorrect(team.id);
+  const before = game.toPublicState();
+  const pool = JSON.stringify(game.questionPool);
+  assert.equal(before.currentResponderId, null);
+  assert.deepEqual(before.buzzOrder, []);
+  const points = team.score;
+  game.finishRoutePhase();
+  assert.equal(game.phase, "final");
+  game.undo();
+  assert.equal(game.phase, "route_choice");
+  assert.equal(game.paused, true);
+  assert.equal(game.finalState, null);
+  assert.equal(game.controllingTeamId, team.id);
+  assert.equal(game.teams[0].score, points);
+  assert.equal(game.teams[0].qualifiedForFinal, false);
+  assert.equal(JSON.stringify(game.questionPool), pool);
+  assert.deepEqual(game.toPublicState().legalNextNodeIds, before.legalNextNodeIds);
+  const target = before.legalNextNodeIds[0];
+  game.chooseRoute(team.id, target);
+  assert.equal(game.phase, "route_choice"); // paused actions remain blocked
+  game.resume();
+  game.chooseRoute(game.teams[1].id, target);
+  assert.equal(game.phase, "route_choice"); // only the controller may choose
+  game.chooseRoute(team.id, target);
+  assert.equal(game.phase, "map");
+  assert.equal(game.activeNodeId, target);
+  assert.ok(game.activeQuestion);
+  assert.equal(game.toPublicState().currentResponderId, null);
+});

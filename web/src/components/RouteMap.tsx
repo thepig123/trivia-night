@@ -1,3 +1,4 @@
+import React from "react";
 import type { MapNode, RouteMap as RouteMapState, Tier } from "../types";
 import type { CSSProperties } from "react";
 import { TIER_POINTS, isGutta, questionPoints } from "../types";

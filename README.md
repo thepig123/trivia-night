@@ -298,6 +298,10 @@ rooms, and the question bank is not changed by creating a test room.
   last host connection closes, the game pauses until the host resumes it.
 - **Angre** restores up to five scoring/route/question actions and pauses the
   game for inspection. Current connection status and team photos are preserved.
+  Both host and phones show a pause notice near the top. The host clicks
+  **Fortsett spillet** to re-enable controls; a restored route picker stays
+  visible during pause and becomes clickable after resume. Correct answers
+  clear the old responder highlight before route selection.
 - **Bytt aktivt spørsmål** swaps in an unused question, clears buzzes/private
   answers and returns to reading preparation. The old question stays used.
 - Questions have a 15-second server clock, without a visible countdown on TV,

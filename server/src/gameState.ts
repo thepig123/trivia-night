@@ -365,6 +365,8 @@ export class GameEngine {
     this.log(`${team.name} svarte riktig (+${questionPoints(node)}). Poeng: ${team.score}.`);
     this.map = markNodeCompleted(this.map, node.id);
     this.controllingTeamId = team.id;
+    this.buzzOrder = [];
+    this.lockedOutTeamIds = [];
     this.completedQuestion = this.activeQuestion;
     this.activeQuestion = null;
     this.activeNodeId = null;

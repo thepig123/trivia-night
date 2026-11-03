@@ -117,7 +117,22 @@ test("four real controllers complete route recovery, undo, qualification and a s
     assert.equal(cleared.revealedQuestion, null);
     assert.equal(cleared.questionCardDismissed, true);
     assert.ok(cleared.legalNextNodeIds.length);
-    state=await rpc("host:choose_route",{nodeId:state.legalNextNodeIds[0]});assert.equal(state.phase,"map");
+    const choicesBeforeUndo = state.legalNextNodeIds;
+    const controllerBeforeUndo = state.controllingTeamId;
+    state = await rpc("host:finish_route");
+    state = await rpc("host:undo");
+    assert.equal(state.phase, "route_choice");
+    assert.equal(state.paused, true);
+    assert.equal(state.controllingTeamId, controllerBeforeUndo);
+    assert.equal(state.currentResponderId, null);
+    assert.deepEqual(state.legalNextNodeIds, choicesBeforeUndo);
+    state = await rpc("host:resume");
+    const playerChoice = message(host, "state:host", m=>m.state.phase === "map");
+    teams[0].ws.send(JSON.stringify({type:"team:choose_route",roomCode:code,teamId:teams[0].teamId,nodeId:choicesBeforeUndo[0]}));
+    state = (await playerChoice).state;
+    assert.equal(state.activeNodeId, choicesBeforeUndo[0]);
+    assert.ok(state.activeQuestion);
+
     state=await rpc("host:finish_route");assert.equal(state.phase,"qualification");
     state=await rpc("host:select_finalists",{teamIds:[teams[0].teamId,teams[1].teamId]});assert.equal(state.phase,"final");
     const count=state.finalState.questionIds.length;
