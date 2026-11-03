@@ -1,13 +1,14 @@
 import { localTestingHost, parseTestControllers } from "./testControllers";
 import { tvReconnectMessage } from "./tvSession";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ClientMessage, HostGameState, PublicGameState, ServerMessage, TestControllerSession } from "../types";
+import type { ClientMessage, HostGameState, PublicGameState, ServerMessage, TestControllerSession, SavedEventSummary } from "../types";
 
 // Follow the browser's hostname so phones on the LAN reach the host laptop.
 // Set VITE_WS_URL in web/.env when the backend uses a different host or port.
 const WS_URL = import.meta.env.VITE_WS_URL ?? `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:8080`;
 
 export interface UseGameSocket {
+  events: SavedEventSummary[];
   connected: boolean;
   testControllers: TestControllerSession[];
   publicState: PublicGameState | null;
@@ -21,6 +22,7 @@ export interface UseGameSocket {
 type ClientRole = "host" | "team" | "tv";
 
 export function useGameSocket(role: ClientRole): UseGameSocket {
+  const [events,setEvents] = useState<SavedEventSummary[]>([]);
   const [testControllers,setTestControllers]=useState<TestControllerSession[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const [connected, setConnected] = useState(false);
@@ -85,6 +87,8 @@ export function useGameSocket(role: ClientRole): UseGameSocket {
         if (cancelled || wsRef.current !== socket) return;
         const msg: ServerMessage = JSON.parse(event.data);
         switch (msg.type) {
+          case "host:events":
+            setEvents(msg.events); break;
           case "room:created":
             setTestControllers(msg.testControllers ?? []);
             if(msg.testControllers)sessionStorage.setItem("trivia-test-controllers",JSON.stringify(msg.testControllers));
@@ -137,7 +141,7 @@ export function useGameSocket(role: ClientRole): UseGameSocket {
     wsRef.current.send(JSON.stringify(msg));
   }, []);
 
-  return { connected, testControllers, publicState, hostState, lastError, roomCode, teamId, send };
+  return { events, connected, testControllers, publicState, hostState, lastError, roomCode, teamId, send };
 }
 
 function readSession(storage: Storage, key: string): { roomCode: string; sessionToken: string; teamId?: string } | null {

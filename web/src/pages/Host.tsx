@@ -1,3 +1,4 @@
+import HostFocus from "../components/HostFocus";
 import { questionPoints, isGutta } from "../types";
 import { useEffect, useState, useRef } from "react";
 import { localTestingHost, testControllerUrl } from "../lib/testControllers";
@@ -5,7 +6,7 @@ import { useGameSocket } from "../lib/ws";
 import { TierLegend } from "../components/RouteMap";
 
 export default function Host() {
-  const { connected, hostState, roomCode, send, lastError, testControllers } = useGameSocket("host");
+  const { connected, hostState, roomCode, send, lastError, testControllers, events } = useGameSocket("host");
   const pendingController=useRef<Window|null>(null);
   useEffect(()=>{
     if(testControllers.length && pendingController.current){pendingController.current.location.replace(testControllerUrl(testControllers,window.location.origin));pendingController.current=null;}
@@ -30,9 +31,13 @@ export default function Host() {
           <a className="btn ghost" href="/questions">Åpne spørsmålsbanken</a>
           <label className="field">Redaktørnøkkel<input type="password" value={editorKey} onChange={e=>setEditorKey(e.target.value)} autoComplete="off" placeholder="Fra serverterminalen"/></label>
           <button className="btn violet" disabled={!connected || !editorKey} onClick={() => {sessionStorage.setItem("trivia-bank-key",editorKey);send({ type: "host:create_room", adminKey:editorKey });}}>
-            Opprett nytt rom
+            Opprett nytt øvingsrom
           </button>
-          {localTestingHost(window.location.hostname) && <button className="btn ghost" disabled={!connected||!editorKey} onClick={()=>{
+          <button className="btn teal" disabled={!connected || !editorKey} onClick={()=>{sessionStorage.setItem("trivia-bank-key",editorKey);send({type:"host:create_room",adminKey:editorKey,eventMode:true});}}>Start spillkveld · automatisk lagring</button>
+         <p>Øving starter på nytt ved serverstart. Spillkvelder lagres og kan gjenopprettes.</p>
+         <button className="btn ghost" disabled={!connected || !editorKey} onClick={()=>send({type:"host:list_events",adminKey:editorKey})}>Finn lagrede spillkvelder</button>
+         {events.map(event=><div className="card" key={event.roomCode}><b>{event.roomCode} · {event.phase}</b><p>{event.teams.join(" · ") || "Ingen lag ennå"}</p><button className="btn teal" disabled={!connected} onClick={()=>send({type:"host:recover_event",adminKey:editorKey,roomCode:event.roomCode})}>Gjenopprett i pause</button></div>)}
+         {localTestingHost(window.location.hostname) && <button className="btn ghost" disabled={!connected||!editorKey} onClick={()=>{
             pendingController.current=window.open("about:blank","trivia-test-controller");
             sessionStorage.setItem("trivia-bank-key",editorKey);
             send({type:"host:create_room",adminKey:editorKey,testMode:true});
@@ -53,6 +58,7 @@ function AdminPanel({ state, roomCode, send, connected, lastError, testControlle
     <div className="admin-shell">
       <aside className="admin-sidebar">
         {state.isTestRoom && <div className="card"><b>Lokalt testrom · 4 lag</b><p>Én kontroller kan bytte mellom alle testlagene.</p>{testControllers.length>0&&<a href={testControllerUrl(testControllers,window.location.origin)} target="trivia-test-controller">Åpne testkontroller ↗</a>}</div>}
+        {state.eventMode && <div className="bank-notice">Spillkveld · automatisk lagring aktiv</div>}
         <a href="/questions" target="_blank" rel="noreferrer">Spørsmålsbank ↗</a>
         <div>
           <div style={{ fontSize: "0.7rem", opacity: 0.6, textAlign: "center" }}>ROMKODE</div>
@@ -117,6 +123,7 @@ function AdminPanel({ state, roomCode, send, connected, lastError, testControlle
         {!connected && <div role="status" className="error-banner">Mistet forbindelsen. Venter på serveren…</div>}
         {lastError && <div role="alert" className="error-banner">{lastError}</div>}
         {state.paused && <div role="status" className="error-banner"><p>Spillet er satt på pause. Trykk Fortsett spillet for å åpne spillerkontrollene igjen.</p><button className="btn teal" disabled={!connected} onClick={() => rc("host:resume")}>Fortsett spillet</button></div>}
+        <HostFocus state={state} connected={connected} send={send}/>
         {state.phase === "route_choice" && <div className="card"><h3>Verten kan velge rute</h3><p>Bruk dette hvis laget trenger hjelp eller har mistet forbindelsen.</p><div className="control-row">{state.legalNextNodeIds.map((id: string) => {const node=state.map.nodes.find((n: any)=>n.id===id);return <button key={id} disabled={!connected||state.paused} onClick={()=>rc("host:choose_route",{nodeId:id})}>{node.category} · {questionPoints(node)} poeng</button>;})}</div></div>}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h2 style={{ textTransform: "uppercase", letterSpacing: "0.04em" }}>
@@ -165,7 +172,7 @@ function AdminPanel({ state, roomCode, send, connected, lastError, testControlle
             </div>
 
             {state.phase === "dead_question" && <p className="error-banner">Ingen lag kan svare. Vis fasit eller hopp over spørsmålet.</p>}
-            <div className="control-row">
+            <details className="card"><summary>Flere kontroller · hopp over / avslutt hovedrunde</summary><div className="control-row">
               {["map","route_choice"].includes(state.phase) && state.teams.length >= 2 && <button className="btn ghost" disabled={state.paused || !connected} onClick={()=>rc("host:finish_route")}>Avslutt hovedrunden og velg finalister</button>}
               {state.canRevealQuestion && <button className="btn teal" onClick={() => rc(state.canDismissQuestionCard ? "host:dismiss_question_card" : "host:reveal_question")}>
                 {state.canDismissQuestionCard ? "Vis kart" : "Vis fasit"}
@@ -189,7 +196,7 @@ function AdminPanel({ state, roomCode, send, connected, lastError, testControlle
               <button className="btn ghost" onClick={() => rc("host:skip_question")}>
                 Hopp over spørsmål
               </button>
-            </div>
+            </div></details>
 
             {state.phase === "adjudicating" && (
               <div className="card">

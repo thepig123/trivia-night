@@ -185,3 +185,28 @@ test("local test room creates four virtual teams and one controller can switch i
     const publicState=message(controller,"state:public");host.send(JSON.stringify({type:"host:pause",roomCode:state.roomCode}));assert.equal((await publicState).state.testControllers,undefined);
   } finally {for(const ws of sockets)ws.terminate();if(server)await stop(server.child);rmSync(directory,{recursive:true,force:true});}
 });
+
+test("event nights recover without environment flags and require editor authentication",{timeout:20000},async()=>{
+  const directory=mkdtempSync(join(tmpdir(),"trivia-event-")); let server:Awaited<ReturnType<typeof start>>|undefined; const sockets:WebSocket[]=[];
+  const headers={Authorization:"Bearer integration-test-key","Content-Type":"application/json"};
+  try {
+    server=await start(directory,false);
+    const bank=await(await fetch(server.base+"/api/bank",{headers})).json() as any;
+    bank.questions=Array.from({length:9},(_,i)=>({id:`EVENT${i}`,category:"History",tier:"T5",prompt:`Event ${i}`,answer:"A",acceptedAlternatives:[],status:"unused",format:"text",selection:"PICK",readiness:"ready",source:"test",sourceUrl:"",assetBrief:"",notes:"",originalFormat:""}));bank.packs[0].questionIds=bank.questions.map((q:any)=>q.id);
+    await fetch(server.base+"/api/bank",{headers,method:"PUT",body:JSON.stringify(bank)});
+    const host=await connect(server.base);sockets.push(host);
+    let next=message(host,"state:host");host.send(JSON.stringify({type:"host:create_room",adminKey:"integration-test-key",eventMode:true}));let state=(await next).state;const code=state.roomCode;
+    assert.equal(state.eventMode,true);
+    for(let i=0;i<2;i++){next=message(host,"state:host");host.send(JSON.stringify({type:"host:add_team",roomCode:code}));state=(await next).state;}
+    // The lobby itself is recoverable, including manual score corrections.
+    next=message(host,"state:host");host.send(JSON.stringify({type:"host:adjust_score",roomCode:code,teamId:state.teams[0].id,delta:100}));await next;
+    for(const ws of sockets)ws.terminate(); await stop(server.child,"SIGKILL");server=undefined;
+    server=await start(directory,false);
+    const freshHost=await connect(server.base);sockets.push(freshHost);
+    const denied=message(freshHost,"error");freshHost.send(JSON.stringify({type:"host:list_events",adminKey:"wrong"}));assert.match((await denied).message,/redaktørnøkkel/);
+    const list=message(freshHost,"host:events");freshHost.send(JSON.stringify({type:"host:list_events",adminKey:"integration-test-key"}));const events=(await list).events;
+    assert.equal(events.length,1);assert.equal(events[0].roomCode,code);assert.equal(events[0].teams.length,2);assert.equal(events[0].hostToken,undefined);
+    next=message(freshHost,"state:host");freshHost.send(JSON.stringify({type:"host:recover_event",roomCode:code,adminKey:"integration-test-key"}));state=(await next).state;
+    assert.equal(state.eventMode,true);assert.equal(state.paused,true);assert.equal(state.teams.length,2);assert.equal(state.teams[0].score,100);
+  } finally {for(const ws of sockets)ws.terminate();if(server)await stop(server.child);rmSync(directory,{recursive:true,force:true});}
+});

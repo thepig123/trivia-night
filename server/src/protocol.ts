@@ -1,8 +1,9 @@
 import type { ClientMessage } from "./types.js";
 
 const fields: Record<string,string[]> = {
+  "host:list_events":["adminKey"], "host:recover_event":["adminKey"],
   "host:dismiss_question_card":[], "host:undo":[], "host:replace_question":[],
-  "host:create_room":["adminKey","testMode?"], "host:add_team":[], "host:remove_team":["teamId"], "host:update_team":["teamId","name","players"],
+  "host:create_room":["adminKey","testMode?","eventMode?"], "host:add_team":[], "host:remove_team":["teamId"], "host:update_team":["teamId","name","players"],
   "host:set_target":["targetScore"], "host:resume_room":["sessionToken"], "team:join":["teamName","players","photoDataUrl?"],
   "team:resume":["teamId","sessionToken"], "team:buzz":["teamId"], "team:choose_route":["teamId","nodeId"],
   "host:choose_route":["nodeId"], "team:submit_friend_answer":["teamId","answer"], "tv:hello":[],
@@ -14,7 +15,7 @@ export function validateMessage(value: unknown): ClientMessage {
   if(!value || typeof value!=="object" || Array.isArray(value)) throw new Error("Meldingen må være et objekt.");
   const data=value as Record<string,unknown>;
   if(typeof data.type!=="string" || !Object.hasOwn(fields,data.type)) throw new Error("Ukjent meldingstype.");
-  const expected=[...(data.type==="host:create_room"?[]:["roomCode"]),...fields[data.type]];
+  const expected=[...(["host:create_room","host:list_events"].includes(data.type)?[]:["roomCode"]),...fields[data.type]];
   const allowed=new Set(["type",...expected.map(f=>f.replace("?",""))]);
   if(Object.keys(data).some(key=>!allowed.has(key))) throw new Error("Meldingen inneholder ukjente felt.");
   const text=(v:unknown,max:number)=>typeof v==="string" && v.trim().length>0 && v.length<=max;
@@ -28,7 +29,7 @@ export function validateMessage(value: unknown): ClientMessage {
       case "teamIds":valid=Array.isArray(item)&&item.length===2&&item.every(id)&&new Set(item).size===2;break;
       case "teamName":case "name":valid=text(item,24);break;
       case "players":valid=Array.isArray(item)&&item.length===2&&item.every(v=>text(v,24));break;
-      case "testMode":valid=typeof item==="boolean";break;
+      case "eventMode":case "testMode":valid=typeof item==="boolean";break;
       case "adminKey":valid=text(item,512);break;
       case "sessionToken":valid=text(item,128);break;
       case "answer":valid=text(item,20000);break;

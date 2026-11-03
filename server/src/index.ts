@@ -24,15 +24,17 @@ const clients = new Map<WebSocket, ClientInfo>();
 const hostSessionTokens = new Map<string, string>();
 const teamSessionTokens = new Map<string, Map<string, string>>();
 
-const roomStore = process.env.RESUME_ROOMS === "true" ? new RoomStore() : null;
+const roomStore = new RoomStore();
+const resumeAllRooms = process.env.RESUME_ROOMS === "true";
 for (const saved of roomStore?.load() ?? []) {
+  if (!resumeAllRooms && !saved.state.eventMode) continue;
   const game=GameEngine.restore(saved.state);
   rooms.set(game.roomCode,game);
   hostSessionTokens.set(game.roomCode,saved.hostToken);
   teamSessionTokens.set(game.roomCode,new Map(saved.teamTokens));
 }
 function persistRooms() {
-  roomStore?.save([...rooms].map(([code,game])=>({state:game.exportState(),hostToken:hostSessionTokens.get(code)!,teamTokens:[...(teamSessionTokens.get(code) ?? new Map<string,string>())]})));
+  roomStore?.save([...rooms].filter(([,game])=>resumeAllRooms || game.eventMode).map(([code,game])=>({state:game.exportState(),hostToken:hostSessionTokens.get(code)!,teamTokens:[...(teamSessionTokens.get(code) ?? new Map<string,string>())]})));
 }
 for (const signal of ["SIGTERM","SIGINT"] as const) process.once(signal,()=>{ try{persistRooms();}finally{process.exit(0);} });
 
@@ -136,13 +138,29 @@ wss.on("connection", (ws, request) => {
 
     try {
       switch (msg.type) {
-        case "host:create_room": {
+        case "host:list_events": {
+         if (!isEditorKey(msg.adminKey)) return sendError(ws,"Gyldig redaktørnøkkel kreves.");
+         send(ws,{type:"host:events",events:[...rooms.values()].filter(r=>r.eventMode).map(r=>({roomCode:r.roomCode,phase:r.phase,teams:r.teams.map(t=>t.name),startedAt:r.startedAt}))});
+         break;
+       }
+       case "host:recover_event": {
+         if (!isEditorKey(msg.adminKey)) return sendError(ws,"Gyldig redaktørnøkkel kreves.");
+         const room=rooms.get(msg.roomCode);
+         if(!room?.eventMode) return sendError(ws,"Fant ikke en lagret spillkveld med denne romkoden.");
+         room.pause();
+         identify(info,"host",msg.roomCode);
+         send(ws,{type:"room:created",roomCode:msg.roomCode,sessionToken:hostSessionTokens.get(msg.roomCode)!});
+         broadcast(msg.roomCode);break;
+       }
+       case "host:create_room": {
           if (!isEditorKey(msg.adminKey)) return sendError(ws,"Gyldig redaktørnøkkel kreves for å opprette et vertsrom.");
           if (msg.testMode && !localTestingAllowed(request.socket.remoteAddress)) return sendError(ws,"Testrom er bare tilgjengelig på localhost utenfor produksjon.");
+          if (msg.testMode && msg.eventMode) return sendError(ws,"Testrom kan ikke være en spillkveld.");
           const code = makeRoomCode();
           const pool = playableQuestions(bankStore.get());
           if (!pool.length) return sendError(ws, "Kveldspakken har ingen klare, valgte spørsmål. Åpne spørsmålsbanken først.");
           const room = new GameEngine(code, pool);
+          room.eventMode = !!msg.eventMode;
           room.initializeDefaultTeams();
           rooms.set(code, room);
           const sessionToken = nanoid(32);

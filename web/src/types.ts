@@ -124,6 +124,7 @@ export interface EventLogEntry {
 export interface HostGameState {
   roomCode: string;
   isTestRoom: boolean;
+  eventMode: boolean;
   gameId: string;
   phase: GamePhase;
   paused: boolean;
@@ -142,6 +143,8 @@ export interface HostGameState {
   questionPoolRemaining: number;
   questionPoolTotal: number;
   friendAnswers: Record<string, string>;
+  startedAt: number | null;
+  questionsPlayed: number;
   canRevealQuestion: boolean;
   canDismissQuestionCard: boolean;
   canUndo: boolean;
@@ -155,6 +158,7 @@ export interface HostGameState {
 export interface PublicGameState {
   roomCode: string;
   isTestRoom: boolean;
+  eventMode: boolean;
   phase: GamePhase;
   paused: boolean;
   questionClock: QuestionClock;
@@ -186,7 +190,9 @@ export interface PublicGameState {
 // ---------- Client -> Server messages ----------
 
 export type ClientMessage =
-  | { type: "host:create_room"; adminKey: string; testMode?: boolean }
+  | { type: "host:create_room"; adminKey: string; testMode?: boolean; eventMode?: boolean }
+  | { type: "host:list_events"; adminKey: string }
+  | { type: "host:recover_event"; adminKey: string; roomCode: string }
   | { type: "host:choose_route"; roomCode: string; nodeId: string }
   | { type: "host:add_team"; roomCode: string }
   | { type: "host:remove_team"; roomCode: string; teamId: string }
@@ -218,7 +224,10 @@ export type ClientMessage =
 
 // ---------- Server -> Client messages ----------
 
+export interface SavedEventSummary { roomCode: string; phase: GamePhase; teams: string[]; startedAt: number | null }
+
 export type ServerMessage =
+  | { type: "host:events"; events: SavedEventSummary[] }
   | { type: "room:created"; roomCode: string; sessionToken: string; testControllers?: TestControllerSession[] }
   | { type: "state:public"; state: PublicGameState }
   | { type: "state:host"; state: HostGameState }

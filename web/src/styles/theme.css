@@ -667,3 +667,9 @@ button {
 .tv-results h1 {font-size:clamp(2rem,6vw,5rem);color:var(--yellow);}
 .tv-results h2 {font-size:clamp(1.5rem,3vw,3rem);}
 .tv-final-title {position:absolute;top:12px;left:0;right:0;text-align:center;letter-spacing:.2em;font-size:1.5rem;color:var(--yellow);}
+
+.host-focus { border: 1px solid var(--yellow); padding: 22px; }
+.host-focus__meta { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; color: #b8a98d; font-size: .78rem; margin-bottom: 10px; }
+.host-focus h2 { margin-bottom: 14px; }
+.host-focus .control-row { margin: 0; }
+summary { cursor: pointer; padding: 8px 0; }

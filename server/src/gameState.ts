@@ -23,6 +23,8 @@ export class GameEngine {
   roomCode: string;
   gameId: string;
   isTestRoom = false;
+  eventMode = false;
+  startedAt: number | null = null;
   phase: GamePhase = "lobby";
   paused = false;
   targetScore = TARGET_SCORE;
@@ -295,6 +297,7 @@ export class GameEngine {
   startReading() {
     if (this.paused) return;
     if (!["map", "ready"].includes(this.questionPhase()) || !this.activeQuestion) return;
+    this.startedAt ??= Date.now();
     this.resetClock();
     this.revealedQuestion = null;
     this.questionCardDismissed = false;
@@ -667,6 +670,7 @@ export class GameEngine {
     return {
       roomCode: this.roomCode,
       isTestRoom: this.isTestRoom,
+      eventMode: this.eventMode,
       gameId: this.gameId,
       phase: this.phase,
       paused: this.paused,
@@ -685,6 +689,8 @@ export class GameEngine {
       questionPoolRemaining: this.routePool().filter((q) => q.status === "unused").length,
       questionPoolTotal: this.questionPool.length,
       friendAnswers: this.friendAnswers,
+      startedAt: this.startedAt,
+      questionsPlayed: this.map.nodes.filter(n=>n.status === "completed").length + (this.finalState ? this.finalState.currentIndex + (this.finalState.roundPhase === "resolved" ? 1 : 0) : 0),
       canRevealQuestion: this.completedQuestion !== null,
       canDismissQuestionCard: this.revealedQuestion !== null,
       canUndo: this.undoHistory.length > 0,
@@ -700,6 +706,7 @@ export class GameEngine {
     return {
       roomCode: this.roomCode,
       isTestRoom: this.isTestRoom,
+      eventMode: this.eventMode,
       phase: this.phase,
       paused: this.paused,
       questionClock: this.clockSnapshot(),
