@@ -207,7 +207,7 @@ test("friend answer includes the host even when the host is not playing", () => 
   game.startReading(); game.openBuzzers();
   game.submitFriendAnswer(team.id, "Martin");
   game.revealFriendAnswers();
-  assert.equal(team.score, TIER_POINTS[opening.tier!]);
+  assert.equal(team.score, 500);
 });
 
 test("host can rescue a disconnected route controller but cannot select illegal routes", () => {
@@ -361,4 +361,14 @@ test("Final deductions and old saved negative scores are floored at zero",()=>{
   game.adjustScore(b.id,-1000);assert.equal(game.finalState!.scores[b.id],0);
   const snapshot=game.exportState() as any;snapshot.teams[0].score=-1000;snapshot.finalState.scores[a.id]=-500;
   const restored=BaseGameEngine.restore(snapshot);assert.equal(restored.teams[0].score,0);assert.equal(restored.finalState!.scores[a.id],0);
+});
+
+test("Gutta questions always award and deduct 500, regardless of tier, including the Final",()=>{
+  for(const tier of ["T1","T5"] as const){
+    const pool:Question[]=Array.from({length:9},(_,i)=>({id:`G${i}`,category:"Gutta",tier,prompt:"Hvem?",answer:"A",acceptedAlternatives:[],status:"unused",mode:"buzzer"}));
+    const game=new BaseGameEngine("GUTTA",pool);const a=game.addTeam("A"),b=game.addTeam("B");game.activateCurrentNode();assert.equal(game.toPublicState().activeQuestionPublic!.points,500);
+    a.score=800;game.startReading();game.openBuzzers();game.registerBuzz(a.id);game.markWrong(a.id);assert.equal(a.score,300);
+    game.registerBuzz(b.id);game.markCorrect(b.id);assert.equal(b.score,500);
+    game.finishRoutePhase();game.startReading();game.openBuzzers();game.registerBuzz(a.id);game.markCorrect(a.id);assert.equal(game.finalState!.scores[a.id],500);
+  }
 });

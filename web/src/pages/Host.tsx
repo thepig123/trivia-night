@@ -1,3 +1,4 @@
+import { questionPoints, isGutta } from "../types";
 import { useEffect, useState } from "react";
 import { useGameSocket } from "../lib/ws";
 import { TierLegend } from "../components/RouteMap";
@@ -8,7 +9,7 @@ export default function Host() {
   const [editorKey,setEditorKey]=useState(()=>sessionStorage.getItem("trivia-bank-key")??"");
 
   useEffect(() => {
-    if (roomCode) setCreated(true);
+    setCreated(!!roomCode);
   }, [roomCode]);
 
   if (!created || !hostState) {
@@ -103,7 +104,7 @@ function AdminPanel({ state, roomCode, send, connected, lastError }: any) {
       <main className="admin-main">
         {!connected && <div role="status" className="error-banner">Mistet forbindelsen. Venter på serveren…</div>}
         {lastError && <div role="alert" className="error-banner">{lastError}</div>}
-        {state.phase === "route_choice" && <div className="card"><h3>Verten kan velge rute</h3><p>Bruk dette hvis laget trenger hjelp eller har mistet forbindelsen.</p><div className="control-row">{state.legalNextNodeIds.map((id: string) => {const node=state.map.nodes.find((n: any)=>n.id===id);return <button key={id} disabled={!connected||state.paused} onClick={()=>rc("host:choose_route",{nodeId:id})}>{node.category} · {node.tier}</button>;})}</div></div>}
+        {state.phase === "route_choice" && <div className="card"><h3>Verten kan velge rute</h3><p>Bruk dette hvis laget trenger hjelp eller har mistet forbindelsen.</p><div className="control-row">{state.legalNextNodeIds.map((id: string) => {const node=state.map.nodes.find((n: any)=>n.id===id);return <button key={id} disabled={!connected||state.paused} onClick={()=>rc("host:choose_route",{nodeId:id})}>{node.category} · {questionPoints(node)} poeng</button>;})}</div></div>}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h2 style={{ textTransform: "uppercase", letterSpacing: "0.04em" }}>
             Fase: <span style={{ color: "var(--teal)" }}>{state.phase}</span>
@@ -123,7 +124,7 @@ function AdminPanel({ state, roomCode, send, connected, lastError }: any) {
                       {state.activeQuestion.category}
                     </span>
                     <span className="chip" style={{ background: "var(--yellow)", color: "var(--ink)" }}>
-                      {activeNode?.tier} · {tierPoints(activeNode?.tier)} pts
+                      {isGutta(state.activeQuestion.category) ? "Fast verdi" : activeNode?.tier} · {questionPoints(state.activeQuestion)} poeng
                     </span>
                   </div>
                   <p style={{ fontSize: "1.3rem", fontWeight: 600, marginBottom: 16 }}>{state.activeQuestion.prompt}</p>
@@ -229,13 +230,8 @@ function FinalPanel({ state, roomCode, send }: any) {
   if(state.phase==="ended") return <section className="card"><h2>🏆 {final.winnerIds.length>1?"Delt seier":"Vinner"}: {final.winnerIds.map(teamName).join(" og ")}</h2>{final.finalists.map((id:string)=><p key={id}>{teamName(id)}: <b>{final.scores[id]} finale-poeng</b></p>)}{final.resultNote&&<p>{final.resultNote}</p>}</section>;
   return <section className="card"><h2>🏆 {final.suddenDeath?"Omspill":"Finale"}</h2><p>{final.finalists.map(teamName).join(" mot ")} · Spørsmål {final.currentIndex+1} av {final.questionIds.length}</p><p>Separate finale-poeng. Riktig buzzer-svar gir spørsmålets verdi; feil trekker samme verdi. Privat flervalg gir poeng til alle riktige og ingen minus. Ved uavgjort trekkes nye omspillsspørsmål så lenge banken har flere.</p>
     <div className="control-row">{final.finalists.map((id:string)=><strong key={id}>{teamName(id)}: {final.scores[id]}</strong>)}</div>
-    {state.activeQuestion&&<div className="question-box"><p>{state.activeQuestion.category} · {state.activeQuestion.tier} · {tierPoints(state.activeQuestion.tier)} poeng</p><h3>{state.activeQuestion.prompt}</h3><p><b>Fasit:</b> {state.activeQuestion.answer}</p><p>{state.activeQuestion.hostNote}</p></div>}
+    {state.activeQuestion&&<div className="question-box"><p>{state.activeQuestion.category} · {questionPoints(state.activeQuestion)} poeng</p><h3>{state.activeQuestion.prompt}</h3><p><b>Fasit:</b> {state.activeQuestion.answer}</p><p>{state.activeQuestion.hostNote}</p></div>}
     <div className="control-row">{final.roundPhase==="ready"&&<button className="btn teal" disabled={state.paused} onClick={()=>rc("host:start_reading")}>Les finalespørsmålet</button>}{final.roundPhase==="reading"&&<button className="btn pink" disabled={state.paused} onClick={()=>rc("host:open_buzzers")}>Åpne svar</button>}{final.roundPhase==="buzzing"&&["private_choice","friend_group"].includes(state.activeQuestion?.mode)&&<button className="btn teal" disabled={state.paused} onClick={()=>rc("host:reveal_friend_answers")}>Avslør private svar ({Object.keys(state.friendAnswers).length}/{final.finalists.length})</button>}{final.roundPhase==="adjudicating"&&state.currentResponderId&&<><p>{teamName(state.currentResponderId)} svarer</p><button className="btn teal" disabled={state.paused} onClick={()=>rc("host:mark_correct",{teamId:state.currentResponderId})}>Riktig</button><button className="btn coral" disabled={state.paused} onClick={()=>rc("host:mark_wrong",{teamId:state.currentResponderId})}>Feil</button></>}
     {final.roundPhase!=="resolved"&&<button className="btn ghost" disabled={state.paused} onClick={()=>rc("host:skip_question")}>Hopp over finalespørsmålet</button>}{state.canRevealQuestion&&<button className="btn ghost" onClick={()=>rc("host:reveal_question")}>Vis fasit på TV</button>}{final.roundPhase==="resolved"&&<button className="btn teal" disabled={state.paused} onClick={()=>rc("host:advance_final")}>{final.currentIndex+1>=final.questionIds.length?"Avgjør finalen / trekk omspill":"Neste finalespørsmål"}</button>}</div>
   </section>;
-}
-
-const TIER_POINTS: Record<string, number> = { T1: 1000, T2: 800, T3: 600, T4: 400, T5: 200 };
-function tierPoints(tier?: string) {
-  return tier ? TIER_POINTS[tier] : "";
 }

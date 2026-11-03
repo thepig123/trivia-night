@@ -1,6 +1,6 @@
 import type { MapNode, RouteMap as RouteMapState, Tier } from "../types";
 import type { CSSProperties } from "react";
-import { TIER_POINTS } from "../types";
+import { TIER_POINTS, isGutta, questionPoints } from "../types";
 
 const TIER_GLYPHS: Record<Tier, string> = {
   T1: "♛",
@@ -84,10 +84,10 @@ function MapNodeButton({
       style={{ gridColumn: node.slot + 1 } as CSSProperties}
       disabled={!enabled}
       onClick={() => enabled && onChoose?.(node.id)}
-      aria-label={`${node.category}, ${tier}, ${TIER_POINTS[tier]} points${enabled ? ", choose route" : ""}`}
+      aria-label={`${node.category}, ${questionPoints(node)} poeng${enabled ? ", choose route" : ""}`}
     >
       <span className="map-node__category">{node.category}</span>
-      <span className="map-node__tier"><b>{TIER_GLYPHS[tier]}</b> {tier}</span>
+      <span className="map-node__tier"><b>{isGutta(node.category)?"★":TIER_GLYPHS[tier]}</b> {isGutta(node.category)?"500":tier}</span>
     </button>
   );
 }
@@ -96,6 +96,7 @@ export function TierLegend({ compact = false }: { compact?: boolean }) {
   return (
     <aside className={`tier-legend ${compact ? "tier-legend--compact" : ""}`} aria-label="Tier values">
       <h3>Poengtabell</h3>
+      <div className="tier-legend__row"><span>★</span><strong>Gutta</strong><span>500</span></div>
       {(Object.keys(TIER_POINTS) as Tier[]).map((tier) => (
         <div className={`tier-legend__row tier-legend__row--${tier.toLowerCase()}`} key={tier}>
           <span className="tier-legend__icon" aria-hidden="true">{TIER_GLYPHS[tier]}</span>

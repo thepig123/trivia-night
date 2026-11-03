@@ -7,9 +7,9 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { WebSocket } from "ws";
 
-function start(directory: string): Promise<{child:ChildProcess;base:string}> {
+function start(directory: string, resumeRooms=true): Promise<{child:ChildProcess;base:string}> {
   return new Promise((resolve,reject)=>{
-    const child=spawn(process.execPath,["--import","tsx",fileURLToPath(new URL("./index.ts",import.meta.url))],{env:{...process.env,PORT:"0",BANK_DATA_DIR:directory,BANK_ADMIN_KEY:"integration-test-key"},stdio:["ignore","pipe","pipe"]});
+    const child=spawn(process.execPath,["--import","tsx",fileURLToPath(new URL("./index.ts",import.meta.url))],{env:{...process.env,PORT:"0",BANK_DATA_DIR:directory,BANK_ADMIN_KEY:"integration-test-key",RESUME_ROOMS:resumeRooms?"true":"false"},stdio:["ignore","pipe","pipe"]});
     const timer=setTimeout(()=>{child.kill();reject(new Error("Server startup timed out"));},10000);
     let output="";
     child.stdout!.on("data",data=>{output+=data;const found=output.match(/listening on ws:\/\/localhost:(\d+)/);if(found){clearTimeout(timer);resolve({child,base:`http://127.0.0.1:${found[1]}`});}});
@@ -112,5 +112,25 @@ test("four real controllers complete route recovery, undo, qualification and a s
       state=await rpc("host:mark_correct",{teamId:teams[0].teamId});assert.equal(state.finalState.roundPhase,"resolved");state=await rpc("host:advance_final");
     }
     assert.equal(state.phase,"ended");assert.deepEqual(state.finalState.winnerIds,[teams[0].teamId]);assert.equal(state.finalState.scores[teams[0].teamId],count*200);assert.equal(state.teams[0].score,200);
+  } finally {for(const ws of sockets)ws.terminate();if(server)await stop(server.child);rmSync(directory,{recursive:true,force:true});}
+});
+
+test("default startup ignores old rooms, expires old sessions and keeps the question bank",{timeout:15000},async()=>{
+  const directory=mkdtempSync(join(tmpdir(),"trivia-fresh-"));let server:Awaited<ReturnType<typeof start>>|undefined;const sockets:WebSocket[]=[];
+  const headers={Authorization:"Bearer integration-test-key","Content-Type":"application/json"};
+  try {
+    server=await start(directory,true);let base=server.base;
+    const bank=await(await fetch(base+"/api/bank",{headers})).json() as any;
+    bank.questions=Array.from({length:2},(_,i)=>({id:`FRESH${i}`,category:"Generelt",tier:"T5",prompt:`Test ${i}`,answer:"Ja",acceptedAlternatives:[],status:"unused",format:"text",selection:"PICK",readiness:"ready",source:"test",sourceUrl:"",assetBrief:"",notes:"",originalFormat:""}));bank.packs[0].questionIds=bank.questions.map((q:any)=>q.id);
+    await fetch(base+"/api/bank",{headers,method:"PUT",body:JSON.stringify(bank)});
+    const host=await connect(base);sockets.push(host);const created=message(host,"room:created");let next=message(host,"state:host");host.send(JSON.stringify({type:"host:create_room",adminKey:"integration-test-key"}));const before=(await next).state;const identity=await created;
+    for(let i=0;i<2;i++){next=message(host,"state:host");host.send(JSON.stringify({type:"host:add_team",roomCode:before.roomCode}));await next;}
+    next=message(host,"state:host",m=>m.state.phase==="reading");host.send(JSON.stringify({type:"host:start_reading",roomCode:before.roomCode}));assert.equal((await next).state.questionPoolRemaining,1);
+    for(const ws of sockets)ws.terminate();await stop(server.child);server=undefined;
+    server=await start(directory,false);base=server.base;
+    const restoredBank=await(await fetch(base+"/api/bank",{headers})).json() as any;assert.equal(restoredBank.questions.length,2);
+    const freshHost=await connect(base);sockets.push(freshHost);const expired=message(freshHost,"error");freshHost.send(JSON.stringify({type:"host:resume_room",roomCode:identity.roomCode,sessionToken:identity.sessionToken}));assert.equal((await expired).code,"session_expired");
+    next=message(freshHost,"state:host");freshHost.send(JSON.stringify({type:"host:create_room",adminKey:"integration-test-key"}));const fresh=(await next).state;
+    assert.equal(fresh.phase,"lobby");assert.equal(fresh.teams.length,0);assert.equal(fresh.questionPoolRemaining,2);assert.notEqual(fresh.gameId,before.gameId);assert.notEqual(fresh.map.nodes[1].id,before.map.nodes[1].id);
   } finally {for(const ws of sockets)ws.terminate();if(server)await stop(server.child);rmSync(directory,{recursive:true,force:true});}
 });

@@ -61,3 +61,13 @@ test("room snapshots ignore later bank edits and route categories come from the 
   assert.equal(JSON.stringify(game.toPublicState()).includes('"answer":"Rune"'),false);
   game.revealFriendAnswers();assert.equal(team.score,400);assert.equal(game.toPublicState().revealedQuestion?.answer,"Rune");
 });
+
+test("Gutta authoring does not require a difficulty tier",()=>{
+  const dir=mkdtempSync(join(tmpdir(),"trivia-gutta-bank-"));
+  try {
+    const bank=sampleBank(new BankStore(join(dir,"bank.json")));
+    bank.questions[0].category="Gutta";(bank.questions[0] as any).tier="";
+    const saved=validateBank(bank);assert.equal(saved.questions[0].tier,"T3");
+    assert.equal(playableQuestions(saved).length,1);
+  } finally {rmSync(dir,{recursive:true,force:true});}
+});

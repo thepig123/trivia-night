@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import { mkdirSync, readFileSync, writeFileSync, renameSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import seed from "./data/question-bank.json" with { type: "json" };
+import { isGutta } from "./types.js";
 import type { Question } from "./types.js";
 
 export const FORMATS = ["text", "emoji", "image", "audio", "private_choice", "closest", "sorting", "list", "wager", "progressive_image", "timer"] as const;
@@ -42,6 +43,7 @@ export function validateBank(value: unknown): QuestionBank {
     for (const field of ["id", "category", "prompt", "answer", "source", "sourceUrl", "assetBrief", "notes", "originalFormat"] as const) string(q[field], field);
     if (!q.id.trim() || ids.has(q.id)) throw new Error(`Duplikat eller tom ID: ${q.id}`);
     ids.add(q.id);
+    if(isGutta(q.category))q.tier="T3";
     if (!["T1","T2","T3","T4","T5"].includes(q.tier) || !FORMATS.includes(q.format) || !["PICK","MAYBE","REJECT","UNREVIEWED"].includes(q.selection) || !["draft","needs_assets","ready","archived"].includes(q.readiness)) throw new Error(`Ugyldige felt for ${q.id}.`);
     for (const list of [q.acceptedAlternatives, q.choices ?? []]) if (!Array.isArray(list) || list.some(item => typeof item !== "string")) throw new Error(`Ugyldige svaralternativer: ${q.id}`);
     if (q.hostNote !== undefined) string(q.hostNote, "vertsnotat");

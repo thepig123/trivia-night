@@ -11,7 +11,7 @@ import type {
   Tier,
   QuestionClock,
 } from "./types.js";
-import { TIER_POINTS } from "./types.js";
+import { questionPoints, isGutta } from "./types.js";
 import { generateRouteMap, legalNextNodeIds, chooseRoute, markNodeCompleted } from "./map.js";
 import { TEAM_COLORS } from "./palette.js";
 import questionsData from "./data/questions.json" with { type: "json" };
@@ -257,10 +257,12 @@ export class GameEngine {
     // label truthful if that happens during a long session.
     node.category = question.category;
     node.tier = question.tier;
-    this.log(`Aktiverte ${node.tier}-spørsmål i ${question.category} (${TIER_POINTS[node.tier]} poeng).`);
+    this.log(`Aktiverte ${node.tier}-spørsmål i ${question.category} (${questionPoints(node)} poeng).`);
   }
 
   private pickQuestion(tier: Tier, category: string | null): Question | undefined {
+    const gutta = isGutta(category) ? this.routePool().filter(q=>q.status === "unused" && isGutta(q.category)) : [];
+    if(gutta.length)return gutta[Math.floor(Math.random()*gutta.length)];
     const exact = this.routePool().filter(
       (q) => q.status === "unused" && q.tier === tier && q.category === category,
     );
@@ -342,7 +344,7 @@ export class GameEngine {
     this.stopClock();
     if (this.phase === "final") {
       const team = this.teams.find(t => t.id === teamId)!;
-      this.award(team, TIER_POINTS[this.activeQuestion!.tier]);
+      this.award(team, questionPoints(this.activeQuestion!));
       this.log(`${team.name} svarte riktig i finalen.`);
       this.resolveFinalQuestion();
       if (this.finalState!.suddenDeath) this.endFinal();
@@ -352,8 +354,8 @@ export class GameEngine {
     const team = this.teams.find((t) => t.id === teamId);
     if (!node || !team || node.tier === null) return;
 
-    team.score += TIER_POINTS[node.tier];
-    this.log(`${team.name} svarte riktig (+${TIER_POINTS[node.tier]}). Poeng: ${team.score}.`);
+    team.score += questionPoints(node);
+    this.log(`${team.name} svarte riktig (+${questionPoints(node)}). Poeng: ${team.score}.`);
     this.map = markNodeCompleted(this.map, node.id);
     this.controllingTeamId = team.id;
     this.completedQuestion = this.activeQuestion;
@@ -387,7 +389,7 @@ export class GameEngine {
     this.checkpoint("feil svar");
     this.stopClock();
     const team = this.teams.find(team => team.id === teamId)!;
-    const points = TIER_POINTS[this.activeQuestion!.tier];
+    const points = questionPoints(this.activeQuestion!);
     const before = this.phase === "final" ? this.finalState!.scores[team.id] : team.score;
     this.award(team, -points);
     this.lockedOutTeamIds.push(teamId);
@@ -505,7 +507,7 @@ export class GameEngine {
     this.stopClock();
     if (this.phase === "final") {
       const correct = this.teams.filter(t => this.finalState!.finalists.includes(t.id) && this.friendAnswers[t.id] === this.activeQuestion!.answer);
-      for (const team of correct) this.award(team, TIER_POINTS[this.activeQuestion!.tier]);
+      for (const team of correct) this.award(team, questionPoints(this.activeQuestion!));
       this.resolveFinalQuestion(); this.revealQuestion();
       if (this.finalState!.suddenDeath && correct.length === 1) this.endFinal();
       return;
@@ -515,7 +517,7 @@ export class GameEngine {
     this.completedQuestion = this.activeQuestion;
     this.revealQuestion();
     const correct = this.teams.filter((team) => this.friendAnswers[team.id] === this.activeQuestion?.answer);
-    for (const team of correct) { team.score += TIER_POINTS[node.tier]; this.checkQualification(team); }
+    for (const team of correct) { team.score += questionPoints(node); this.checkQualification(team); }
     if (this.finalState) return;
     const controller = [...correct].filter((team) => !team.qualifiedForFinal).sort((a, b) => a.score - b.score)[0];
     this.map = markNodeCompleted(this.map, node.id);
@@ -685,7 +687,7 @@ export class GameEngine {
       map: this.map,
       activeNodeId: this.activeNodeId,
       activeQuestionPublic: this.activeQuestion && (node?.tier || this.phase === "final")
-        ? { category:this.activeQuestion.category, tier:this.activeQuestion.tier, points:TIER_POINTS[this.activeQuestion.tier], prompt:this.activeQuestion.prompt, mode:this.activeQuestion.mode ?? "buzzer", choices:this.activeQuestion.choices, media:this.activeQuestion.media }
+        ? { category:this.activeQuestion.category, tier:this.activeQuestion.tier, points:questionPoints(this.activeQuestion), prompt:this.activeQuestion.prompt, mode:this.activeQuestion.mode ?? "buzzer", choices:this.activeQuestion.choices, media:this.activeQuestion.media }
         : null,
       buzzOrder: this.buzzOrder.map((b) => ({ teamId: b.teamId })),
       lockedOutTeamIds: this.lockedOutTeamIds,

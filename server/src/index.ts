@@ -23,15 +23,15 @@ const clients = new Map<WebSocket, ClientInfo>();
 const hostSessionTokens = new Map<string, string>();
 const teamSessionTokens = new Map<string, Map<string, string>>();
 
-const roomStore = new RoomStore();
-for (const saved of roomStore.load()) {
+const roomStore = process.env.RESUME_ROOMS === "true" ? new RoomStore() : null;
+for (const saved of roomStore?.load() ?? []) {
   const game=GameEngine.restore(saved.state);
   rooms.set(game.roomCode,game);
   hostSessionTokens.set(game.roomCode,saved.hostToken);
   teamSessionTokens.set(game.roomCode,new Map(saved.teamTokens));
 }
 function persistRooms() {
-  roomStore.save([...rooms].map(([code,game])=>({state:game.exportState(),hostToken:hostSessionTokens.get(code)!,teamTokens:[...(teamSessionTokens.get(code) ?? new Map<string,string>())]})));
+  roomStore?.save([...rooms].map(([code,game])=>({state:game.exportState(),hostToken:hostSessionTokens.get(code)!,teamTokens:[...(teamSessionTokens.get(code) ?? new Map<string,string>())]})));
 }
 for (const signal of ["SIGTERM","SIGINT"] as const) process.once(signal,()=>{ try{persistRooms();}finally{process.exit(0);} });
 
@@ -48,8 +48,8 @@ function send(ws: WebSocket, msg: ServerMessage) {
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
 }
 
-function sendError(ws: WebSocket, message: string) {
-  send(ws, { type: "error", message });
+function sendError(ws: WebSocket, message: string, code?: "session_expired") {
+  send(ws, { type: "error", message, code });
 }
 
 function requireHost(ws: WebSocket, info: ClientInfo, roomCode: string): GameEngine | null {
@@ -171,8 +171,8 @@ wss.on("connection", (ws) => {
 
         case "host:resume_room": {
           const room = rooms.get(msg.roomCode);
-          if (!room) return sendError(ws, `Fant ikke rom ${msg.roomCode}.`);
-          if (hostSessionTokens.get(msg.roomCode) !== msg.sessionToken) return sendError(ws, "Ugyldig vertsøkt. Last siden på nytt eller opprett et nytt rom.");
+          if (!room) return sendError(ws, "Forrige spill er avsluttet. Bli med i eller opprett et nytt rom.", "session_expired");
+          if (hostSessionTokens.get(msg.roomCode) !== msg.sessionToken) return sendError(ws, "Ugyldig vertsøkt. Opprett et nytt rom.", "session_expired");
           identify(info, "host", msg.roomCode);
           broadcast(msg.roomCode);
           break;
@@ -180,7 +180,7 @@ wss.on("connection", (ws) => {
 
         case "tv:hello": {
           const room = rooms.get(msg.roomCode);
-          if (!room) return sendError(ws, `Fant ikke rom ${msg.roomCode}.`);
+          if (!room) return sendError(ws, "Forrige spill er avsluttet. Bli med i eller opprett et nytt rom.", "session_expired");
           identify(info, "tv", msg.roomCode);
           broadcast(msg.roomCode);
           break;
@@ -201,9 +201,9 @@ wss.on("connection", (ws) => {
 
         case "team:resume": {
           const room = rooms.get(msg.roomCode);
-          if (!room) return sendError(ws, `Fant ikke rom ${msg.roomCode}.`);
+          if (!room) return sendError(ws, "Forrige spill er avsluttet. Bli med i eller opprett et nytt rom.", "session_expired");
           if (teamSessionTokens.get(msg.roomCode)?.get(msg.teamId) !== msg.sessionToken) {
-            return sendError(ws, "Ugyldig lagøkt. Be verten om hjelp.");
+            return sendError(ws, "Ugyldig lagøkt. Bli med i et nytt rom.", "session_expired");
           }
           if (!room.teams.some((team) => team.id === msg.teamId)) return sendError(ws, "Fant ikke laget.");
           identify(info, "team", msg.roomCode, msg.teamId);

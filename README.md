@@ -57,10 +57,15 @@ npm install
 npm run dev
 ```
 
-Starts a WebSocket server on `ws://localhost:8080`. Rooms are saved atomically to `server/runtime/rooms.json`, including scores,
-question usage, Final state, host/team reconnect tokens and Undo history.
-A recovered game is paused and all teams start offline until they reconnect.
-The host must press Resume after checking the restored state.
+Starts a WebSocket server on `ws://localhost:8080`. By default every server startup starts with **fresh rooms**. Old host/team/TV
+sessions are cleared automatically when they reconnect, and the next created
+room gets a fresh randomized map and unused question pool from the active pack.
+The question bank, uploaded media and evening packs remain saved. A browser
+refresh while the server is still running can still reconnect to that game.
+
+Optional event recovery: set `RESUME_ROOMS=true` to save/restore rooms atomically
+in `server/runtime/rooms.json`, including scores, question usage, Final state,
+reconnect tokens and Undo history. Recovered games pause until the host resumes.
 
 ## 2. Run the web app (team controllers + host panel)
 
@@ -188,7 +193,8 @@ engine-test fixture; live rooms use the bank.
 
 1. Search/filter by category, selection, format or readiness.
 2. Create, edit or duplicate questions. Category is free text; use Gutta for
-   friend-specific questions. Choose the interaction separately.
+   friend-specific questions. Gutta always gives 500 points, so no difficulty
+   selection is needed. Choose the interaction separately.
 3. For supported formats, fill the prompt, answer, accepted alternatives and
    private host notes. Upload image/audio clues and optional reveal media.
 4. Preview TV, phone and host views. Mark PICK + Klar only when ready.
@@ -219,8 +225,9 @@ to press Play on the TV before audio is allowed.
 Edits save atomically to `server/runtime/question-bank.json`; stale revisions
 are rejected instead of overwriting someone else's changes. Uploads live in
 `server/runtime/media/`, and the generated editor key is stored alongside them.
-This folder is ignored by Git and survives server restarts. Room progress and reconnect tokens are stored separately in `rooms.json`
-in the same runtime folder. Back up that folder to preserve the live game too.
+This folder is ignored by Git and survives server restarts. Room progress is fresh on every startup by default. Only with
+`RESUME_ROOMS=true` are rooms and reconnect tokens also saved to `rooms.json`
+in the runtime folder.
 
 - Export JSON for the full bank and evening packs. Import previews new,
   updated and unchanged questions by stable ID before applying. Pack IDs are
@@ -290,6 +297,7 @@ their own rooms without re-entering the editor key.
 A room reserves up to five questions (at most one third of a small bank) for
 its Final. Both finalists start at zero Final points; route scores are retained
 separately. Other teams spectate. Ordinary questions add/subtract their tier value, with a zero-point floor;
+Gutta questions always use **500 points**, regardless of tier. Other
 private-choice questions award the full value to every correct finalist, with
 zero for incorrect answers. Host reading, buzz, timer, pause, replacement,
 Undo and reveal controls work in the Final too.

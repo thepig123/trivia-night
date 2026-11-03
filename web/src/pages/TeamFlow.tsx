@@ -13,7 +13,7 @@ export default function TeamFlow() {
   const [joined, setJoined] = useState(false);
 
   useEffect(() => {
-    if (teamId) setJoined(true);
+    setJoined(!!teamId);
   }, [teamId]);
 
   if (!joined) {

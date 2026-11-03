@@ -13,6 +13,13 @@ export const TIER_POINTS: Record<Tier, number> = {
   T5: 200,
 };
 
+export function isGutta(category: string | null | undefined): boolean {
+  return category?.trim().toLocaleLowerCase("nb-NO") === "gutta";
+}
+export function questionPoints(question: {category?: string | null; tier?: Tier | null}): number {
+  return isGutta(question.category) ? 500 : question.tier ? TIER_POINTS[question.tier] : 0;
+}
+
 export type QuestionStatus = "unused" | "used" | "retired" | "needs_revision";
 
 export interface Question {
@@ -204,4 +211,4 @@ export type ServerMessage =
   | { type: "state:public"; state: PublicGameState }
   | { type: "state:host"; state: HostGameState }
   | { type: "team:joined"; teamId: string; roomCode: string; sessionToken: string }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string; code?: "session_expired" };

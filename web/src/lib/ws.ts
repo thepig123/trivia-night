@@ -91,7 +91,13 @@ export function useGameSocket(role: ClientRole): UseGameSocket {
             setRoomCode(msg.state.roomCode);
             break;
           case "error":
-            setLastError(msg.message);
+            if(msg.code === "session_expired") {
+              if(role === "host")localStorage.removeItem("trivia-host-session");
+              if(role === "team")sessionStorage.removeItem("trivia-team-session");
+              if(role === "tv")sessionStorage.removeItem("trivia-tv-room");
+              setHostState(null);setPublicState(null);setRoomCode(null);setTeamId(null);
+              setLastError(null);
+            } else setLastError(msg.message);
             break;
         }
       };
