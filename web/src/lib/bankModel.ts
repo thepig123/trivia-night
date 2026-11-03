@@ -8,7 +8,7 @@ export interface BankQuestion extends Question {
   source: string; sourceUrl: string; assetBrief: string; notes: string; originalFormat: string;
   revealMedia?: {type:"image" | "audio"; url:string};
 }
-export interface QuestionPack { id: string; name: string; questionIds: string[] }
+export interface QuestionPack { id: string; name: string; questionIds: string[]; finalQuestionIds?: string[] }
 export interface QuestionBank { version: 1; revision: number; questions: BankQuestion[]; packs: QuestionPack[]; activePackId: string }
 export const FORMAT_LABELS: Record<Format,string> = { text:"Tekst / åpen buzzer", emoji:"Emoji / åpen buzzer", image:"Bilde / åpen buzzer", audio:"Lyd / åpen buzzer", private_choice:"Privat flervalg", closest:"Nærmest (utkast)", sorting:"Sortering (utkast)", list:"Nevn flere (utkast)", wager:"Innsats (utkast)", progressive_image:"Progressivt bilde (utkast)", timer:"Presisjonsduell (utkast)" };
 export const READY_LABELS = {draft:"Utkast",needs_assets:"Trenger medier",ready:"Klar",archived:"Arkivert"};
@@ -103,4 +103,15 @@ export function mergeQuestions(current: BankQuestion[], incoming: BankQuestion[]
     merged.set(q.id,q);
   }
   return {questions:[...merged.values()],added,changed,unchanged};
+}
+
+export function packSummary(bank: QuestionBank, pack: QuestionPack) {
+  const members=bank.questions.filter(q=>pack.questionIds.includes(q.id));
+  const playable=members.filter(isPlayable);
+  const final=playable.filter(q=>(pack.finalQuestionIds??[]).includes(q.id));
+  const route=playable.filter(q=>!final.includes(q));
+  const categories=[...new Set(members.map(q=>q.category))].sort().map(category=>({category,total:members.filter(q=>q.category===category).length,ready:route.filter(q=>q.category===category).length}));
+  const tiers=["T5","T4","T3","T2","T1"].map(tier=>({tier,count:route.filter(q=>q.tier===tier && q.category.trim().toLowerCase()!=="gutta").length}));
+  const formats=FORMATS.map(format=>({format,count:playable.filter(q=>q.format===format).length})).filter(row=>row.count);
+  return {members,playable,final,route,categories,tiers,formats,blocked:members.filter(q=>!isPlayable(q)),missingAssets:members.filter(q=>q.readiness==="needs_assets" || (["image","audio","progressive_image"].includes(q.format) && !q.media?.url))};
 }

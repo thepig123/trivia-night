@@ -157,9 +157,12 @@ wss.on("connection", (ws, request) => {
           if (msg.testMode && !localTestingAllowed(request.socket.remoteAddress)) return sendError(ws,"Testrom er bare tilgjengelig på localhost utenfor produksjon.");
           if (msg.testMode && msg.eventMode) return sendError(ws,"Testrom kan ikke være en spillkveld.");
           const code = makeRoomCode();
-          const pool = playableQuestions(bankStore.get());
+          const bank = bankStore.get();
+          const pool = playableQuestions(bank);
+          const finalIds = bank.packs.find(p=>p.id===bank.activePackId)!.finalQuestionIds ?? [];
           if (!pool.length) return sendError(ws, "Kveldspakken har ingen klare, valgte spørsmål. Åpne spørsmålsbanken først.");
-          const room = new GameEngine(code, pool);
+          if (finalIds.length && pool.every(q=>finalIds.includes(q.id))) return sendError(ws,"Pakken trenger minst ett klart spørsmål utenfor finalepotten til hovedrunden.");
+          const room = new GameEngine(code, pool, finalIds);
           room.eventMode = !!msg.eventMode;
           room.initializeDefaultTeams();
           rooms.set(code, room);

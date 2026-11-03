@@ -18,7 +18,7 @@ export interface BankQuestion extends Question {
   originalFormat: string;
   revealMedia?: { type: "image" | "audio"; url: string };
 }
-export interface QuestionPack { id: string; name: string; questionIds: string[] }
+export interface QuestionPack { id: string; name: string; questionIds: string[]; finalQuestionIds?: string[] }
 export interface QuestionBank { version: 1; revision: number; questions: BankQuestion[]; packs: QuestionPack[]; activePackId: string }
 export const SUPPORTED_FORMATS: Format[] = ["text", "emoji", "image", "audio", "private_choice"];
 export function readyProblems(q: BankQuestion): string[] {
@@ -60,6 +60,8 @@ export function validateBank(value: unknown): QuestionBank {
   for (const pack of bank.packs) {
     string(pack.id, "pakke-ID"); string(pack.name, "pakkenavn");
     if (!pack.id || !pack.name.trim() || packs.has(pack.id) || !Array.isArray(pack.questionIds) || pack.questionIds.some(id => !ids.has(id))) throw new Error("Ugyldig kveldspakke.");
+    if (pack.finalQuestionIds !== undefined && (!Array.isArray(pack.finalQuestionIds) || pack.finalQuestionIds.some(id=>!pack.questionIds.includes(id)))) throw new Error("Finalespørsmål må være med i kveldspakken.");
+    pack.finalQuestionIds = [...new Set(pack.finalQuestionIds ?? [])];
     pack.questionIds = [...new Set(pack.questionIds)]; packs.add(pack.id);
   }
   if (!packs.has(bank.activePackId)) throw new Error("Velg en gyldig kveldspakke.");

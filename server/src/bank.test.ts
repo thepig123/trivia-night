@@ -71,3 +71,14 @@ test("Gutta authoring does not require a difficulty tier",()=>{
     assert.equal(playableQuestions(saved).length,1);
   } finally {rmSync(dir,{recursive:true,force:true});}
 });
+
+test("final pool must be a subset of the selected evening pack",()=>{
+  const dir=mkdtempSync(join(tmpdir(),"trivia-curated-"));
+  try {
+    const bank=sampleBank(new BankStore(join(dir,"bank.json")));
+    bank.packs[0].finalQuestionIds=["MISSING"];
+    assert.throws(()=>validateBank(bank),/Finalespørsmål/);
+    bank.packs[0].finalQuestionIds=["FIXTURE"];
+    assert.deepEqual(validateBank(bank).packs[0].finalQuestionIds,["FIXTURE"]);
+  }finally{rmSync(dir,{recursive:true,force:true});}
+});

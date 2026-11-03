@@ -496,3 +496,15 @@ test("end round, undo and resume restore route ownership, scores, pool and a wor
   assert.ok(game.activeQuestion);
   assert.equal(game.toPublicState().currentResponderId, null);
 });
+
+test("curated final questions stay out of route draws and supply the finale",()=>{
+  const pool:Question[]=Array.from({length:12},(_,i)=>({id:`CUR${i}`,category:"General",tier:"T5",prompt:`Q${i}`,answer:"A",acceptedAlternatives:[],status:"unused",mode:"buzzer"}));
+  const reserved=pool.slice(0,5).map(q=>q.id);
+  const game=new BaseGameEngine("CURAT",pool,reserved);
+  game.addTeam("A");game.addTeam("B");
+  game.activateCurrentNode();
+  assert.ok(!reserved.includes(game.activeQuestion!.id));
+  for(let i=0;i<3;i++){game.skipQuestion();assert.ok(!reserved.includes(game.activeQuestion!.id));}
+  game.teams[0].score=100;game.finishRoutePhase();
+  assert.deepEqual(new Set(game.finalState!.questionIds),new Set(reserved));
+});

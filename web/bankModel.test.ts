@@ -21,3 +21,13 @@ test("imports preview upserts without deleting existing records and reject dupli
   assert.throws(()=>importQuestions('[ {"prompt":"Mangler ID"} ]',true),/stabil ID/);
   assert.throws(()=>parseCsv('id,prompt\nA,"ikke avsluttet'),/avsluttet/);
 });
+
+import {packSummary} from "./src/lib/bankModel.js";
+test("pack overview counts only playable pack members and separates reserved finals",()=>{
+  const ready={...newQuestion(),prompt:"Q",answer:"A",selection:"PICK" as const,readiness:"ready" as const};
+  const questions=[{...ready,id:"A"},{...ready,id:"F"},{...ready,id:"D",readiness:"needs_assets" as const},{...ready,id:"OUT"}];
+  const pack={id:"P",name:"Evening",questionIds:["A","F","D"],finalQuestionIds:["F"]};
+  const summary=packSummary({version:1,revision:1,questions,packs:[pack],activePackId:"P"},pack);
+  assert.deepEqual(summary.route.map(q=>q.id),["A"]);assert.deepEqual(summary.final.map(q=>q.id),["F"]);
+  assert.equal(summary.blocked.length,1);assert.equal(summary.missingAssets.length,1);
+});

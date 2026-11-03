@@ -673,3 +673,10 @@ button {
 .host-focus h2 { margin-bottom: 14px; }
 .host-focus .control-row { margin: 0; }
 summary { cursor: pointer; padding: 8px 0; }
+.pack-overview { margin: 20px 0; }
+.pack-overview__stats, .pack-overview__tables { display: flex; flex-wrap: wrap; gap: 22px; margin: 18px 0; }
+.pack-overview__stats strong { color: var(--yellow); font-size: 1.7rem; flex: 1 1 140px; }
+.pack-overview__stats small { display: block; color: var(--cream); font-size: .8rem; }
+.pack-overview__tables table { flex: 1 1 210px; border-collapse: collapse; text-align: left; }
+.pack-overview__tables caption { text-align: left; font-weight: 700; margin-bottom: 8px; }
+.pack-overview__tables td, .pack-overview__tables th { padding: 7px; border-bottom: 1px solid #4c4540; }

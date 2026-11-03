@@ -47,12 +47,13 @@ export class GameEngine {
   questionCardDismissed = false;
   revealedQuestion: PublicGameState["revealedQuestion"] = null;
 
-  constructor(roomCode: string, questions: Question[] = questionsData as Question[]) {
+  constructor(roomCode: string, questions: Question[] = questionsData as Question[], finalQuestionIds: string[] = []) {
     this.roomCode = roomCode;
     this.gameId = nanoid(10);
     this.questionPool = JSON.parse(JSON.stringify(questions)) as Question[];
     const reserveCount = Math.min(FINAL_QUESTION_COUNT, Math.max(0, Math.floor(this.questionPool.length / 3)));
-    this.reservedFinalQuestionIds = [...this.questionPool].sort(() => Math.random() - .5).slice(0, reserveCount).map(q => q.id);
+    const curated = this.questionPool.filter(q=>finalQuestionIds.includes(q.id)).map(q=>q.id);
+    this.reservedFinalQuestionIds = curated.length ? curated : [...this.questionPool].sort(() => Math.random() - .5).slice(0, reserveCount).map(q => q.id);
     this.map = generateRouteMap(this.routePool());
   }
 
@@ -588,7 +589,7 @@ export class GameEngine {
     if (this.finalState) return;
     const finalists = this.teams.filter(t => t.qualifiedForFinal).map(t=>t.id).slice(0,2);
     const pool = this.questionPool.filter(q=>q.status === "unused");
-    const reserve = pool.filter(q=>this.reservedFinalQuestionIds.includes(q.id));
+    const reserve = pool.filter(q=>this.reservedFinalQuestionIds.includes(q.id)).sort(()=>Math.random()-.5);
     const extras = pool.filter(q=>!this.reservedFinalQuestionIds.includes(q.id)).sort(()=>Math.random()-.5);
     const picks = [...reserve,...extras].slice(0,FINAL_QUESTION_COUNT);
     for (const question of picks) question.status = "used";
