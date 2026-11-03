@@ -68,3 +68,27 @@ test("pausing an adjudication shows PAUSE instead of the active answering highli
   game.resume();
   assert.match(render(game, team.id), /DERES TUR!/);
 });
+
+test("closest rounds render a numeric form with no buzzer and lock after submission",()=>{
+  const pool=questions.map(q=>({...q,mode:"closest" as const,answer:"100"}));
+  const game=new GameEngine("GUESS",pool);const team=game.addTeam("Alpha");game.activateCurrentNode();game.startReading();game.openBuzzers();
+  const form=render(game,team.id);assert.match(form,/Deres tall/);assert.match(form,/Lås svaret/);assert.doesNotMatch(form,/buzzer-wrap/);
+  game.submitFriendAnswer(team.id,"99");const submitted=render(game,team.id);assert.match(submitted,/Svar levert og låst/);assert.match(submitted,/disabled/);
+});
+
+import HostFocus from "./src/components/HostFocus.js";
+import PackOverview from "./src/components/PackOverview.js";
+import {newQuestion} from "./src/lib/bankModel.js";
+test("host next-action panel guides reading, opening, adjudication and pause",()=>{
+  const game=new GameEngine("FOCUS",questions);const team=game.addTeam("Alpha");game.addTeam("Beta");game.activateCurrentNode();
+  const host=()=>renderToStaticMarkup(createElement(HostFocus,{state:game.toHostState(),connected:true,send:()=>{}}));
+  assert.match(host(),/Les neste spørsmål/);game.startReading();assert.match(host(),/Åpne svar/);
+  game.openBuzzers();game.registerBuzz(team.id);assert.match(host(),/Alpha svarer/);assert.match(host(),/Riktig/);
+  game.pause();assert.match(host(),/Fortsett spillet/);
+});
+test("pack overview renders curated finals and thin-pool warnings",()=>{
+  const q={...newQuestion(),id:"A",prompt:"Q",answer:"A",selection:"PICK" as const,readiness:"ready" as const};
+  const pack={id:"P",name:"Evening",questionIds:["A"],finalQuestionIds:["A"]};
+  const html=renderToStaticMarkup(createElement(PackOverview,{bank:{version:1,revision:1,questions:[q],packs:[pack],activePackId:"P"},pack}));
+  assert.match(html,/reservert til finalen/);assert.match(html,/Ingen klare spørsmål til hovedrunden/);assert.match(html,/minst fem/);
+});

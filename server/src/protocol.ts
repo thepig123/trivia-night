@@ -1,6 +1,7 @@
 import type { ClientMessage } from "./types.js";
 
 const fields: Record<string,string[]> = {
+  "host:advance_image":[],
   "host:list_events":["adminKey"], "host:recover_event":["adminKey"],
   "host:dismiss_question_card":[], "host:undo":[], "host:replace_question":[],
   "host:create_room":["adminKey","testMode?","eventMode?"], "host:add_team":[], "host:remove_team":["teamId"], "host:update_team":["teamId","name","players"],

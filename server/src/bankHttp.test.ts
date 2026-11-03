@@ -210,3 +210,37 @@ test("event nights recover without environment flags and require editor authenti
     assert.equal(state.eventMode,true);assert.equal(state.paused,true);assert.equal(state.teams.length,2);assert.equal(state.teams[0].score,100);
   } finally {for(const ws of sockets)ws.terminate();if(server)await stop(server.child);rmSync(directory,{recursive:true,force:true});}
 });
+
+test("closest guesses and image stages travel over WebSockets with role checks and private results",{timeout:20000},async()=>{
+  const directory=mkdtempSync(join(tmpdir(),"trivia-new-formats-"));let server:Awaited<ReturnType<typeof start>>|undefined;const sockets:WebSocket[]=[];
+  const headers={Authorization:"Bearer integration-test-key","Content-Type":"application/json"};
+  try {
+    server=await start(directory,false);const base=server.base;
+    let bank=await(await fetch(base+"/api/bank",{headers})).json() as any;
+    bank.questions=Array.from({length:9},(_,i)=>({id:`NUM${i}`,category:"Tall",tier:"T5",prompt:`Tall ${i}`,answer:"10",acceptedAlternatives:[],status:"unused",format:"closest",selection:"PICK",readiness:"ready",source:"test",sourceUrl:"",assetBrief:"",notes:"",originalFormat:""}));bank.packs[0].questionIds=bank.questions.map((q:any)=>q.id);
+    let response=await fetch(base+"/api/bank",{headers,method:"PUT",body:JSON.stringify(bank)});assert.equal(response.status,200);bank=await response.json();
+    const host=await connect(base);sockets.push(host);let next=message(host,"state:host");host.send(JSON.stringify({type:"host:create_room",adminKey:"integration-test-key",testMode:true}));let state=(await next).state;let code=state.roomCode;
+    const rpc=async(type:string,extra:object={})=>{const result=message(host,"state:host");host.send(JSON.stringify({type,roomCode:code,...extra}));return (await result).state;};
+    const tv=await connect(base);sockets.push(tv);let pub=message(tv,"state:public");tv.send(JSON.stringify({type:"tv:hello",roomCode:code}));await pub;
+    // Attach real phones to two of the generated teams using their host-created sessions.
+    // New room credentials are sent only to the host, so recover them from room:created on a second creation.
+    const credentials=message(host,"room:created");next=message(host,"state:host");host.send(JSON.stringify({type:"host:create_room",adminKey:"integration-test-key",testMode:true}));state=(await next).state;code=state.roomCode;const identities=(await credentials).testControllers;
+    pub=message(tv,"state:public",m=>m.state.roomCode===code);tv.send(JSON.stringify({type:"tv:hello",roomCode:code}));await pub;
+    const phones:WebSocket[]=[];
+    for(const identity of identities.slice(0,2)){const phone=await connect(base);sockets.push(phone);phones.push(phone);const joined=message(phone,"team:joined");phone.send(JSON.stringify({type:"team:resume",roomCode:code,teamId:identity.teamId,sessionToken:identity.sessionToken}));await joined;}
+    await rpc("host:start_reading");state=await rpc("host:open_buzzers");assert.equal(state.activeQuestion.mode,"closest");
+    for(let i=0;i<2;i++){next=message(host,"state:host",m=>Object.keys(m.state.friendAnswers).length===i+1);phones[i].send(JSON.stringify({type:"team:submit_friend_answer",roomCode:code,teamId:identities[i].teamId,answer:i===0?"9":"11"}));await next;}
+    pub=message(tv,"state:public",m=>m.state.revealedQuestion!==null);state=await rpc("host:reveal_friend_answers");const results=(await pub).state;
+    assert.equal(results.revealedQuestion.results.length,2);assert.ok(results.revealedQuestion.results.every((row:any)=>row.correct));assert.equal(results.feedback.points,200);assert.equal(results.activeQuestionPublic,null);
+    assert.equal(state.teams[0].score,200);assert.equal(state.teams[1].score,200);
+    // Change only the bank; the active numeric room retains its frozen question pack.
+    bank.questions=bank.questions.map((q:any)=>({...q,format:"progressive_image",media:{type:"image",url:"/media/test.png"}}));
+    response=await fetch(base+"/api/bank",{headers,method:"PUT",body:JSON.stringify(bank)});assert.equal(response.status,200);
+    next=message(host,"state:host");host.send(JSON.stringify({type:"host:create_room",adminKey:"integration-test-key",testMode:true}));state=(await next).state;code=state.roomCode;
+    pub=message(tv,"state:public",m=>m.state.roomCode===code);tv.send(JSON.stringify({type:"tv:hello",roomCode:code}));await pub;
+    state=await rpc("host:start_reading");assert.equal(state.activeQuestion.progressiveImage,true);
+    const denied=message(tv,"error");tv.send(JSON.stringify({type:"host:advance_image",roomCode:code}));assert.match((await denied).message,/vert/);
+    pub=message(tv,"state:public",m=>m.state.imageRevealStage===1);await rpc("host:advance_image");assert.equal((await pub).state.imageRevealStage,1);
+    state=await rpc("host:undo");assert.equal(state.paused,true);assert.equal(state.imageRevealStage,0);
+  } finally {for(const ws of sockets)ws.terminate();if(server)await stop(server.child);rmSync(directory,{recursive:true,force:true});}
+});

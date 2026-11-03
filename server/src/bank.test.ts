@@ -82,3 +82,15 @@ test("final pool must be a subset of the selected evening pack",()=>{
     assert.deepEqual(validateBank(bank).packs[0].finalQuestionIds,["FIXTURE"]);
   }finally{rmSync(dir,{recursive:true,force:true});}
 });
+
+test("closest and progressive image formats validate ready fields and map into playable engine modes",()=>{
+  const dir=mkdtempSync(join(tmpdir(),"trivia-formats-"));
+  try {
+    const bank=sampleBank(new BankStore(join(dir,"bank.json")));const q=bank.questions[0];q.format="closest";q.answer="abc";
+    assert.throws(()=>validateBank(bank),/tallfasit/);q.answer="-12,5";
+    assert.equal(playableQuestions(validateBank(bank))[0].mode,"closest");
+    q.format="progressive_image";assert.throws(()=>validateBank(bank),/bilde/);
+    q.media={type:"image",url:"/media/pic.jpg"};const playable=playableQuestions(validateBank(bank))[0];
+    assert.equal(playable.progressiveImage,true);assert.equal(playable.mode,"buzzer");
+  }finally{rmSync(dir,{recursive:true,force:true});}
+});

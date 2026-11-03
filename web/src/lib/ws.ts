@@ -8,7 +8,7 @@ import type { ClientMessage, HostGameState, PublicGameState, ServerMessage, Test
 const WS_URL = import.meta.env.VITE_WS_URL ?? `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:8080`;
 
 export interface UseGameSocket {
-  events: SavedEventSummary[];
+  events: SavedEventSummary[] | null;
   connected: boolean;
   testControllers: TestControllerSession[];
   publicState: PublicGameState | null;
@@ -22,7 +22,7 @@ export interface UseGameSocket {
 type ClientRole = "host" | "team" | "tv";
 
 export function useGameSocket(role: ClientRole): UseGameSocket {
-  const [events,setEvents] = useState<SavedEventSummary[]>([]);
+  const [events,setEvents] = useState<SavedEventSummary[] | null>(null);
   const [testControllers,setTestControllers]=useState<TestControllerSession[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const [connected, setConnected] = useState(false);

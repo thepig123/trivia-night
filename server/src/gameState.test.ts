@@ -508,3 +508,57 @@ test("curated final questions stay out of route draws and supply the finale",()=
   game.teams[0].score=100;game.finishRoutePhase();
   assert.deepEqual(new Set(game.finalState!.questionIds),new Set(reserved));
 });
+
+function closestGame() {
+  const pool:Question[]=Array.from({length:12},(_,i)=>({id:`CLOSE${i}`,category:"Tall",tier:"T3",prompt:`Gjett tallet ${i}`,answer:"100",acceptedAlternatives:[],status:"unused",mode:"closest"}));
+  const game=new BaseGameEngine("CLOSE",pool);const a=game.addTeam("A"),b=game.addTeam("B"),c=game.addTeam("C");
+  game.activateCurrentNode();game.startReading();game.openBuzzers();return {game,a,b,c};
+}
+test("closest guesses stay private, lock on submission, and tied nearest teams share full points",()=>{
+  const {game,a,b,c}=closestGame();
+  assert.equal(game.clock.questionRemainingMs,30000);assert.equal(game.registerBuzz(a.id),false);
+  game.submitFriendAnswer(a.id,"not a number");assert.equal(game.friendAnswers[a.id],undefined);
+  game.submitFriendAnswer(a.id,"90");game.submitFriendAnswer(a.id,"100");assert.equal(game.friendAnswers[a.id],"90");
+  game.submitFriendAnswer(b.id,"110");game.submitFriendAnswer(c.id,"70");
+  const pub=game.toPublicState();assert.equal(pub.revealedQuestion,null);assert.equal((pub as any).friendAnswers,undefined);assert.equal((pub.activeQuestionPublic as any).answer,undefined);
+  game.setConnected(a.id,false); // submitted guesses survive a temporary disconnect
+  game.revealFriendAnswers();
+  assert.equal(a.score,600);assert.equal(b.score,600);assert.equal(c.score,0);assert.equal(game.phase,"route_choice");
+  assert.equal(game.toPublicState().revealedQuestion?.results?.filter(row=>row.correct).length,2);
+  game.dismissQuestionCard();game.revealQuestion();assert.equal(game.toPublicState().revealedQuestion?.results?.length,3);
+});
+test("closest decimal ties work and timeout resolves only submitted answers",()=>{
+  const {game,a,b}=closestGame();game.activeQuestion!.answer="0,2";
+  game.submitFriendAnswer(a.id,"0,1");game.submitFriendAnswer(b.id,"0.3");
+  game.pause();const remaining=game.clock.remainingMs;assert.ok(remaining>15000);
+  const restored=BaseGameEngine.restore(game.exportState());assert.ok(restored.clock.remainingMs>15000);
+  game.resume();game.tick(game.clock.deadline!+1);
+  assert.equal(a.score,600);assert.equal(b.score,600);assert.equal(game.activeQuestion,null);
+});
+test("closest rounds score finalists, reject spectators and retain result rows",()=>{
+  const {game,a,b,c}=closestGame();game.skipQuestion();game.teams[0].score=1;game.finishRoutePhase();
+  assert.equal(game.phase,"qualification");game.selectFinalists([a.id,b.id]);game.startReading();game.openBuzzers();
+  game.submitFriendAnswer(c.id,"100");assert.equal(game.friendAnswers[c.id],undefined);
+  game.submitFriendAnswer(a.id,"99");game.submitFriendAnswer(b.id,"80");game.revealFriendAnswers();
+  assert.equal(game.finalState!.scores[a.id],600);assert.equal(game.finalState!.scores[b.id],0);
+  assert.equal(game.finalState!.roundPhase,"resolved");assert.equal(game.toPublicState().revealedQuestion?.results?.length,2);
+});
+test("progressive images advance only during reading/buzzing, pause safely and support undo",()=>{
+  const pool:Question[]=Array.from({length:6},(_,i)=>({id:`IMG${i}`,category:"Bilde",tier:"T3",prompt:"Hvem?",answer:"A",acceptedAlternatives:[],status:"unused",mode:"buzzer",progressiveImage:true,media:{type:"image",url:"/media/test.jpg"}}));
+  const game=new BaseGameEngine("IMAGE",pool);const team=game.addTeam("A");game.activateCurrentNode();
+  game.advanceImage();assert.equal(game.imageRevealStage,0);game.startReading();game.advanceImage();assert.equal(game.toPublicState().imageRevealStage,1);
+  game.undo();assert.equal(game.imageRevealStage,0);assert.equal(game.paused,true);game.advanceImage();assert.equal(game.imageRevealStage,0);
+  game.resume();game.openBuzzers();for(let i=0;i<5;i++)game.advanceImage();assert.equal(game.imageRevealStage,3);
+  game.registerBuzz(team.id);game.markCorrect(team.id);assert.equal(game.toPublicState().revealedQuestion?.media?.url,"/media/test.jpg");
+});
+
+test("feedback reports actual point deductions, correct answers and qualifications without repeating after undo",()=>{
+  const {game,team}=activeGame();
+  game.startReading();game.openBuzzers();game.registerBuzz(team.id);game.markWrong(team.id);
+  assert.equal(game.toPublicState().feedback?.kind,"wrong");assert.equal(game.feedback?.points,0);
+  game.undo();assert.equal(game.feedback,null);game.resume();
+  game.markCorrect(team.id);const scored=game.toPublicState().feedback;assert.equal(scored?.kind,"correct");assert.ok(scored!.points!>0);
+  const id=scored!.id;game.markCorrect(team.id);assert.equal(game.toPublicState().feedback!.id,id);
+  const qualifier=activeGame();qualifier.team.score=20000;qualifier.game.startReading();qualifier.game.openBuzzers();qualifier.game.registerBuzz(qualifier.team.id);qualifier.game.markCorrect(qualifier.team.id);
+  assert.equal(qualifier.game.feedback?.kind,"qualified");
+});

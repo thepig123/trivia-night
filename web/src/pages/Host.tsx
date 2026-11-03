@@ -34,9 +34,10 @@ export default function Host() {
             Opprett nytt øvingsrom
           </button>
           <button className="btn teal" disabled={!connected || !editorKey} onClick={()=>{sessionStorage.setItem("trivia-bank-key",editorKey);send({type:"host:create_room",adminKey:editorKey,eventMode:true});}}>Start spillkveld · automatisk lagring</button>
-         <p>Øving starter på nytt ved serverstart. Spillkvelder lagres og kan gjenopprettes.</p>
+          <p>Øving starter på nytt ved serverstart. Spillkvelder lagres og kan gjenopprettes.</p>
          <button className="btn ghost" disabled={!connected || !editorKey} onClick={()=>send({type:"host:list_events",adminKey:editorKey})}>Finn lagrede spillkvelder</button>
-         {events.map(event=><div className="card" key={event.roomCode}><b>{event.roomCode} · {event.phase}</b><p>{event.teams.join(" · ") || "Ingen lag ennå"}</p><button className="btn teal" disabled={!connected} onClick={()=>send({type:"host:recover_event",adminKey:editorKey,roomCode:event.roomCode})}>Gjenopprett i pause</button></div>)}
+         {events?.length===0 && <p>Ingen lagrede spillkvelder funnet.</p>}
+          {(events??[]).map(event=><div className="card" key={event.roomCode}><b>{event.roomCode} · {event.phase}</b><p>{event.teams.join(" · ") || "Ingen lag ennå"}</p><button className="btn teal" disabled={!connected} onClick={()=>send({type:"host:recover_event",adminKey:editorKey,roomCode:event.roomCode})}>Gjenopprett i pause</button></div>)}
          {localTestingHost(window.location.hostname) && <button className="btn ghost" disabled={!connected||!editorKey} onClick={()=>{
             pendingController.current=window.open("about:blank","trivia-test-controller");
             sessionStorage.setItem("trivia-bank-key",editorKey);
@@ -122,9 +123,8 @@ function AdminPanel({ state, roomCode, send, connected, lastError, testControlle
       <main className="admin-main">
         {!connected && <div role="status" className="error-banner">Mistet forbindelsen. Venter på serveren…</div>}
         {lastError && <div role="alert" className="error-banner">{lastError}</div>}
-        {state.paused && <div role="status" className="error-banner"><p>Spillet er satt på pause. Trykk Fortsett spillet for å åpne spillerkontrollene igjen.</p><button className="btn teal" disabled={!connected} onClick={() => rc("host:resume")}>Fortsett spillet</button></div>}
         <HostFocus state={state} connected={connected} send={send}/>
-        {state.phase === "route_choice" && <div className="card"><h3>Verten kan velge rute</h3><p>Bruk dette hvis laget trenger hjelp eller har mistet forbindelsen.</p><div className="control-row">{state.legalNextNodeIds.map((id: string) => {const node=state.map.nodes.find((n: any)=>n.id===id);return <button key={id} disabled={!connected||state.paused} onClick={()=>rc("host:choose_route",{nodeId:id})}>{node.category} · {questionPoints(node)} poeng</button>;})}</div></div>}
+        {state.phase === "route_choice" && <details className="card"><summary>Overstyr rutevalg</summary><p>Bruk dette hvis laget trenger hjelp eller har mistet forbindelsen.</p><div className="control-row">{state.legalNextNodeIds.map((id: string) => {const node=state.map.nodes.find((n: any)=>n.id===id);return <button key={id} disabled={!connected||state.paused} onClick={()=>rc("host:choose_route",{nodeId:id})}>{node.category} · {questionPoints(node)} poeng</button>;})}</div></details>}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h2 style={{ textTransform: "uppercase", letterSpacing: "0.04em" }}>
             Fase: <span style={{ color: "var(--teal)" }}>{state.phase}</span>
@@ -192,7 +192,7 @@ function AdminPanel({ state, roomCode, send, connected, lastError, testControlle
                   Åpne buzzere
                 </button>
               )}
-              {state.phase === "buzzing" && ["friend_group", "private_choice"].includes(state.activeQuestion?.mode) && <button className="btn teal" onClick={() => rc("host:reveal_friend_answers")}>Avslør svar ({Object.keys(state.friendAnswers).length}/{state.teams.filter((t: any) => !t.qualifiedForFinal).length})</button>}
+              {state.phase === "buzzing" && ["friend_group", "private_choice", "closest"].includes(state.activeQuestion?.mode) && <button className="btn teal" onClick={() => rc("host:reveal_friend_answers")}>Avslør svar ({Object.keys(state.friendAnswers).length}/{state.teams.filter((t: any) => !t.qualifiedForFinal).length})</button>}
               <button className="btn ghost" onClick={() => rc("host:skip_question")}>
                 Hopp over spørsmål
               </button>
@@ -211,16 +211,7 @@ function AdminPanel({ state, roomCode, send, connected, lastError, testControlle
                         <span className="team-dot" style={{ background: team?.color }} />
                         {i + 1}. {team?.name} {isLocked && "(utelåst)"}
                       </span>
-                      {isCurrent && (
-                        <span style={{ display: "flex", gap: 8 }}>
-                          <button className="btn teal" style={{ width: "auto" }} onClick={() => rc("host:mark_correct", { teamId: b.teamId })}>
-                            Riktig
-                          </button>
-                          <button className="btn coral" style={{ width: "auto" }} onClick={() => rc("host:mark_wrong", { teamId: b.teamId })}>
-                            Feil
-                          </button>
-                        </span>
-                      )}
+                      {isCurrent && <strong>Svarer nå</strong>}
                     </div>
                   );
                 })}
@@ -250,10 +241,10 @@ function FinalPanel({ state, roomCode, send }: any) {
   const rc=(type:string,extra:object={})=>send({type,roomCode,...extra});
   const teamName=(id:string)=>state.teams.find((t:any)=>t.id===id)?.name??"Ukjent lag";
   if(state.phase==="ended") return <section className="card"><h2>🏆 {final.winnerIds.length>1?"Delt seier":"Vinner"}: {final.winnerIds.map(teamName).join(" og ")}</h2>{final.finalists.map((id:string)=><p key={id}>{teamName(id)}: <b>{final.scores[id]} finale-poeng</b></p>)}{final.resultNote&&<p>{final.resultNote}</p>}</section>;
-  return <section className="card"><h2>🏆 {final.suddenDeath?"Omspill":"Finale"}</h2><p>{final.finalists.map(teamName).join(" mot ")} · Spørsmål {final.currentIndex+1} av {final.questionIds.length}</p><p>Separate finale-poeng. Riktig buzzer-svar gir spørsmålets verdi; feil trekker samme verdi. Privat flervalg gir poeng til alle riktige og ingen minus. Ved uavgjort trekkes nye omspillsspørsmål så lenge banken har flere.</p>
+  return <section className="card"><h2>🏆 {final.suddenDeath?"Omspill":"Finale"}</h2><p>{final.finalists.map(teamName).join(" mot ")} · Spørsmål {final.currentIndex+1} av {final.questionIds.length}</p><p>Separate finale-poeng. Riktig buzzer-svar gir spørsmålets verdi; feil trekker samme verdi. Privat flervalg gir poeng til alle riktige; nærmest gir poeng til alle like nærmeste. Ingen minus i disse formatene. Ved uavgjort trekkes nye omspillsspørsmål så lenge banken har flere.</p>
     <div className="control-row">{final.finalists.map((id:string)=><strong key={id}>{teamName(id)}: {final.scores[id]}</strong>)}</div>
     {state.activeQuestion&&<div className="question-box"><p>{state.activeQuestion.category} · {questionPoints(state.activeQuestion)} poeng</p><h3>{state.activeQuestion.prompt}</h3><p><b>Fasit:</b> {state.activeQuestion.answer}</p><p>{state.activeQuestion.hostNote}</p></div>}
-    <div className="control-row">{final.roundPhase==="ready"&&<button className="btn teal" disabled={state.paused} onClick={()=>rc("host:start_reading")}>Les finalespørsmålet</button>}{final.roundPhase==="reading"&&<button className="btn pink" disabled={state.paused} onClick={()=>rc("host:open_buzzers")}>Åpne svar</button>}{final.roundPhase==="buzzing"&&["private_choice","friend_group"].includes(state.activeQuestion?.mode)&&<button className="btn teal" disabled={state.paused} onClick={()=>rc("host:reveal_friend_answers")}>Avslør private svar ({Object.keys(state.friendAnswers).length}/{final.finalists.length})</button>}{final.roundPhase==="adjudicating"&&state.currentResponderId&&<><p>{teamName(state.currentResponderId)} svarer</p><button className="btn teal" disabled={state.paused} onClick={()=>rc("host:mark_correct",{teamId:state.currentResponderId})}>Riktig</button><button className="btn coral" disabled={state.paused} onClick={()=>rc("host:mark_wrong",{teamId:state.currentResponderId})}>Feil</button></>}
-    {final.roundPhase!=="resolved"&&<button className="btn ghost" disabled={state.paused} onClick={()=>rc("host:skip_question")}>Hopp over finalespørsmålet</button>}{state.canRevealQuestion&&<button className="btn ghost" onClick={()=>rc(state.canDismissQuestionCard ? "host:dismiss_question_card" : "host:reveal_question")}>{state.canDismissQuestionCard ? "Vis kart" : "Vis fasit"}</button>}{final.roundPhase==="resolved"&&<button className="btn teal" disabled={state.paused} onClick={()=>rc("host:advance_final")}>{final.currentIndex+1>=final.questionIds.length?"Avgjør finalen / trekk omspill":"Neste finalespørsmål"}</button>}</div>
+    <details><summary>Flere finalekontroller · hopp over</summary><div className="control-row">{final.roundPhase==="ready"&&<button className="btn teal" disabled={state.paused} onClick={()=>rc("host:start_reading")}>Les finalespørsmålet</button>}{final.roundPhase==="reading"&&<button className="btn pink" disabled={state.paused} onClick={()=>rc("host:open_buzzers")}>Åpne svar</button>}{final.roundPhase==="buzzing"&&["private_choice","friend_group","closest"].includes(state.activeQuestion?.mode)&&<button className="btn teal" disabled={state.paused} onClick={()=>rc("host:reveal_friend_answers")}>Avslør private svar ({Object.keys(state.friendAnswers).length}/{final.finalists.length})</button>}{final.roundPhase==="adjudicating"&&state.currentResponderId&&<><p>{teamName(state.currentResponderId)} svarer</p><button className="btn teal" disabled={state.paused} onClick={()=>rc("host:mark_correct",{teamId:state.currentResponderId})}>Riktig</button><button className="btn coral" disabled={state.paused} onClick={()=>rc("host:mark_wrong",{teamId:state.currentResponderId})}>Feil</button></>}
+    {final.roundPhase!=="resolved"&&<button className="btn ghost" disabled={state.paused} onClick={()=>rc("host:skip_question")}>Hopp over finalespørsmålet</button>}{state.canRevealQuestion&&<button className="btn ghost" onClick={()=>rc(state.canDismissQuestionCard ? "host:dismiss_question_card" : "host:reveal_question")}>{state.canDismissQuestionCard ? "Vis kart" : "Vis fasit"}</button>}{final.roundPhase==="resolved"&&<button className="btn teal" disabled={state.paused} onClick={()=>rc("host:advance_final")}>{final.currentIndex+1>=final.questionIds.length?"Avgjør finalen / trekk omspill":"Neste finalespørsmål"}</button>}</div></details>
   </section>;
 }

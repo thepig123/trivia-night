@@ -10,7 +10,10 @@ type PublicQuestion = NonNullable<PublicGameState["activeQuestionPublic"]>;
 export default function Tv() {
   const { connected, publicState, lastError, send } = useGameSocket("tv");
   const [roomInput, setRoomInput] = useState("");
-  const cue=useAnswerCue(publicState?.questionClock.warningId);
+  const cue=useAnswerCue(publicState?.questionClock.warningId,publicState?.feedback);
+
+  const [visibleFeedback,setVisibleFeedback]=useState<string|null>(null);
+  useEffect(()=>{const feedback=publicState?.feedback;if(!feedback || Date.now()-feedback.createdAt>4000){setVisibleFeedback(null);return;}setVisibleFeedback(feedback.id);const timer=window.setTimeout(()=>setVisibleFeedback(null),Math.max(0,4000-(Date.now()-feedback.createdAt)));return ()=>window.clearTimeout(timer);},[publicState?.feedback?.id]);
 
   if (!publicState) {
     return (
@@ -41,19 +44,21 @@ export default function Tv() {
       <header className="tv-header">
         <h1>TRIVIA NIGHT</h1>
         {!cue.enabled && <button className="btn ghost" style={{width:"auto"}} onClick={()=>void cue.enable()}>Aktiver lydsignal</button>}
+        {cue.enabled && <label className="tv-volume">Lyd <input aria-label="Volum for spillsignaler" type="range" min="0" max="1" step="0.05" value={cue.volume} onChange={e=>cue.setVolume(Number(e.target.value))}/><span>{Math.round(cue.volume*100)}%</span></label>}
         {publicState.phase === "lobby" && <span>ROM {publicState.roomCode}</span>}
       </header>
 
       <div className="tv-stage">
-        {publicState.phase === "ended" ? <section className="tv-results"><h2>🏆 {publicState.finalState!.winnerIds.length>1?"Delt seier":"Vinner"}</h2><h1>{publicState.finalState!.winnerIds.map(id=>publicState.teams.find(t=>t.id===id)?.name).join(" og ")}</h1><p>{publicState.finalState!.resultNote}</p></section> : publicState.phase === "qualification" ? <section className="tv-results"><h2>Omspill om finaleplassen</h2><p>Verten avgjør hvem som går videre.</p></section> : publicState.phase === "final" ? <div className="tv-final-title">{publicState.finalState?.suddenDeath?"OMSPILL":"FINALE"}</div> : <RouteMap map={publicState.map} legalNodeIds={publicState.legalNextNodeIds} rowsAhead={6} />}
-        {publicState.revealedQuestion && <section className="tv-question" aria-label="Fasit"><div className="tv-question__content"><p>{publicState.revealedQuestion.prompt}</p><p><b>{publicState.revealedQuestion.answer}</b></p>{publicState.revealedQuestion.media?.type === "image" && <img className="tv-question__image" src={publicState.revealedQuestion.media.url} alt="Fasitbilde"/>}{publicState.revealedQuestion.media?.type === "audio" && <audio controls src={publicState.revealedQuestion.media.url}/>}</div></section>}
+        {publicState.phase === "ended" ? <section className="tv-results tv-results--winner"><h2>🏆 {publicState.finalState!.winnerIds.length>1?"Delt seier":"Vinner"}</h2><h1>{publicState.finalState!.winnerIds.map(id=>publicState.teams.find(t=>t.id===id)?.name).join(" og ")}</h1><p>{publicState.finalState!.resultNote}</p><div className="tv-final-scores">{publicState.finalState!.finalists.map(id=><div key={id}><span>{publicState.teams.find(t=>t.id===id)?.name}</span><strong>{publicState.finalState!.scores[id].toLocaleString("nb-NO")} finale-poeng</strong></div>)}</div></section> : publicState.phase === "qualification" ? <section className="tv-results"><h2>Omspill om finaleplassen</h2><p>Verten avgjør hvem som går videre.</p></section> : publicState.phase === "final" ? <div className="tv-final-title">{publicState.finalState?.suddenDeath?"OMSPILL":"FINALE"}</div> : <RouteMap map={publicState.map} legalNodeIds={publicState.legalNextNodeIds} rowsAhead={6} />}
+        {publicState.revealedQuestion && <section className="tv-question" aria-label="Fasit"><div className="tv-question__content"><p>{publicState.revealedQuestion.prompt}</p><p><b>{publicState.revealedQuestion.answer}</b></p>{publicState.revealedQuestion.results?.length ? <table className="tv-answer-results"><thead><tr><th>Lag</th><th>Svar</th><th>Resultat</th></tr></thead><tbody>{publicState.revealedQuestion.results.map(row=><tr key={row.teamId} className={row.correct ? "tv-answer-results--correct" : ""}><td>{publicState.teams.find(t=>t.id===row.teamId)?.name}</td><td>{row.answer}</td><td>{row.correct ? "✓" : "–"}{row.distance!==undefined ? ` · ${row.distance.toLocaleString("nb-NO",{maximumFractionDigits:6})} unna` : ""}</td></tr>)}</tbody></table> : null}{publicState.revealedQuestion.media?.type === "image" && <img className="tv-question__image" src={publicState.revealedQuestion.media.url} alt="Fasitbilde"/>}{publicState.revealedQuestion.media?.type === "audio" && <audio controls src={publicState.revealedQuestion.media.url}/>}</div></section>}
         {!publicState.revealedQuestion && !publicState.questionCardDismissed && showQuestionCard && (
           <section className="tv-question" aria-label="Aktivt spørsmål">
-            <div><QuestionContent key={publicState.activeNodeId} question={publicState.activeQuestionPublic!} paused={publicState.paused || questionPhase === "adjudicating"} /></div>
+            <div><QuestionContent key={publicState.activeNodeId} question={publicState.activeQuestionPublic!} imageRevealStage={publicState.imageRevealStage} paused={publicState.paused || questionPhase === "adjudicating"} /></div>
           </section>
         )}
       </div>
 
+      {visibleFeedback && publicState.feedback?.id===visibleFeedback && <aside role="status" className={`tv-feedback tv-feedback--${publicState.feedback.kind}`}><h2>{publicState.feedback.label}</h2><p>{publicState.feedback.teamIds.map(id=>publicState.teams.find(t=>t.id===id)?.name).join(" · ")}</p>{publicState.feedback.points!==undefined && <strong>{publicState.feedback.points>0?"+":""}{publicState.feedback.points} poeng{publicState.feedback.teamIds.length>1 ? " hver" : ""}</strong>}</aside>}
       <section className="tv-scoreboard" aria-label="Lag og poeng">
         {publicState.teams.map((team) => (
           <TeamBanner
@@ -69,7 +74,7 @@ export default function Tv() {
   );
 }
 
-function QuestionContent({ question, paused }: { question: PublicQuestion; paused: boolean }) {
+function QuestionContent({ question, paused, imageRevealStage }: { question: PublicQuestion; paused: boolean; imageRevealStage:number }) {
   const audio = useRef<HTMLAudioElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   useEffect(() => {
@@ -83,7 +88,7 @@ function QuestionContent({ question, paused }: { question: PublicQuestion; pause
     <div className="tv-question__content">
       {question.prompt && <p>{question.prompt}</p>}
       {media?.type === "audio" && media.url && <audio ref={audio} className="tv-question__audio" src={media.url} autoPlay controls />}
-      {media?.type === "image" && media.url && <img className={`tv-question__image tv-question__image--${media.effect ?? "none"}`} src={media.url} alt="Visuell ledetråd" />}
+      {media?.type === "image" && media.url && <img className={`tv-question__image tv-question__image--${media.effect ?? "none"}`} style={question.progressiveImage ? {filter:`blur(${[18,10,4,0][imageRevealStage]??0}px)`,transition:"filter .6s ease"} : undefined} src={media.url} alt="Visuell ledetråd" />}
       {media?.type === "video" && media.url && <video ref={video} className="tv-question__video" src={media.url} autoPlay controls />}
       {media && !media.url && <div className="tv-question__placeholder">MEDIEPLASSHOLDER</div>}
     </div>

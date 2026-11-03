@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 import { mkdirSync, readFileSync, writeFileSync, renameSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import seed from "./data/question-bank.json" with { type: "json" };
-import { isGutta } from "./types.js";
+import { isGutta, numericAnswer } from "./types.js";
 import type { Question } from "./types.js";
 
 export const FORMATS = ["text", "emoji", "image", "audio", "private_choice", "closest", "sorting", "list", "wager", "progressive_image", "timer"] as const;
@@ -20,7 +20,7 @@ export interface BankQuestion extends Question {
 }
 export interface QuestionPack { id: string; name: string; questionIds: string[]; finalQuestionIds?: string[] }
 export interface QuestionBank { version: 1; revision: number; questions: BankQuestion[]; packs: QuestionPack[]; activePackId: string }
-export const SUPPORTED_FORMATS: Format[] = ["text", "emoji", "image", "audio", "private_choice"];
+export const SUPPORTED_FORMATS: Format[] = ["text", "emoji", "image", "audio", "private_choice", "closest", "progressive_image"];
 export function readyProblems(q: BankQuestion): string[] {
   const problems: string[] = [];
   if (!q.prompt.trim() || !q.answer.trim() || !q.category.trim()) problems.push("Spørsmål, fasit og kategori må fylles ut.");
@@ -28,6 +28,8 @@ export function readyProblems(q: BankQuestion): string[] {
   if (q.format === "image" || q.format === "audio") {
     if (!q.media?.url || q.media.type !== q.format) problems.push("Last opp riktig mediefil før spørsmålet er klart.");
   }
+  if (q.format === "closest" && numericAnswer(q.answer) === null) problems.push("Nærmest trenger en gyldig tallfasit (punktum eller komma, maks 15 sifre).");
+  if (q.format === "progressive_image" && (!q.media?.url || q.media.type !== "image")) problems.push("Last opp et bilde til den progressive avsløringen.");
   if (q.format === "private_choice" && (!q.choices || new Set(q.choices.filter(c => c.trim())).size < 2 || q.choices.some(c => !c.trim()) || !q.choices.includes(q.answer))) problems.push("Flervalg trenger minst to alternativer, inkludert fasiten.");
   return problems;
 }
@@ -54,7 +56,8 @@ export function validateBank(value: unknown): QuestionBank {
     }
     if (q.readiness === "ready" && readyProblems(q).length) throw new Error(`${q.id}: ${readyProblems(q).join(" ")}`);
     q.status = "unused";
-    q.mode = q.format === "private_choice" ? "private_choice" : "buzzer";
+    q.mode = q.format === "closest" ? "closest" : q.format === "private_choice" ? "private_choice" : "buzzer";
+    q.progressiveImage = q.format === "progressive_image";
   }
   const packs = new Set<string>();
   for (const pack of bank.packs) {
@@ -69,7 +72,7 @@ export function validateBank(value: unknown): QuestionBank {
 }
 export function playableQuestions(bank: QuestionBank): Question[] {
   const selected = new Set(bank.packs.find(pack => pack.id === bank.activePackId)!.questionIds);
-  return bank.questions.filter(q => selected.has(q.id) && q.selection === "PICK" && q.readiness === "ready" && !readyProblems(q).length).map(q => ({...structuredClone(q), mode: q.format === "private_choice" ? "private_choice" : "buzzer", status: "unused"}));
+  return bank.questions.filter(q => selected.has(q.id) && q.selection === "PICK" && q.readiness === "ready" && !readyProblems(q).length).map(q => ({...structuredClone(q), progressiveImage:q.format === "progressive_image", mode: q.format === "closest" ? "closest" : q.format === "private_choice" ? "private_choice" : "buzzer", status: "unused"}));
 }
 export class BankStore {
   private bank: QuestionBank;

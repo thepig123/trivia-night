@@ -1,4 +1,5 @@
 import React from "react";
+import NumericAnswerPanel from "./NumericAnswerPanel";
 import RouteMap, { TierLegend } from "./RouteMap";
 
 export default function TeamController({ roomCode, teamId, publicState, send, connected, lastError, testControllers }: any) {
@@ -9,7 +10,7 @@ export default function TeamController({ roomCode, teamId, publicState, send, co
   const iBuzzed = publicState?.buzzOrder?.some((b: any) => b.teamId === teamId);
   const iAmLocked = publicState?.lockedOutTeamIds?.includes(teamId);
   const iAmFirst = phase === "adjudicating" && publicState?.currentResponderId === teamId;
-  const canBuzz = connected && !publicState?.paused && phase === "buzzing" && (!inFinal || isFinalist) && (inFinal || !me?.qualifiedForFinal) && !iBuzzed && !iAmLocked;
+  const canBuzz = connected && !publicState?.paused && phase === "buzzing" && (!inFinal || isFinalist) && (inFinal || !me?.qualifiedForFinal) && publicState?.activeQuestionPublic?.mode !== "closest" && !iBuzzed && !iAmLocked;
   const isControlling = phase === "route_choice" && publicState?.controllingTeamId === teamId;
   const isFriendRound = ["friend_group", "private_choice"].includes(publicState?.activeQuestionPublic?.mode);
   const friendSubmitted = publicState?.friendAnswersSubmitted?.includes(teamId);
@@ -63,6 +64,8 @@ export default function TeamController({ roomCode, teamId, publicState, send, co
           />
           <TierLegend compact />
         </div>
+      ) : publicState?.activeQuestionPublic?.mode === "closest" && phase === "buzzing" ? (
+        <NumericAnswerPanel key={publicState.activeQuestionPublic.id} disabled={!connected || publicState.paused} submitted={!!friendSubmitted} onSubmit={answer=>send({type:"team:submit_friend_answer",roomCode,teamId,answer})}/>
       ) : isFriendRound && phase === "buzzing" ? (
         <div className="friend-answer-panel">
           <h3>Velg svar</h3>

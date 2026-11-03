@@ -35,8 +35,9 @@ export interface Question {
   revealMedia?: { type: "image" | "audio"; url: string };
   status: QuestionStatus;
   lastUsedSession?: string;
-  mode?: "buzzer" | "friend_group" | "private_choice";
+  mode?: "buzzer" | "friend_group" | "private_choice" | "closest";
   choices?: string[];
+  progressiveImage?: boolean;
 }
 
 export type NodeStatus = "locked" | "available" | "selected" | "rejected" | "completed";
@@ -114,6 +115,8 @@ export interface TestControllerSession {
   teamName: string;
 }
 
+export interface GameFeedback { id:string; kind:"correct"|"wrong"|"qualified"|"final"|"winner"; teamIds:string[]; points?:number; label:string; createdAt:number }
+
 export interface EventLogEntry {
   id: string;
   ts: number;
@@ -125,6 +128,7 @@ export interface HostGameState {
   roomCode: string;
   isTestRoom: boolean;
   eventMode: boolean;
+  feedback: GameFeedback | null;
   gameId: string;
   phase: GamePhase;
   paused: boolean;
@@ -145,6 +149,7 @@ export interface HostGameState {
   friendAnswers: Record<string, string>;
   startedAt: number | null;
   questionsPlayed: number;
+  imageRevealStage: number;
   canRevealQuestion: boolean;
   canDismissQuestionCard: boolean;
   canUndo: boolean;
@@ -159,6 +164,7 @@ export interface PublicGameState {
   roomCode: string;
   isTestRoom: boolean;
   eventMode: boolean;
+  feedback: GameFeedback | null;
   phase: GamePhase;
   paused: boolean;
   questionClock: QuestionClock;
@@ -167,12 +173,14 @@ export interface PublicGameState {
   map: RouteMap;
   activeNodeId: string | null;
   activeQuestionPublic: {
+    id: string;
     category: string;
     tier: Tier;
     points: number;
     prompt: string;
-    mode?: "buzzer" | "friend_group" | "private_choice";
+    mode?: "buzzer" | "friend_group" | "private_choice" | "closest";
     choices?: string[];
+    progressiveImage?: boolean;
     media?: Question["media"];
   } | null;
   buzzOrder: { teamId: string }[]; // no timestamps needed publicly
@@ -183,8 +191,9 @@ export interface PublicGameState {
   legalNextNodeIds: string[];
   finalCandidateIds: string[];
   friendAnswersSubmitted: string[];
+  imageRevealStage: number;
   questionCardDismissed: boolean;
-  revealedQuestion: { prompt: string; answer: string; media?: Question["media"] } | null;
+  revealedQuestion: { prompt: string; answer: string; media?: Question["media"]; results?: {teamId:string; answer:string; correct:boolean; distance?:number}[] } | null;
 }
 
 // ---------- Client -> Server messages ----------
@@ -219,6 +228,7 @@ export type ClientMessage =
   | { type: "host:select_finalists"; roomCode: string; teamIds: string[] }
   | { type: "host:advance_final"; roomCode: string }
   | { type: "host:reveal_friend_answers"; roomCode: string }
+  | { type: "host:advance_image"; roomCode: string }
   | { type: "host:reveal_question"; roomCode: string }
   | { type: "host:dismiss_question_card"; roomCode: string };
 
@@ -233,3 +243,11 @@ export type ServerMessage =
   | { type: "state:host"; state: HostGameState }
   | { type: "team:joined"; teamId: string; roomCode: string; sessionToken: string }
   | { type: "error"; message: string; code?: "session_expired" };
+
+
+export function numericAnswer(value: string): number | null {
+  const text=value.trim();
+  if (!/^[+-]?\d+(?:[.,]\d+)?$/.test(text)) return null;
+  const number=Number(text.replace(",", "."));
+  return Number.isFinite(number) && Math.abs(number)<=1e15 ? number : null;
+}

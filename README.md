@@ -57,13 +57,13 @@ npm install
 npm run dev
 ```
 
-Starts a WebSocket server on `ws://localhost:8080`. By default every server startup starts with **fresh rooms**. Old host/team/TV
+Starts a WebSocket server on `ws://localhost:8080`. Practice rooms start fresh on server startup. **Spillkveld** rooms save automatically and recover after a restart, regardless of environment flags. Old practice host/team/TV
 sessions are cleared automatically when they reconnect, and the next created
 room gets a fresh randomized map and unused question pool from the active pack.
 The question bank, uploaded media and evening packs remain saved. A browser
 refresh while the server is still running can still reconnect to that game.
 
-Optional event recovery: set `RESUME_ROOMS=true` to save/restore rooms atomically
+Legacy override: set `RESUME_ROOMS=true` to also save/restore practice rooms atomically
 in `server/runtime/rooms.json`, including scores, question usage, Final state,
 reconnect tokens and Undo history. Recovered games pause until the host resumes.
 
@@ -140,8 +140,7 @@ each registration automatically and stays focused on monitoring and scoring.
 When the host starts reading, the public question prompt appears in a centered
 game-show card over the TV map. The card contains only the question in large
 type—no category, tier, points, or other metadata. It remains visible while
-buzzers are open, then disappears as soon as the first team buzzes so nobody
-can buzz early and keep reading. Public snapshots include the prompt but never
+buzzers are open, stays visible during adjudication, and changes to fasit after a correct answer. Public snapshots include the prompt but never
 expose the answer.
 
 The TV is deliberately minimal: the route map owns the full central stage and
@@ -201,9 +200,9 @@ engine-test fixture; live rooms use the bank.
 5. Include questions with the pack checkboxes. Create an empty pack or copy
    an existing one for another evening. The active pack supplies new rooms.
 
-Supported now: text/emoji buzzer, image/audio buzzer and private multiple choice.
-Closest-number, sorting, list challenges, wagers, progressive images and timer
-challenges can be authored and saved as drafts, but cannot be marked ready.
+Supported now: text/emoji buzzer, image/audio buzzer, private multiple choice,
+closest-number guesses and host-controlled progressive image reveals. Sorting,
+list challenges, wagers and timer challenges remain draft-only.
 Multiple choice needs at least two distinct choices and an exact matching
 correct answer. The editor and server both validate ready questions.
 
@@ -233,9 +232,9 @@ to press Play on the TV before audio is allowed.
 Edits save atomically to `server/runtime/question-bank.json`; stale revisions
 are rejected instead of overwriting someone else's changes. Uploads live in
 `server/runtime/media/`, and the generated editor key is stored alongside them.
-This folder is ignored by Git and survives server restarts. Room progress is fresh on every startup by default. Only with
-`RESUME_ROOMS=true` are rooms and reconnect tokens also saved to `rooms.json`
-in the runtime folder.
+This folder is ignored by Git and survives server restarts. Event rooms and reconnect tokens save automatically to `rooms.json`; practice
+rooms start fresh unless `RESUME_ROOMS=true` is set. Keep the runtime folder
+when moving to another computer.
 
 - Export JSON for the full bank and evening packs. Import previews new,
   updated and unchanged questions by stable ID before applying. Pack IDs are
@@ -304,7 +303,7 @@ rooms, and the question bank is not changed by creating a test room.
   clear the old responder highlight before route selection.
 - **Bytt aktivt spørsmål** swaps in an unused question, clears buzzes/private
   answers and returns to reading preparation. The old question stays used.
-- Questions have a 15-second server clock, without a visible countdown on TV,
+- Ordinary questions have a 15-second server clock (closest-number rounds have 30 seconds), without a visible countdown on TV,
   phones or the host panel. The question card stays over the map during reading,
   buzzing, spoken answers and the wait for host reveal. Audio pauses on buzz.
 - A buzz freezes the question clock. After seven seconds, the TV plays one
@@ -321,8 +320,11 @@ rooms, and the question bank is not changed by creating a test room.
 
 ## Final rules
 
-A room reserves up to five questions (at most one third of a small bank) for
-its Final. Both finalists start at zero Final points; route scores are retained
+Use the **Finale** checkboxes in the question bank to reserve a curated pool
+for the active evening pack. These questions never appear in the route game.
+The finale draws five from that pool and supplements a small pool from remaining
+questions. With no curated pool, the room automatically reserves up to five
+questions (at most one third of a small bank). Both finalists start at zero Final points; route scores are retained
 separately. Other teams spectate. Ordinary questions add/subtract their tier value, with a zero-point floor;
 Gutta questions always use **500 points**, regardless of tier. Other
 private-choice questions award the full value to every correct finalist, with
@@ -339,7 +341,64 @@ teams and teams strictly above the cutoff keep their places.
 
 ## Remaining development
 
-- Implement closest-number, sorting, list challenges, wagers, progressive
-  image reveals and precision minigames currently available only as drafts.
+- Implement sorting, list challenges, wagers and precision minigames currently available only as drafts.
 - Run a visual/mobile/LAN playtest on the actual TV and phones.
 - Recheck and supply media for the selected question bank before the event.
+
+
+## Event preparation and host flow
+
+On `/host`, choose **Opprett nytt øvingsrom** for ordinary practice, the four-team
+local test shortcut, or **Start spillkveld · automatisk lagring** for the evening.
+Saved events retain scores, question usage, answers already submitted, media
+reveal stage, Final state and Undo history. Server recovery freezes the game.
+From a fresh browser, enter the editor key, click **Finn lagrede spillkvelder**,
+and select **Gjenopprett i pause**. Existing phones keep their team tokens and
+reconnect to the same room. Click **Fortsett spillet** when ready. Practice rooms
+remain separate and disappear on restart by default. Back up the runtime folder
+before the evening; automatic saves are local to that computer.
+
+The host's **Neste handling** panel presents the current action: read, open
+answers, judge Correct/Wrong, reveal private answers or advance the Final.
+Less frequent controls are under **Flere kontroller** / **Flere finalekontroller**;
+route override is expandable. The private host panel shows elapsed wall-clock
+minutes, completed questions and observed average seconds per question, including
+pauses. It does not change the target score automatically.
+
+The bank's **Kveldssjekk** overview counts only the active pack's playable
+PICK + Klar questions, separates reserved finale questions, shows category/tier/
+format coverage and lists excluded questions. Fewer than three ready questions
+is flagged as a thin pool, not blocked. Missing-media warnings detect absent
+references; they do not guarantee an external URL is reachable or an uploaded
+file will play on your TV. Existing JSON imports without finale selections work
+as before; full-bank JSON exports and copied packs retain finale selections.
+
+## New formats
+
+**Nærmest · tallgjetting:** write a numeric fasit using a decimal comma or point.
+Every eligible team has 30 seconds to submit one private locked guess from its
+phone. The host can reveal earlier. All teams equally nearest to the answer get
+the full question value (Gutta stays 500); other teams lose nothing. Teams that
+do not submit cannot win. Ties use the existing trailing-winner route-control
+rule. Submitted guesses survive a temporary disconnect. Answers and distances
+appear on TV only when revealed. This format also works in the finale and
+sudden death. Supported range is −10^15 through 10^15, without exponent notation.
+
+**Progressivt bilde:** upload an image, mark PICK + Klar, and start it normally.
+The TV starts blurred. **Avslør mer av bildet** in the host panel advances through
+four blur levels, ending fully sharp. Stages are manual; the ordinary 15-second
+answer clock still starts when answers open. Reveal more during reading if you
+want a longer introduction before opening buzzers. Pause blocks stage changes;
+Undo restores the previous stage and pauses. Fasit shows the clear image or the
+question's separate reveal media. Points do not decrease with reveal stages.
+
+## TV feedback and sound
+
+The TV briefly announces correct/wrong answers, actual points gained/lost,
+qualification and the finale. The winner screen includes final scores. Sound
+signals require the TV connect click or **Aktiver lydsignal**. The TV header has
+a saved volume slider; zero mutes game signals, including the seven-second
+answer warning. This slider controls game cues, not uploaded music/audio clips.
+Signals older than four seconds are not replayed on reconnect, and Undo clears
+score feedback. Test the volume and music clips on the actual TV before guests
+arrive. Reduced-motion preferences disable the announcement entrance animation.

@@ -680,3 +680,21 @@ summary { cursor: pointer; padding: 8px 0; }
 .pack-overview__tables table { flex: 1 1 210px; border-collapse: collapse; text-align: left; }
 .pack-overview__tables caption { text-align: left; font-weight: 700; margin-bottom: 8px; }
 .pack-overview__tables td, .pack-overview__tables th { padding: 7px; border-bottom: 1px solid #4c4540; }
+.tv-answer-results { width: 100%; border-collapse: collapse; font-size: clamp(1rem,2vw,1.6rem); text-align: left; margin-top: 16px; }
+.tv-answer-results th, .tv-answer-results td { padding: 8px 18px; border-bottom: 1px solid #66533c; }
+.tv-answer-results--correct { color: var(--yellow); }
+.tv-volume { display: flex; align-items: center; gap: 8px; font-size: .8rem; }
+.tv-volume input { width: 110px; accent-color: var(--yellow); }
+.tv-feedback { position: fixed; z-index: 30; top: 9%; left: 50%; transform: translateX(-50%); width: max-content; max-width: 85vw; padding: 18px 35px; text-align: center; background: #211b19f5; border: 2px solid var(--yellow); border-radius: 12px; box-shadow: 0 12px 50px #000b; pointer-events: none; animation: feedback-arrive .25s ease-out; }
+.tv-feedback h2 { font-size: clamp(1.4rem,3vw,2.8rem); color: var(--yellow); }
+.tv-feedback p { margin: 6px 0; }
+.tv-feedback strong { font-size: 1.5rem; }
+.tv-feedback--wrong { border-color: var(--coral); }
+.tv-feedback--wrong h2 { color: var(--coral); }
+.tv-feedback--winner { top: 15%; border-width: 4px; }
+@keyframes feedback-arrive { from { opacity: 0; margin-top: -15px; } to { opacity: 1; margin-top: 0; } }
+@media (prefers-reduced-motion: reduce) { .tv-feedback { animation: none; } }
+.tv-results--winner { border: 1px solid #d8a94d77; border-radius: 18px; margin-top: 4vh; background: radial-gradient(ellipse at top, #d8a94d30, transparent 70%); box-shadow: 0 0 65px #d8a94d18; }
+.tv-final-scores { display: flex; justify-content: center; flex-wrap: wrap; gap: 30px; margin-top: 32px; }
+.tv-final-scores span, .tv-final-scores strong { display: block; }
+.tv-final-scores strong { font-size: clamp(1.1rem,2vw,2rem); color: var(--yellow); }

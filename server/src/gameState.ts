@@ -1,6 +1,7 @@
 import { nanoid } from "nanoid";
 import type {
   BuzzEntry,
+  GameFeedback,
   EventLogEntry,
   FinalState,
   GamePhase,
@@ -11,7 +12,7 @@ import type {
   Tier,
   QuestionClock,
 } from "./types.js";
-import { questionPoints, isGutta } from "./types.js";
+import { questionPoints, isGutta, numericAnswer } from "./types.js";
 import { generateRouteMap, legalNextNodeIds, chooseRoute, markNodeCompleted, refreshRouteOptions } from "./map.js";
 import { TEAM_COLORS } from "./palette.js";
 import questionsData from "./data/questions.json" with { type: "json" };
@@ -24,6 +25,7 @@ export class GameEngine {
   gameId: string;
   isTestRoom = false;
   eventMode = false;
+  feedback: GameFeedback | null = null;
   startedAt: number | null = null;
   phase: GamePhase = "lobby";
   paused = false;
@@ -44,6 +46,8 @@ export class GameEngine {
   finalCandidateIds: string[] = [];
   clock: QuestionClock = {kind:null, remainingMs:15000, deadline:null, questionRemainingMs:15000, warningId:null};
   private undoHistory: {label:string;state:Record<string,unknown>}[] = [];
+  imageRevealStage = 0;
+  private completedAnswers: NonNullable<PublicGameState["revealedQuestion"]>["results"] = [];
   questionCardDismissed = false;
   revealedQuestion: PublicGameState["revealedQuestion"] = null;
 
@@ -69,8 +73,8 @@ export class GameEngine {
     if (!data || typeof data.roomCode !== "string" || !Array.isArray(data.questionPool) || !Array.isArray(data.teams) || !data.map || !data.gameId) throw new Error("Ugyldig lagret spill.");
     const game=Object.assign(new GameEngine(data.roomCode,data.questionPool),data);
     game.clock.warningId ??= null;
-    game.clock.questionRemainingMs=Math.min(15000,game.clock.questionRemainingMs);
-    if(game.clock.kind === "question")game.clock.remainingMs=Math.min(15000,game.clock.remainingMs);
+    game.clock.questionRemainingMs=Math.min(game.duration(),game.clock.questionRemainingMs);
+    if(game.clock.kind === "question")game.clock.remainingMs=Math.min(game.duration(),game.clock.remainingMs);
     game.clampScores();
     for(const team of game.teams) team.connected=false;
     if(!["lobby","ended"].includes(game.phase)) game.paused=true;
@@ -90,6 +94,7 @@ export class GameEngine {
     const photos=new Map(this.teams.map(t=>[t.id,t.photoDataUrl]));
     Object.assign(this,previous.state);
     this.undoHistory=history;
+    this.feedback=null;
     this.clampScores();
     for(const team of this.teams){team.connected=presence.get(team.id)??false;team.photoDataUrl=photos.get(team.id);}
     this.clock.deadline=null;
@@ -106,7 +111,7 @@ export class GameEngine {
     replacement.status="used";
     this.activeQuestion=replacement;
     this.resetClock();
-    this.buzzOrder=[];this.lockedOutTeamIds=[];this.friendAnswers={};this.completedQuestion=null;this.revealedQuestion=null;
+    this.buzzOrder=[];this.lockedOutTeamIds=[];this.friendAnswers={};this.completedQuestion=null;this.completedAnswers=[];this.revealedQuestion=null;
     if(this.phase==="final") {
       this.finalState!.questionIds[this.finalState!.currentIndex]=replacement.id;
       this.finalState!.roundPhase="ready";
@@ -120,7 +125,8 @@ export class GameEngine {
     return true;
   }
 
-  private resetClock() { this.clock={kind:null,remainingMs:15000,deadline:null,questionRemainingMs:15000, warningId:null}; }
+  private duration() { return this.activeQuestion?.mode === "closest" ? 30000 : 15000; }
+  private resetClock() { this.clock={kind:null,remainingMs:this.duration(),deadline:null,questionRemainingMs:this.duration(), warningId:null}; this.imageRevealStage=0; }
   private freezeClock(now=Date.now()) { if(this.clock.deadline!==null)this.clock.remainingMs=Math.max(0,this.clock.deadline-now);this.clock.deadline=null; }
   private stopClock() { this.freezeClock();this.clock.kind=null; }
   private armClock(kind: "question" | "answer", milliseconds:number) { this.clock.kind=kind;this.clock.remainingMs=milliseconds;this.clock.deadline=this.paused?null:Date.now()+milliseconds; }
@@ -133,7 +139,7 @@ export class GameEngine {
       this.clock.warningId=nanoid(10);
       this.log("Lydsignal: laget har brukt sju sekunder. Verten avgjør svaret uten automatisk trekk.");
     } else if(kind==="question") {
-      if(["private_choice","friend_group"].includes(this.activeQuestion?.mode??"")) this.revealFriendAnswers();
+      if(["private_choice","friend_group","closest"].includes(this.activeQuestion?.mode??"")) this.revealFriendAnswers();
       else {
         this.checkpoint("spørsmålstiden løp ut");
         this.completedQuestion=this.activeQuestion;
@@ -142,6 +148,10 @@ export class GameEngine {
       }
     }
     return true;
+  }
+
+  private announce(kind: GameFeedback["kind"], teamIds:string[], label:string, points?:number) {
+    this.feedback={id:nanoid(10),kind,teamIds,label,points,createdAt:Date.now()};
   }
 
   private log(message: string) {
@@ -303,6 +313,8 @@ export class GameEngine {
     this.revealedQuestion = null;
     this.questionCardDismissed = false;
     this.completedQuestion = null;
+    this.completedAnswers = [];
+    this.imageRevealStage = 0;
     this.setQuestionPhase("reading");
     this.log("Verten begynte å lese spørsmålet.");
   }
@@ -322,7 +334,7 @@ export class GameEngine {
   registerBuzz(teamId: string): boolean {
     if (this.paused || this.tick()) return false;
     if (!this.teams.some((team) => team.id === teamId && this.eligible(team))) return false;
-    if (this.questionPhase() !== "buzzing" || ["friend_group", "private_choice"].includes(this.activeQuestion?.mode ?? "")) return false;
+    if (this.questionPhase() !== "buzzing" || ["friend_group", "private_choice", "closest"].includes(this.activeQuestion?.mode ?? "")) return false;
     if (this.lockedOutTeamIds.includes(teamId)) return false;
     if (this.buzzOrder.some((b) => b.teamId === teamId)) return false;
     this.buzzOrder.push({ teamId, serverTimestamp: Date.now() });
@@ -355,6 +367,7 @@ export class GameEngine {
     if (this.phase === "final") {
       const team = this.teams.find(t => t.id === teamId)!;
       this.award(team, questionPoints(this.activeQuestion!));
+      this.announce("correct",[team.id],"Riktig!",questionPoints(this.activeQuestion!));
       this.log(`${team.name} svarte riktig i finalen.`);
       this.resolveFinalQuestion();
       this.revealQuestion();
@@ -366,6 +379,7 @@ export class GameEngine {
     if (!node || !team || node.tier === null) return;
 
     team.score += questionPoints(node);
+    this.announce("correct",[team.id],"Riktig!",questionPoints(node));
     this.log(`${team.name} svarte riktig (+${questionPoints(node)}). Poeng: ${team.score}.`);
     this.map = markNodeCompleted(this.map, node.id);
     this.controllingTeamId = team.id;
@@ -408,6 +422,7 @@ export class GameEngine {
     this.award(team, -points);
     this.lockedOutTeamIds.push(teamId);
     const after = this.phase === "final" ? this.finalState!.scores[team.id] : team.score;
+    this.announce("wrong",[team.id],"Feil svar",after-before);
     this.log(`${team.name} svarte feil og er utelåst. ${before > after ? `−${before-after} poeng.` : "Ingen poeng å trekke."} Poeng: ${after}.`);
     // Doc section 5: lockout/rebound rule is still to be finalized.
     // Default behavior: any team not yet locked out (whether they've already
@@ -493,6 +508,7 @@ export class GameEngine {
     const alreadyQualified = this.teams.filter((t) => t.qualifiedForFinal);
     if (alreadyQualified.length >= 2) return;
     team.qualifiedForFinal = true;
+    this.announce("qualified",[team.id],"Finaleplassen er sikret!");
     this.log(`${team.name} kvalifiserte seg til finalen!`);
     if (this.teams.filter((t) => t.qualifiedForFinal).length === 2) {
       this.startFinal();
@@ -508,19 +524,28 @@ export class GameEngine {
   }
 
   submitFriendAnswer(teamId: string, answer: string) {
-    if (this.paused || this.tick() || this.questionPhase() !== "buzzing" || !["friend_group", "private_choice"].includes(this.activeQuestion?.mode ?? "")) return;
+    if (this.paused || this.tick() || this.questionPhase() !== "buzzing" || !["friend_group", "private_choice", "closest"].includes(this.activeQuestion?.mode ?? "")) return;
     const team = this.teams.find((candidate) => candidate.id === teamId && this.eligible(candidate));
     if (!team || this.friendAnswers[teamId]) return;
-    if (!this.activeQuestion?.choices?.includes(answer)) return;
+    if (this.activeQuestion?.mode === "closest") {
+      if (numericAnswer(answer) === null) return;
+    } else if (!this.activeQuestion?.choices?.includes(answer)) return;
     this.friendAnswers[teamId] = answer;
   }
 
   revealFriendAnswers() {
-    if (this.paused || this.questionPhase() !== "buzzing" || !["friend_group", "private_choice"].includes(this.activeQuestion?.mode ?? "")) return;
+    if (this.paused || this.questionPhase() !== "buzzing" || !["friend_group", "private_choice", "closest"].includes(this.activeQuestion?.mode ?? "")) return;
     this.checkpoint("avslørte private svar");
     this.stopClock();
+    const q=this.activeQuestion!;
+    const entrants=this.teams.filter(t=>(this.phase === "final" ? this.finalState!.finalists.includes(t.id) : !t.qualifiedForFinal) && Object.hasOwn(this.friendAnswers,t.id));
+    const target=q.mode === "closest" ? numericAnswer(q.answer) : null;
+    const distances=new Map(entrants.map(t=>[t.id,target === null ? Infinity : Math.abs(numericAnswer(this.friendAnswers[t.id])!-target)]));
+    const best=Math.min(...distances.values());
+    const correct=entrants.filter(t=>q.mode === "closest" ? Math.abs(distances.get(t.id)!-best) <= Number.EPSILON*4*Math.max(1,best) : this.friendAnswers[t.id] === q.answer);
+    if(correct.length)this.announce("correct",correct.map(t=>t.id),q.mode === "closest" ? "Nærmest!" : "Riktig!",questionPoints(q));
+    this.completedAnswers=entrants.map(t=>({teamId:t.id,answer:this.friendAnswers[t.id],correct:correct.includes(t),...(q.mode === "closest" ? {distance:distances.get(t.id)} : {})}));
     if (this.phase === "final") {
-      const correct = this.teams.filter(t => this.finalState!.finalists.includes(t.id) && this.friendAnswers[t.id] === this.activeQuestion!.answer);
       for (const team of correct) this.award(team, questionPoints(this.activeQuestion!));
       this.resolveFinalQuestion(); this.revealQuestion();
       if (this.finalState!.suddenDeath && correct.length === 1) this.endFinal();
@@ -529,12 +554,11 @@ export class GameEngine {
     const node = this.map.nodes.find((candidate) => candidate.id === this.activeNodeId);
     if (!node?.tier) return;
     this.completedQuestion = this.activeQuestion;
-    this.revealQuestion();
-    const correct = this.teams.filter((team) => this.friendAnswers[team.id] === this.activeQuestion?.answer);
+    this.map = markNodeCompleted(this.map, node.id);
     for (const team of correct) { team.score += questionPoints(node); this.checkQualification(team); }
+    this.revealQuestion();
     if (this.finalState) return;
     const controller = [...correct].filter((team) => !team.qualifiedForFinal).sort((a, b) => a.score - b.score)[0];
-    this.map = markNodeCompleted(this.map, node.id);
     this.activeQuestion = null; this.activeNodeId = null; this.friendAnswers = {};
     if (controller) { this.controllingTeamId = controller.id; this.phase = "route_choice"; }
     else {
@@ -543,11 +567,17 @@ export class GameEngine {
     }
   }
 
+  advanceImage() {
+    if (this.paused || !this.activeQuestion?.progressiveImage || !["reading","buzzing"].includes(this.questionPhase()) || this.imageRevealStage>=3) return;
+    this.checkpoint("avslørte mer av bildet");
+    this.imageRevealStage++;
+  }
+
   revealQuestion() {
     if (!this.completedQuestion) return;
     this.questionCardDismissed = false;
     const q = this.completedQuestion;
-    this.revealedQuestion = {prompt:q.prompt, answer:q.answer, media:q.revealMedia ?? q.media};
+    this.revealedQuestion = {prompt:q.prompt, answer:q.answer, media:q.revealMedia ?? q.media, ...(this.completedAnswers?.length ? {results:this.completedAnswers} : {})};
   }
 
   dismissQuestionCard() {
@@ -598,6 +628,7 @@ export class GameEngine {
     this.activeNodeId = null; this.controllingTeamId = null;
     this.buzzOrder = []; this.lockedOutTeamIds = []; this.friendAnswers = {}; this.revealedQuestion = null;
     this.phase = "final";
+    this.announce("final",finalists,"Finalen begynner!");
     this.resetClock();
     this.log(`Finalen begynner: ${finalists.map(id=>this.teamName(id)).join(" mot ")}. Finale-poengene starter på null.`);
   }
@@ -616,6 +647,7 @@ export class GameEngine {
     const high = Math.max(...final.finalists.map(id=>final.scores[id]));
     final.winnerIds = final.finalists.filter(id=>final.scores[id] === high);
     final.resultNote = note;
+    this.announce("winner",final.winnerIds,final.winnerIds.length>1 ? "Delt seier!" : "Vi har en vinner!");
     this.activeQuestion = null; this.activeNodeId = null; this.buzzOrder = []; this.lockedOutTeamIds = [];
     final.roundPhase = "resolved";
     this.phase = "ended";
@@ -643,7 +675,7 @@ export class GameEngine {
       this.log("Uavgjort finale. Nytt omspillsspørsmål.");
     }
     this.resetClock();
-    final.roundPhase = "ready"; this.revealedQuestion = null; this.completedQuestion = null;
+    final.roundPhase = "ready"; this.revealedQuestion = null; this.completedQuestion = null; this.completedAnswers = [];
     this.buzzOrder = []; this.lockedOutTeamIds = []; this.friendAnswers = {};
   }
 
@@ -672,6 +704,7 @@ export class GameEngine {
       roomCode: this.roomCode,
       isTestRoom: this.isTestRoom,
       eventMode: this.eventMode,
+      feedback: this.feedback,
       gameId: this.gameId,
       phase: this.phase,
       paused: this.paused,
@@ -692,6 +725,7 @@ export class GameEngine {
       friendAnswers: this.friendAnswers,
       startedAt: this.startedAt,
       questionsPlayed: this.map.nodes.filter(n=>n.status === "completed").length + (this.finalState ? this.finalState.currentIndex + (this.finalState.roundPhase === "resolved" ? 1 : 0) : 0),
+      imageRevealStage: this.imageRevealStage,
       canRevealQuestion: this.completedQuestion !== null,
       canDismissQuestionCard: this.revealedQuestion !== null,
       canUndo: this.undoHistory.length > 0,
@@ -708,6 +742,7 @@ export class GameEngine {
       roomCode: this.roomCode,
       isTestRoom: this.isTestRoom,
       eventMode: this.eventMode,
+      feedback: this.feedback,
       phase: this.phase,
       paused: this.paused,
       questionClock: this.clockSnapshot(),
@@ -716,7 +751,7 @@ export class GameEngine {
       map: this.map,
       activeNodeId: this.activeNodeId,
       activeQuestionPublic: this.activeQuestion && (node?.tier || this.phase === "final")
-        ? { category:this.activeQuestion.category, tier:this.activeQuestion.tier, points:questionPoints(this.activeQuestion), prompt:this.activeQuestion.prompt, mode:this.activeQuestion.mode ?? "buzzer", choices:this.activeQuestion.choices, media:this.activeQuestion.media }
+        ? { id:this.activeQuestion.id, category:this.activeQuestion.category, tier:this.activeQuestion.tier, points:questionPoints(this.activeQuestion), prompt:this.activeQuestion.prompt, mode:this.activeQuestion.mode ?? "buzzer", choices:this.activeQuestion.choices, progressiveImage:this.activeQuestion.progressiveImage, media:this.activeQuestion.media }
         : null,
       buzzOrder: this.buzzOrder.map((b) => ({ teamId: b.teamId })),
       lockedOutTeamIds: this.lockedOutTeamIds,
@@ -727,6 +762,7 @@ export class GameEngine {
       legalNextNodeIds: this.phase === "route_choice" ? legalNextNodeIds(this.map) : [],
       friendAnswersSubmitted: Object.keys(this.friendAnswers),
       revealedQuestion: this.revealedQuestion,
+      imageRevealStage: this.imageRevealStage,
       questionCardDismissed: this.questionCardDismissed,
     };
   }

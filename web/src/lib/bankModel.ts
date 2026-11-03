@@ -1,3 +1,4 @@
+import { numericAnswer } from "../types";
 import type { Question } from "../types";
 export const FORMATS = ["text", "emoji", "image", "audio", "private_choice", "closest", "sorting", "list", "wager", "progressive_image", "timer"] as const;
 export type Format = typeof FORMATS[number];
@@ -10,13 +11,15 @@ export interface BankQuestion extends Question {
 }
 export interface QuestionPack { id: string; name: string; questionIds: string[]; finalQuestionIds?: string[] }
 export interface QuestionBank { version: 1; revision: number; questions: BankQuestion[]; packs: QuestionPack[]; activePackId: string }
-export const FORMAT_LABELS: Record<Format,string> = { text:"Tekst / åpen buzzer", emoji:"Emoji / åpen buzzer", image:"Bilde / åpen buzzer", audio:"Lyd / åpen buzzer", private_choice:"Privat flervalg", closest:"Nærmest (utkast)", sorting:"Sortering (utkast)", list:"Nevn flere (utkast)", wager:"Innsats (utkast)", progressive_image:"Progressivt bilde (utkast)", timer:"Presisjonsduell (utkast)" };
+export const FORMAT_LABELS: Record<Format,string> = { text:"Tekst / åpen buzzer", emoji:"Emoji / åpen buzzer", image:"Bilde / åpen buzzer", audio:"Lyd / åpen buzzer", private_choice:"Privat flervalg", closest:"Nærmest · tallgjetting", sorting:"Sortering (utkast)", list:"Nevn flere (utkast)", wager:"Innsats (utkast)", progressive_image:"Progressivt bilde", timer:"Presisjonsduell (utkast)" };
 export const READY_LABELS = {draft:"Utkast",needs_assets:"Trenger medier",ready:"Klar",archived:"Arkivert"};
 export function readyProblems(q: BankQuestion): string[] {
   const errors: string[] = [];
   if (!q.category.trim() || !q.prompt.trim() || !q.answer.trim()) errors.push("Fyll ut kategori, spørsmål og fasit.");
-  if (!["text","emoji","image","audio","private_choice"].includes(q.format)) errors.push("Spillmekanikken er ikke implementert ennå. Lagre som utkast.");
+  if (!["text","emoji","image","audio","private_choice","closest","progressive_image"].includes(q.format)) errors.push("Spillmekanikken er ikke implementert ennå. Lagre som utkast.");
   if (["image","audio"].includes(q.format) && (!q.media?.url || q.media.type !== q.format)) errors.push("Legg til riktig bilde eller lydfil.");
+  if (q.format === "closest" && numericAnswer(q.answer) === null) errors.push("Nærmest trenger en gyldig tallfasit (punktum eller komma, maks 15 sifre).");
+  if (q.format === "progressive_image" && (!q.media?.url || q.media.type !== "image")) errors.push("Last opp et bilde til den progressive avsløringen.");
   if (q.format === "private_choice" && (new Set((q.choices ?? []).filter(c => c.trim())).size < 2 || (q.choices ?? []).some(c => !c.trim()) || !q.choices?.includes(q.answer))) errors.push("Legg til minst to alternativer. Ett må være identisk med fasiten.");
   return errors;
 }
