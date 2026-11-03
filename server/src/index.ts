@@ -2,10 +2,11 @@ import { WebSocketServer, WebSocket } from "ws";
 import { nanoid } from "nanoid";
 import { httpServer, bankStore, isEditorKey } from "./bankHttp.js";
 import { playableQuestions } from "./bank.js";
+import { localTestingAllowed } from "./localTesting.js";
 import { validateMessage } from "./protocol.js";
 import { RoomStore } from "./roomStore.js";
 import { GameEngine } from "./gameState.js";
-import type { ClientMessage, ServerMessage } from "./types.js";
+import type { ClientMessage, ServerMessage, TestControllerSession } from "./types.js";
 
 const PORT = Number(process.env.PORT ?? 8080);
 
@@ -70,7 +71,7 @@ function requireTeam(ws: WebSocket, info: ClientInfo, roomCode: string, teamId: 
 }
 
 function refreshPresence(roomCode: string, teamId: string) {
-  const connected = [...clients.values()].some(client => client.roomCode === roomCode && client.teamId === teamId && client.role === "team" && client.ws.readyState === WebSocket.OPEN);
+  const connected = rooms.get(roomCode)?.isTestRoom || [...clients.values()].some(client => client.roomCode === roomCode && client.teamId === teamId && client.role === "team" && client.ws.readyState === WebSocket.OPEN);
   rooms.get(roomCode)?.setConnected(teamId, connected);
 }
 function identify(info: ClientInfo, role: Role, roomCode: string, teamId: string | null = null) {
@@ -116,7 +117,7 @@ const heartbeat = setInterval(() => {
 heartbeat.unref();
 wss.on("close", () => clearInterval(heartbeat));
 
-wss.on("connection", (ws) => {
+wss.on("connection", (ws, request) => {
   alive.add(ws);
   ws.on("pong", () => alive.add(ws));
   ws.on("error", () => {});
@@ -137,6 +138,7 @@ wss.on("connection", (ws) => {
       switch (msg.type) {
         case "host:create_room": {
           if (!isEditorKey(msg.adminKey)) return sendError(ws,"Gyldig redaktørnøkkel kreves for å opprette et vertsrom.");
+          if (msg.testMode && !localTestingAllowed(request.socket.remoteAddress)) return sendError(ws,"Testrom er bare tilgjengelig på localhost utenfor produksjon.");
           const code = makeRoomCode();
           const pool = playableQuestions(bankStore.get());
           if (!pool.length) return sendError(ws, "Kveldspakken har ingen klare, valgte spørsmål. Åpne spørsmålsbanken først.");
@@ -146,8 +148,17 @@ wss.on("connection", (ws) => {
           const sessionToken = nanoid(32);
           hostSessionTokens.set(code, sessionToken);
           teamSessionTokens.set(code, new Map());
+          const testControllers: TestControllerSession[] = [];
+          if (msg.testMode) {
+            room.isTestRoom = true;
+            for (let index=1; index<=4; index++) {
+              const team=room.registerTeam(`Testlag ${index}`,[`Testspiller ${index}A`,`Testspiller ${index}B`])!;
+              const token=nanoid(32);teamSessionTokens.get(code)!.set(team.id,token);
+              testControllers.push({roomCode:code,teamId:team.id,sessionToken:token,teamName:team.name});
+            }
+          }
           identify(info, "host", code);
-          send(ws, { type: "room:created", roomCode: code, sessionToken });
+          send(ws, { type: "room:created", roomCode: code, sessionToken, ...(msg.testMode ? {testControllers} : {}) });
           broadcast(code);
           break;
         }

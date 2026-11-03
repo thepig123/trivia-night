@@ -22,6 +22,7 @@ const FINAL_QUESTION_COUNT = 5;
 export class GameEngine {
   roomCode: string;
   gameId: string;
+  isTestRoom = false;
   phase: GamePhase = "lobby";
   paused = false;
   targetScore = TARGET_SCORE;
@@ -648,6 +649,7 @@ export class GameEngine {
   toHostState(): HostGameState {
     return {
       roomCode: this.roomCode,
+      isTestRoom: this.isTestRoom,
       gameId: this.gameId,
       phase: this.phase,
       paused: this.paused,
@@ -679,6 +681,7 @@ export class GameEngine {
     const node = this.map.nodes.find((n) => n.id === this.activeNodeId);
     return {
       roomCode: this.roomCode,
+      isTestRoom: this.isTestRoom,
       phase: this.phase,
       paused: this.paused,
       questionClock: this.clockSnapshot(),

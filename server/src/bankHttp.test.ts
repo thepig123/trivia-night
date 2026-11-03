@@ -40,7 +40,7 @@ test("bank API protects answers, persists uploads and edits, and freezes room co
     assert.equal((await fetch(base+"/api/bank",{headers,method:"PUT",body:JSON.stringify(bank)})).status,400);
     response=await fetch(base+"/api/bank/media",{headers,method:"POST",body:JSON.stringify({mime:"image/png",data:"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1EAAAAASUVORK5CYII="})});
     assert.equal(response.status,201);const media=await response.json() as any;assert.equal((await fetch(base+media.url)).status,200);
-    const host=await connect(base);sockets.push(host);const denied=message(host,"error");host.send(JSON.stringify({type:"host:create_room",adminKey:"wrong-key"}));assert.match((await denied).message,/redaktørnøkkel/);let next=message(host,"state:host");const created=message(host,"room:created");host.send(JSON.stringify({type:"host:create_room",adminKey:"integration-test-key"}));const state=(await next).state;const hostIdentity=await created;
+    const host=await connect(base);sockets.push(host);const denied=message(host,"error");host.send(JSON.stringify({type:"host:create_room",adminKey:"wrong-key"}));assert.match((await denied).message,/redaktørnøkkel/);let next=message(host,"state:host");const created=message(host,"room:created");host.send(JSON.stringify({type:"host:create_room",adminKey:"integration-test-key"}));const state=(await next).state;const hostIdentity=await created;assert.equal(state.isTestRoom,false);assert.equal(hostIdentity.testControllers,undefined);
     assert.equal(state.questionPoolTotal,1);assert.ok(state.map.nodes.filter((n:any)=>n.tier).every((n:any)=>n.category==="Gutta HTTP"));
     saved.questions.find((q:any)=>q.id==="GUT-HTTP").prompt="Endret etter rommet ble opprettet";
     assert.equal((await fetch(base+"/api/bank",{headers,method:"PUT",body:JSON.stringify(saved)})).status,200);
@@ -132,5 +132,27 @@ test("default startup ignores old rooms, expires old sessions and keeps the ques
     const freshHost=await connect(base);sockets.push(freshHost);const expired=message(freshHost,"error");freshHost.send(JSON.stringify({type:"host:resume_room",roomCode:identity.roomCode,sessionToken:identity.sessionToken}));assert.equal((await expired).code,"session_expired");
     next=message(freshHost,"state:host");freshHost.send(JSON.stringify({type:"host:create_room",adminKey:"integration-test-key"}));const fresh=(await next).state;
     assert.equal(fresh.phase,"lobby");assert.equal(fresh.teams.length,0);assert.equal(fresh.questionPoolRemaining,2);assert.notEqual(fresh.gameId,before.gameId);assert.notEqual(fresh.map.nodes[1].id,before.map.nodes[1].id);
+  } finally {for(const ws of sockets)ws.terminate();if(server)await stop(server.child);rmSync(directory,{recursive:true,force:true});}
+});
+
+test("local test room creates four virtual teams and one controller can switch identities and play",{timeout:15000},async()=>{
+  const directory=mkdtempSync(join(tmpdir(),"trivia-local-test-"));let server:Awaited<ReturnType<typeof start>>|undefined;const sockets:WebSocket[]=[];
+  const headers={Authorization:"Bearer integration-test-key","Content-Type":"application/json"};
+  try {
+    server=await start(directory,false);const base=server.base;
+    const bank=await(await fetch(base+"/api/bank",{headers})).json() as any;
+    bank.questions=Array.from({length:6},(_,i)=>({id:`LOCAL${i}`,category:"Generelt",tier:"T5",prompt:`Test ${i}`,answer:"Ja",acceptedAlternatives:[],status:"unused",format:"text",selection:"PICK",readiness:"ready",source:"test",sourceUrl:"",assetBrief:"",notes:"",originalFormat:""}));bank.packs[0].questionIds=bank.questions.map((q:any)=>q.id);
+    await fetch(base+"/api/bank",{headers,method:"PUT",body:JSON.stringify(bank)});
+    const host=await connect(base);sockets.push(host);const created=message(host,"room:created");let next=message(host,"state:host");host.send(JSON.stringify({type:"host:create_room",adminKey:"integration-test-key",testMode:true}));let state=(await next).state;const credentials=(await created).testControllers;
+    assert.equal(state.isTestRoom,true);assert.equal(state.teams.length,4);assert.ok(state.teams.every((t:any)=>t.connected));assert.equal(credentials.length,4);
+    const controller=await connect(base);sockets.push(controller);
+    for(const session of credentials.slice(0,2)){
+      const joined=message(controller,"team:joined");controller.send(JSON.stringify({type:"team:resume",roomCode:session.roomCode,teamId:session.teamId,sessionToken:session.sessionToken}));assert.equal((await joined).teamId,session.teamId);
+    }
+    const rpc=async(type:string,extra:object={},predicate:(m:any)=>boolean=()=>true)=>{const result=message(host,"state:host",predicate);host.send(JSON.stringify({type,roomCode:state.roomCode,...extra}));return(await result).state;};
+    await rpc("host:start_reading",{},m=>m.state.phase==="reading");await rpc("host:open_buzzers",{},m=>m.state.phase==="buzzing");
+    next=message(host,"state:host",m=>m.state.currentResponderId===credentials[1].teamId);controller.send(JSON.stringify({type:"team:buzz",roomCode:state.roomCode,teamId:credentials[1].teamId}));await next;
+    state=await rpc("host:mark_correct",{teamId:credentials[1].teamId});assert.equal(state.teams[1].score,200);assert.equal(state.phase,"route_choice");assert.ok(state.teams.every((t:any)=>t.connected));
+    const publicState=message(controller,"state:public");host.send(JSON.stringify({type:"host:pause",roomCode:state.roomCode}));assert.equal((await publicState).state.testControllers,undefined);
   } finally {for(const ws of sockets)ws.terminate();if(server)await stop(server.child);rmSync(directory,{recursive:true,force:true});}
 });

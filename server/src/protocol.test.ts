@@ -7,3 +7,13 @@ test("protocol rejects malformed JSON shapes, nonnumeric scores and injected fie
   assert.deepEqual(validateMessage({type:"host:adjust_score",roomCode:"ABCDE",teamId:"A",delta:-100}),{type:"host:adjust_score",roomCode:"ABCDE",teamId:"A",delta:-100});
   assert.equal(validateMessage({type:"team:join",roomCode:"ABCDE",teamName:"Lag",players:["P1","P2"]}).type,"team:join");
 });
+
+import { localTestingAllowed } from "./localTesting.js";
+test("test rooms are available only to loopback clients outside production",()=>{
+  for(const address of ["127.0.0.1","::1","::ffff:127.0.0.1"])assert.equal(localTestingAllowed(address,"development"),true);
+  assert.equal(localTestingAllowed("192.168.1.20","development"),false);
+  assert.equal(localTestingAllowed("127.0.0.1","production"),false);
+  assert.equal(localTestingAllowed(undefined,"development"),false);
+  assert.equal(validateMessage({type:"host:create_room",adminKey:"test",testMode:true}).type,"host:create_room");
+  assert.throws(()=>validateMessage({type:"host:create_room",adminKey:"test",testMode:"true"}));
+});

@@ -11,3 +11,12 @@ test("TV re-registers the same room after every socket reconnect", () => {
 test("fresh TV does not join a room before selection", () => {
   assert.equal(tvReconnectMessage({ getItem: () => null }), null);
 });
+
+import { parseTestControllers, testControllerUrl, localTestingHost } from "./src/lib/testControllers.js";
+test("local test controller links preserve all four sessions without putting credentials in HTTP query strings",()=>{
+  const sessions=Array.from({length:4},(_,i)=>({roomCode:"ABCDE",teamId:`TEAM000${i}`,sessionToken:"a".repeat(32),teamName:`Testlag ${i}`}));
+  const url=new URL(testControllerUrl(sessions,"http://localhost:5173"));assert.equal(url.search,"");
+  assert.deepEqual(parseTestControllers(new URLSearchParams(url.hash.slice(1)).get("test")!),sessions);
+  assert.throws(()=>parseTestControllers(JSON.stringify(sessions.slice(0,1))));
+  assert.equal(localTestingHost("localhost"),true);assert.equal(localTestingHost("192.168.1.20"),false);
+});

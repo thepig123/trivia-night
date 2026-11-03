@@ -1,10 +1,16 @@
 import { questionPoints, isGutta } from "../types";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { localTestingHost, testControllerUrl } from "../lib/testControllers";
 import { useGameSocket } from "../lib/ws";
 import { TierLegend } from "../components/RouteMap";
 
 export default function Host() {
-  const { connected, hostState, roomCode, send, lastError } = useGameSocket("host");
+  const { connected, hostState, roomCode, send, lastError, testControllers } = useGameSocket("host");
+  const pendingController=useRef<Window|null>(null);
+  useEffect(()=>{
+    if(testControllers.length && pendingController.current){pendingController.current.location.replace(testControllerUrl(testControllers,window.location.origin));pendingController.current=null;}
+  },[testControllers]);
+  useEffect(()=>{if(lastError && pendingController.current){pendingController.current.close();pendingController.current=null;}},[lastError]);
   const [created, setCreated] = useState(false);
   const [editorKey,setEditorKey]=useState(()=>sessionStorage.getItem("trivia-bank-key")??"");
 
@@ -26,21 +32,27 @@ export default function Host() {
           <button className="btn violet" disabled={!connected || !editorKey} onClick={() => {sessionStorage.setItem("trivia-bank-key",editorKey);send({ type: "host:create_room", adminKey:editorKey });}}>
             Opprett nytt rom
           </button>
+          {localTestingHost(window.location.hostname) && <button className="btn ghost" disabled={!connected||!editorKey} onClick={()=>{
+            pendingController.current=window.open("about:blank","trivia-test-controller");
+            sessionStorage.setItem("trivia-bank-key",editorKey);
+            send({type:"host:create_room",adminKey:editorKey,testMode:true});
+          }}>Opprett testrom · 4 lag + kontroller</button>}
         </div>
       </div>
     );
   }
 
-  return <AdminPanel state={hostState} roomCode={roomCode!} send={send} connected={connected} lastError={lastError} />;
+  return <AdminPanel state={hostState} roomCode={roomCode!} send={send} connected={connected} lastError={lastError} testControllers={testControllers} />;
 }
 
-function AdminPanel({ state, roomCode, send, connected, lastError }: any) {
+function AdminPanel({ state, roomCode, send, connected, lastError, testControllers }: any) {
   const rc = (type: string, extra: object = {}) => send({ type, roomCode, ...extra });
   const activeNode = state.map.nodes.find((n: any) => n.id === state.activeNodeId);
 
   return (
     <div className="admin-shell">
       <aside className="admin-sidebar">
+        {state.isTestRoom && <div className="card"><b>Lokalt testrom · 4 lag</b><p>Én kontroller kan bytte mellom alle testlagene.</p>{testControllers.length>0&&<a href={testControllerUrl(testControllers,window.location.origin)} target="trivia-test-controller">Åpne testkontroller ↗</a>}</div>}
         <a href="/questions" target="_blank" rel="noreferrer">Spørsmålsbank ↗</a>
         <div>
           <div style={{ fontSize: "0.7rem", opacity: 0.6, textAlign: "center" }}>ROMKODE</div>

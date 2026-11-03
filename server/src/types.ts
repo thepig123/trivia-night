@@ -107,6 +107,13 @@ export interface QuestionClock {
   warningId: string | null;
 }
 
+export interface TestControllerSession {
+  roomCode: string;
+  teamId: string;
+  sessionToken: string;
+  teamName: string;
+}
+
 export interface EventLogEntry {
   id: string;
   ts: number;
@@ -116,6 +123,7 @@ export interface EventLogEntry {
 /** The full authoritative state. Only the host client receives this verbatim. */
 export interface HostGameState {
   roomCode: string;
+  isTestRoom: boolean;
   gameId: string;
   phase: GamePhase;
   paused: boolean;
@@ -145,6 +153,7 @@ export interface HostGameState {
 /** Sanitized state broadcast to the TV client and team controllers — no answers. */
 export interface PublicGameState {
   roomCode: string;
+  isTestRoom: boolean;
   phase: GamePhase;
   paused: boolean;
   questionClock: QuestionClock;
@@ -175,7 +184,7 @@ export interface PublicGameState {
 // ---------- Client -> Server messages ----------
 
 export type ClientMessage =
-  | { type: "host:create_room"; adminKey: string }
+  | { type: "host:create_room"; adminKey: string; testMode?: boolean }
   | { type: "host:choose_route"; roomCode: string; nodeId: string }
   | { type: "host:add_team"; roomCode: string }
   | { type: "host:remove_team"; roomCode: string; teamId: string }
@@ -207,7 +216,7 @@ export type ClientMessage =
 // ---------- Server -> Client messages ----------
 
 export type ServerMessage =
-  | { type: "room:created"; roomCode: string; sessionToken: string }
+  | { type: "room:created"; roomCode: string; sessionToken: string; testControllers?: TestControllerSession[] }
   | { type: "state:public"; state: PublicGameState }
   | { type: "state:host"; state: HostGameState }
   | { type: "team:joined"; teamId: string; roomCode: string; sessionToken: string }

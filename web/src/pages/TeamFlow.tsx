@@ -3,7 +3,7 @@ import { useGameSocket } from "../lib/ws";
 import RouteMap, { TierLegend } from "../components/RouteMap";
 
 export default function TeamFlow() {
-  const { connected, publicState, lastError, roomCode, teamId, send } = useGameSocket("team");
+  const { connected, publicState, lastError, roomCode, teamId, send, testControllers } = useGameSocket("team");
   const [roomInput, setRoomInput] = useState("");
   const [teamName, setTeamName] = useState("");
   const [playerOne, setPlayerOne] = useState("");
@@ -59,7 +59,7 @@ export default function TeamFlow() {
     );
   }
 
-  return <TeamController roomCode={roomCode!} teamId={teamId!} publicState={publicState} send={send} connected={connected} lastError={lastError} />;
+  return <TeamController roomCode={roomCode!} teamId={teamId!} publicState={publicState} send={send} connected={connected} lastError={lastError} testControllers={testControllers} />;
 }
 
 async function compressTeamPhoto(file: File): Promise<string> {
@@ -76,7 +76,7 @@ async function compressTeamPhoto(file: File): Promise<string> {
   return canvas.toDataURL("image/jpeg", 0.68);
 }
 
-function TeamController({ roomCode, teamId, publicState, send, connected, lastError }: any) {
+function TeamController({ roomCode, teamId, publicState, send, connected, lastError, testControllers }: any) {
   const me = publicState?.teams.find((t: any) => t.id === teamId);
   const inFinal = !!publicState?.finalState;
   const isFinalist = publicState?.finalState?.finalists.includes(teamId);
@@ -108,6 +108,7 @@ function TeamController({ roomCode, teamId, publicState, send, connected, lastEr
     <div className="screen">
       {!connected && <div role="status" className="error-banner">Mistet forbindelsen. Kobler til igjen…</div>}
       {lastError && <div role="alert" className="error-banner">{lastError}</div>}
+      {publicState?.isTestRoom && testControllers?.length>0 && <label className="field">Styr testlag<select value={teamId} onChange={e=>{const session=testControllers.find((s:any)=>s.teamId===e.target.value);if(session)send({type:"team:resume",roomCode:session.roomCode,teamId:session.teamId,sessionToken:session.sessionToken});}}>{testControllers.map((s:any)=><option key={s.teamId} value={s.teamId}>{s.teamName}</option>)}</select></label>}
       <div style={{ width: "100%", maxWidth: 480, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>ROM {roomCode}</div>

@@ -265,6 +265,21 @@ same tab). Without it, a player cannot create another host room to inspect the
 selected question bank. Existing host/team reconnect tokens still resume
 their own rooms without re-entering the editor key.
 
+## Quick local playtesting
+
+Open `/host` on **localhost**, enter the editor key, and click
+**Opprett testrom · 4 lag + kontroller**. This creates a new random room using
+the active question pack, registers four named test teams and opens a single
+controller tab already joined as Testlag 1. Use **Styr testlag** in that tab to
+switch between all four teams, so only one controller window is needed.
+The other teams remain virtually connected; they do not buzz automatically.
+
+If the browser blocks the popup, click **Åpne testkontroller** in the host
+sidebar. The test-room option is separate from ordinary room creation and is
+accepted by the server only for loopback connections outside production.
+Editor authentication is still required. No test teams are added to normal
+rooms, and the question bank is not changed by creating a test room.
+
 ## Host recovery controls and timing
 
 - At least two teams must join before the first question starts. The host can

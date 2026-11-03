@@ -1,6 +1,7 @@
+import { localTestingHost, parseTestControllers } from "./testControllers";
 import { tvReconnectMessage } from "./tvSession";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ClientMessage, HostGameState, PublicGameState, ServerMessage } from "../types";
+import type { ClientMessage, HostGameState, PublicGameState, ServerMessage, TestControllerSession } from "../types";
 
 // Follow the browser's hostname so phones on the LAN reach the host laptop.
 // Set VITE_WS_URL in web/.env when the backend uses a different host or port.
@@ -8,6 +9,7 @@ const WS_URL = import.meta.env.VITE_WS_URL ?? `${window.location.protocol === "h
 
 export interface UseGameSocket {
   connected: boolean;
+  testControllers: TestControllerSession[];
   publicState: PublicGameState | null;
   hostState: HostGameState | null;
   lastError: string | null;
@@ -19,6 +21,7 @@ export interface UseGameSocket {
 type ClientRole = "host" | "team" | "tv";
 
 export function useGameSocket(role: ClientRole): UseGameSocket {
+  const [testControllers,setTestControllers]=useState<TestControllerSession[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const [connected, setConnected] = useState(false);
   const [publicState, setPublicState] = useState<PublicGameState | null>(null);
@@ -30,6 +33,19 @@ export function useGameSocket(role: ClientRole): UseGameSocket {
   useEffect(() => {
     let cancelled = false;
     let reconnectTimer: number | undefined;
+    if(localTestingHost(window.location.hostname)) {
+      try {
+        const fragment=new URLSearchParams(window.location.hash.slice(1)).get("test");
+        if(role === "team" && fragment) {
+          const sessions=parseTestControllers(fragment);
+          sessionStorage.setItem("trivia-test-controllers",JSON.stringify(sessions));
+          sessionStorage.setItem("trivia-team-session",JSON.stringify(sessions[0]));
+          window.history.replaceState(null,"",window.location.pathname+window.location.search);
+        }
+        const stored=sessionStorage.getItem("trivia-test-controllers");
+        if(stored)setTestControllers(parseTestControllers(stored));
+      } catch {sessionStorage.removeItem("trivia-test-controllers");}
+    }
 
     function connect() {
       const socket = new WebSocket(WS_URL);
@@ -70,6 +86,9 @@ export function useGameSocket(role: ClientRole): UseGameSocket {
         const msg: ServerMessage = JSON.parse(event.data);
         switch (msg.type) {
           case "room:created":
+            setTestControllers(msg.testControllers ?? []);
+            if(msg.testControllers)sessionStorage.setItem("trivia-test-controllers",JSON.stringify(msg.testControllers));
+            else sessionStorage.removeItem("trivia-test-controllers");
             setRoomCode(msg.roomCode);
             localStorage.setItem("trivia-host-session", JSON.stringify({ roomCode: msg.roomCode, sessionToken: msg.sessionToken }));
             break;
@@ -95,6 +114,7 @@ export function useGameSocket(role: ClientRole): UseGameSocket {
               if(role === "host")localStorage.removeItem("trivia-host-session");
               if(role === "team")sessionStorage.removeItem("trivia-team-session");
               if(role === "tv")sessionStorage.removeItem("trivia-tv-room");
+              sessionStorage.removeItem("trivia-test-controllers");setTestControllers([]);
               setHostState(null);setPublicState(null);setRoomCode(null);setTeamId(null);
               setLastError(null);
             } else setLastError(msg.message);
@@ -117,7 +137,7 @@ export function useGameSocket(role: ClientRole): UseGameSocket {
     wsRef.current.send(JSON.stringify(msg));
   }, []);
 
-  return { connected, publicState, hostState, lastError, roomCode, teamId, send };
+  return { connected, testControllers, publicState, hostState, lastError, roomCode, teamId, send };
 }
 
 function readSession(storage: Storage, key: string): { roomCode: string; sessionToken: string; teamId?: string } | null {
