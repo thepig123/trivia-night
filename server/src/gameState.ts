@@ -66,6 +66,7 @@ export class GameEngine {
     game.clock.warningId ??= null;
     game.clock.questionRemainingMs=Math.min(15000,game.clock.questionRemainingMs);
     if(game.clock.kind === "question")game.clock.remainingMs=Math.min(15000,game.clock.remainingMs);
+    game.clampScores();
     for(const team of game.teams) team.connected=false;
     if(!["lobby","ended"].includes(game.phase)) game.paused=true;
     return game;
@@ -84,6 +85,7 @@ export class GameEngine {
     const photos=new Map(this.teams.map(t=>[t.id,t.photoDataUrl]));
     Object.assign(this,previous.state);
     this.undoHistory=history;
+    this.clampScores();
     for(const team of this.teams){team.connected=presence.get(team.id)??false;team.photoDataUrl=photos.get(team.id);}
     this.clock.deadline=null;
     if(this.clock.kind)this.clock.remainingMs=Math.max(5000,this.clock.remainingMs);
@@ -275,9 +277,13 @@ export class GameEngine {
     else this.phase = phase;
   }
   private eligible(team: Team) { return team.connected && (this.phase === "final" ? !!this.finalState?.finalists.includes(team.id) : !team.qualifiedForFinal); }
+  private clampScores() {
+    for(const team of this.teams)team.score=Math.max(0,team.score);
+    if(this.finalState)for(const id of this.finalState.finalists)this.finalState.scores[id]=Math.max(0,this.finalState.scores[id]);
+  }
   private award(team: Team, points: number) {
-    if (this.phase === "final") this.finalState!.scores[team.id] += points;
-    else team.score += points;
+    if (this.phase === "final") this.finalState!.scores[team.id] = Math.max(0,this.finalState!.scores[team.id] + points);
+    else team.score = Math.max(0,team.score + points);
   }
 
   startReading() {
@@ -382,9 +388,11 @@ export class GameEngine {
     this.stopClock();
     const team = this.teams.find(team => team.id === teamId)!;
     const points = TIER_POINTS[this.activeQuestion!.tier];
+    const before = this.phase === "final" ? this.finalState!.scores[team.id] : team.score;
     this.award(team, -points);
     this.lockedOutTeamIds.push(teamId);
-    this.log(`${team.name} svarte feil (−${points}) og er utelåst. Poeng: ${this.phase === "final" ? this.finalState!.scores[team.id] : team.score}.`);
+    const after = this.phase === "final" ? this.finalState!.scores[team.id] : team.score;
+    this.log(`${team.name} svarte feil og er utelåst. ${before > after ? `−${before-after} poeng.` : "Ingen poeng å trekke."} Poeng: ${after}.`);
     // Doc section 5: lockout/rebound rule is still to be finalized.
     // Default behavior: any team not yet locked out (whether they've already
     // buzzed and are waiting, or haven't buzzed yet) may still answer.

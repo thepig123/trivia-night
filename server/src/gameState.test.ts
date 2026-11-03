@@ -218,16 +218,17 @@ test("host can rescue a disconnected route controller but cannot select illegal 
   game.resume();game.chooseRouteByHost(node);assert.equal(game.phase,"map");assert.equal(game.controllingTeamId,null);assert.ok(game.activeQuestion);
 });
 
-test("wrong answers deduct the full value once and allow negative scores", () => {
+test("wrong answers and manual deductions stop at zero while lockouts still apply", () => {
   const {game,team}=activeGame();const other=game.addTeam("B");const points=TIER_POINTS[game.activeQuestion!.tier];
+  team.score=Math.floor(points/2);
   game.startReading();game.openBuzzers();game.registerBuzz(team.id);game.markWrong(team.id);
-  assert.equal(team.score,-points);assert.equal(game.phase,"buzzing");
-  game.markWrong(team.id);assert.equal(team.score,-points);assert.equal(game.registerBuzz(team.id),false);
+  assert.equal(team.score,0);assert.equal(game.phase,"buzzing");
+  game.markWrong(team.id);assert.equal(team.score,0);assert.equal(game.registerBuzz(team.id),false);
   game.registerBuzz(other.id);game.markWrong(other.id);assert.equal(game.phase,"dead_question");
   game.openBuzzers();assert.equal(game.phase,"dead_question");
   game.skipQuestion();assert.equal(game.phase,"map");
-  game.adjustScore(team.id,-100);assert.equal(team.score,-points-100);
-  game.adjustScore(team.id,NaN);assert.equal(team.score,-points-100);
+  game.adjustScore(team.id,-100);assert.equal(team.score,0);
+  game.adjustScore(team.id,NaN);assert.equal(team.score,0);
 });
 
 test("target changes are rejected during an active question", () => {
@@ -239,7 +240,7 @@ test("target changes are rejected during an active question", () => {
 function finalGame(count=12) {
   const pool: Question[]=Array.from({length:count},(_,i)=>({id:`F${i}`,category:"Test",tier:"T5",prompt:`Spørsmål ${i}`,answer:"Ja",acceptedAlternatives:[],status:"unused",mode:"buzzer"}));
   const game=new BaseGameEngine("FINAL",pool);const a=game.addTeam("A"),b=game.addTeam("B"),c=game.addTeam("C");
-  a.score=400;b.score=200;c.score=-200;
+  a.score=400;b.score=200;c.score=0;
   game.finishRoutePhase();assert.equal(game.phase,"final");return {game,a,b,c};
 }
 
@@ -306,7 +307,7 @@ test("undo restores adjudication and scores, pauses the game and preserves live 
   game.setConnected(team.id,false);game.undo();
   const restored=game.teams.find(t=>t.id===team.id)!;
   assert.equal(restored.score,0);assert.equal(restored.connected,false);assert.equal(game.paused,true);assert.equal(game.phase,"adjudicating");assert.equal(game.activeQuestion!.id,id);
-  game.resume();game.markWrong(team.id);assert.ok(restored.score<0);game.undo();assert.equal(game.teams[0].score,0);
+  game.resume();game.markWrong(team.id);assert.equal(restored.score,0);game.undo();assert.equal(game.teams[0].score,0);
 });
 
 test("replacement clears answers and buzzes without reusing the old question; undo restores it",()=>{
@@ -322,7 +323,7 @@ test("answer warning fires once after seven seconds without penalty or releasing
   assert.equal(game.tick(due-1),false);assert.equal(game.tick(due),true);
   assert.equal(team.score,0);assert.equal(game.phase,"adjudicating");assert.equal(game.currentResponderId(),team.id);assert.ok(game.clock.warningId);
   const id=game.clock.warningId;assert.equal(game.tick(due+60000),false);assert.equal(game.clock.warningId,id);
-  game.markWrong(team.id);assert.equal(team.score,-TIER_POINTS[game.activeQuestion!.tier]);assert.equal(game.phase,"buzzing");
+  game.markWrong(team.id);assert.equal(team.score,0);assert.equal(game.phase,"buzzing");
 });
 
 test("pause/recovery preserve the warning clock and a host can accept an answer after its warning deadline",()=>{
@@ -352,4 +353,12 @@ test("lobby teams can be edited/removed, but the roster is locked once reading b
   game.removeTeam(b.id);assert.equal(game.teams.length,1);
   game.activateCurrentNode();game.startReading();game.removeTeam(a.id);game.updateTeam(a.id,"Feil",["X","Y"]);
   assert.equal(game.teams.length,1);assert.equal(a.name,"Nytt navn");assert.equal(game.registerTeam("C",["P5","P6"]),null);
+});
+
+test("Final deductions and old saved negative scores are floored at zero",()=>{
+  const {game,a,b}=finalGame();game.startReading();game.openBuzzers();game.registerBuzz(a.id);game.markWrong(a.id);
+  assert.equal(game.finalState!.scores[a.id],0);assert.equal(game.finalState!.roundPhase,"buzzing");
+  game.adjustScore(b.id,-1000);assert.equal(game.finalState!.scores[b.id],0);
+  const snapshot=game.exportState() as any;snapshot.teams[0].score=-1000;snapshot.finalState.scores[a.id]=-500;
+  const restored=BaseGameEngine.restore(snapshot);assert.equal(restored.teams[0].score,0);assert.equal(restored.finalState!.scores[a.id],0);
 });

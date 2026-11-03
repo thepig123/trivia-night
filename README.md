@@ -159,7 +159,7 @@ I picked defaults so the MVP runs; all are easy to change in one place:
 |---|---|---|
 | Map length | Infinite; five connected rows generated ahead | `server/src/map.ts` → `LOOKAHEAD_ROWS` |
 | Tier pacing | Controlled three-tier spread, shuffled per row | `server/src/map.ts` → `tiersForStep` |
-| Wrong-answer handling | subtract full question value, allow negative scores, lock out team, reopen for eligible teams | `GameEngine.markWrong` in `server/src/gameState.ts` |
+| Wrong-answer handling | subtract up to the question value, stop at zero, lock out team, reopen for eligible teams | `GameEngine.markWrong` in `server/src/gameState.ts` |
 | Final format | Five questions, separate scores starting at zero, extra questions on ties, explicit winner/shared-result screen | `GameEngine.startFinal`, `web/src/pages/Host.tsx` → `FinalPanel` |
 | Question bank | Private import; 195 reviewed candidates + 55 archived examples after import | `/questions` |
 | Team colors | 8-color vibrant palette, auto-assigned on join | `server/src/palette.ts` |
@@ -289,7 +289,7 @@ their own rooms without re-entering the editor key.
 
 A room reserves up to five questions (at most one third of a small bank) for
 its Final. Both finalists start at zero Final points; route scores are retained
-separately. Other teams spectate. Ordinary questions use ± their tier value;
+separately. Other teams spectate. Ordinary questions add/subtract their tier value, with a zero-point floor;
 private-choice questions award the full value to every correct finalist, with
 zero for incorrect answers. Host reading, buzz, timer, pause, replacement,
 Undo and reveal controls work in the Final too.
