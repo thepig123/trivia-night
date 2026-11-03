@@ -143,6 +143,7 @@ export interface HostGameState {
   questionPoolTotal: number;
   friendAnswers: Record<string, string>;
   canRevealQuestion: boolean;
+  canDismissQuestionCard: boolean;
   canUndo: boolean;
   undoLabel: string | null;
   canReplaceQuestion: boolean;
@@ -178,6 +179,7 @@ export interface PublicGameState {
   legalNextNodeIds: string[];
   finalCandidateIds: string[];
   friendAnswersSubmitted: string[];
+  questionCardDismissed: boolean;
   revealedQuestion: { prompt: string; answer: string; media?: Question["media"] } | null;
 }
 
@@ -211,7 +213,8 @@ export type ClientMessage =
   | { type: "host:select_finalists"; roomCode: string; teamIds: string[] }
   | { type: "host:advance_final"; roomCode: string }
   | { type: "host:reveal_friend_answers"; roomCode: string }
-  | { type: "host:reveal_question"; roomCode: string };
+  | { type: "host:reveal_question"; roomCode: string }
+  | { type: "host:dismiss_question_card"; roomCode: string };
 
 // ---------- Server -> Client messages ----------
 

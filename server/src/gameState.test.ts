@@ -7,6 +7,7 @@ import type { Question } from "./types.js";
 class GameEngine extends BaseGameEngine {
   constructor(code: string) { super(code, questions.filter(q => q.mode !== "friend_group") as Question[]); }
 }
+import { generateRouteMap, routeOptions, refreshRouteOptions } from "./map.js";
 import { TIER_POINTS } from "./types.js";
 
 function activeGame() {
@@ -88,14 +89,14 @@ test("the opening encounter is one random starting node, not a route choice", ()
   assert.deepEqual(new Set(opening[0].nextNodeIds), new Set(firstChoices.map((node) => node.id)));
 });
 
-test("a route never forces more than three single-choice encounters", () => {
+test("a route never forces more than one single-choice encounter", () => {
   const game = new GameEngine("BRANCH");
   const team = game.addTeam("Pathfinders");
   let forcedRun = 0;
   for (let round = 0; round < 20; round++) {
     const legal = game.map.nodes.filter((node) => node.status === "available");
     forcedRun = legal.length === 1 ? forcedRun + 1 : 0;
-    assert.ok(forcedRun <= 3);
+    assert.ok(forcedRun <= 1);
     game.phase = "route_choice"; game.controllingTeamId = team.id;
     game.chooseRoute(team.id, legal[0].id);
   }
@@ -371,4 +372,76 @@ test("Gutta questions always award and deduct 500, regardless of tier, including
     game.registerBuzz(b.id);game.markCorrect(b.id);assert.equal(b.score,500);
     game.finishRoutePhase();game.startReading();game.openBuzzers();game.registerBuzz(a.id);game.markCorrect(a.id);assert.equal(game.finalState!.scores[a.id],500);
   }
+});
+
+
+test("revealed cards can be dismissed, shown again, and reset for the next reading", () => {
+  const {game, team} = activeGame();
+  game.dismissQuestionCard(); // cannot hide an unanswered question
+  assert.equal(game.toPublicState().questionCardDismissed, false);
+  game.startReading(); game.openBuzzers(); game.registerBuzz(team.id); game.markWrong(team.id);
+  game.revealQuestion();
+  assert.equal(game.toHostState().canDismissQuestionCard, true);
+  game.dismissQuestionCard();
+  assert.equal(game.toPublicState().revealedQuestion, null);
+  assert.equal(game.toPublicState().questionCardDismissed, true);
+  assert.equal(game.toHostState().canDismissQuestionCard, false);
+  game.revealQuestion();
+  assert.ok(game.toPublicState().revealedQuestion);
+  assert.equal(game.toPublicState().questionCardDismissed, false);
+  game.dismissQuestionCard(); game.skipQuestion(); game.startReading();
+  assert.equal(game.toPublicState().questionCardDismissed, false);
+});
+
+test("route previews consume nothing and unchosen questions remain eligible for future draws", () => {
+  const pool: Question[] = Array.from({length:12}, (_,i) => ({id:`D${i}`, category:i%2 ? "History" : "Music", tier:"T5", prompt:`Q${i}`, answer:"A", acceptedAlternatives:[], status:"unused", mode:"buzzer"}));
+  const game = new BaseGameEngine("DRAWS", pool);
+  game.reservedFinalQuestionIds = [];
+  game.map = generateRouteMap(game.questionPool);
+  assert.ok(game.map.nodes.every(n => n.questionId === null));
+  assert.equal(game.questionPool.filter(q => q.status === "unused").length, 12);
+  game.activateCurrentNode();
+  const seen = new Set([game.activeQuestion!.id]);
+  for (let i=0; i<8; i++) {
+    const team = game.teams[0] ?? game.addTeam("Draw team");
+    game.phase = "route_choice"; game.controllingTeamId = team.id;
+    const legal = game.map.nodes.filter(n => n.status === "available");
+    const chosen = legal[i % legal.length];
+    const expectedCategory = chosen.category;
+    game.chooseRoute(team.id, chosen.id);
+    assert.equal(game.activeQuestion!.category, expectedCategory);
+    assert.equal(game.activeQuestion!.tier, "T5");
+    assert.ok(!seen.has(game.activeQuestion!.id));
+    seen.add(game.activeQuestion!.id);
+    assert.equal(game.questionPool.filter(q => q.status === "used").length, seen.size);
+    assert.ok(game.map.nodes.filter(n => n.id !== game.activeNodeId && n.step > game.map.currentStep).every(n => n.questionId === null));
+  }
+});
+
+test("depleted previews refresh without reserving or using any questions", () => {
+  const game = new GameEngine("LABEL");
+  const future = game.map.nodes.find(n => n.step === 2)!;
+  future.category = "Depleted";
+  const before = JSON.stringify(game.questionPool);
+  const refreshed = refreshRouteOptions(game.map, game.questionPool);
+  const label = refreshed.nodes.find(n => n.id === future.id)!;
+  assert.notEqual(label.category, "Depleted");
+  assert.ok(game.questionPool.some(q => q.status === "unused" && q.category === label.category && (q.category === "Gutta" || q.tier === label.tier)));
+  assert.equal(JSON.stringify(game.questionPool), before);
+});
+
+test("Gutta previews get 1.5x category weight even outside their stored tier", () => {
+  const pool: Question[] = [
+    {id:"G", category:"Gutta", tier:"T5", prompt:"Who?", answer:"A", acceptedAlternatives:[], status:"unused"},
+    ...Array.from({length:20}, (_,i) => ({id:`H${i}`, category:"History", tier:"T1" as const, prompt:"When?", answer:"A", acceptedAlternatives:[], status:"unused" as const})),
+  ];
+  const originalRandom = Math.random;
+  let gutta = 0;
+  try {
+    for (let i=0; i<1000; i++) {
+      Math.random = () => (i+.5)/1000;
+      if (routeOptions("T1", pool).category === "Gutta") gutta++;
+    }
+  } finally { Math.random = originalRandom; }
+  assert.equal(gutta, 600); // 1.5 / (1.5 + 1), independent of bank size
 });

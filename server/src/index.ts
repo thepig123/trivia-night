@@ -340,6 +340,10 @@ wss.on("connection", (ws, request) => {
           broadcast(msg.roomCode);
           break;
         }
+        case "host:dismiss_question_card": {
+          const room = requireHost(ws, info, msg.roomCode); if (!room) return;
+          room.dismissQuestionCard(); broadcast(msg.roomCode); break;
+        }
         case "host:reveal_question": {
           const room = requireHost(ws, info, msg.roomCode); if (!room) return;
           room.revealQuestion(); broadcast(msg.roomCode); break;

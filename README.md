@@ -109,8 +109,8 @@ can be reached. Phones render a compact window around the current position.
 Merely previewing or rejecting a node never consumes a question.
 
 Routes may contain deliberate committed stretches with one available node, but
-never for more than three consecutive encounters. The next row then branches or
-reconnects to restore a meaningful choice.
+never for more than one consecutive encounter. Every fourth row has a single
+exit; the following row always restores a choice.
 
 ## How a round works end-to-end
 
@@ -209,13 +209,20 @@ correct answer. The editor and server both validate ready questions.
 
 Each new room gets a deep copy of its active pack at **room creation**, not
 start-reading. Bank edits afterward affect future rooms only. Maps derive
-category/tier choices from that room's selected pool. If an advertised pair
+category/tier choices from that room's selected pool. Eligible categories have
+equal preview weight, with Gutta boosted to 1.5x and available at every tier
+for its fixed 500 points. Questions are drawn randomly only on activation,
+matching the selected category and tier (Gutta ignores tier). Unpicked paths
+leave all their questions in the pool, and depleted future previews refresh
+from remaining questions without consuming any. If an advertised pair
 runs out, activation falls back to remaining questions and updates the node's
 actual category/tier/points. Creating a room with no playable questions gives
 an actionable error.
 
 The host can reveal the previous question's answer and optional reveal media
-on TV with **Vis fasit på TV**. The next reading clears it. Private-choice
+on TV with **Vis fasit på TV**. Use **Skjul fasit · vis kart** to clear the
+question and answer card so players can scout the map. Fasit can be shown again;
+the next reading restores normal question display. Private-choice
 rounds reveal automatically. Audio pauses on buzz/game pause and resumes after
 an incorrect answer without restarting the clip. Browsers may require someone
 to press Play on the TV before audio is allowed.

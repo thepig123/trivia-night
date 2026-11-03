@@ -1,7 +1,7 @@
 import type { ClientMessage } from "./types.js";
 
 const fields: Record<string,string[]> = {
-  "host:undo":[], "host:replace_question":[],
+  "host:dismiss_question_card":[], "host:undo":[], "host:replace_question":[],
   "host:create_room":["adminKey","testMode?"], "host:add_team":[], "host:remove_team":["teamId"], "host:update_team":["teamId","name","players"],
   "host:set_target":["targetScore"], "host:resume_room":["sessionToken"], "team:join":["teamName","players","photoDataUrl?"],
   "team:resume":["teamId","sessionToken"], "team:buzz":["teamId"], "team:choose_route":["teamId","nodeId"],

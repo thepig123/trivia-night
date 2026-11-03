@@ -12,7 +12,7 @@ import type {
   QuestionClock,
 } from "./types.js";
 import { questionPoints, isGutta } from "./types.js";
-import { generateRouteMap, legalNextNodeIds, chooseRoute, markNodeCompleted } from "./map.js";
+import { generateRouteMap, legalNextNodeIds, chooseRoute, markNodeCompleted, refreshRouteOptions } from "./map.js";
 import { TEAM_COLORS } from "./palette.js";
 import questionsData from "./data/questions.json" with { type: "json" };
 
@@ -42,6 +42,7 @@ export class GameEngine {
   finalCandidateIds: string[] = [];
   clock: QuestionClock = {kind:null, remainingMs:15000, deadline:null, questionRemainingMs:15000, warningId:null};
   private undoHistory: {label:string;state:Record<string,unknown>}[] = [];
+  questionCardDismissed = false;
   revealedQuestion: PublicGameState["revealedQuestion"] = null;
 
   constructor(roomCode: string, questions: Question[] = questionsData as Question[]) {
@@ -111,6 +112,7 @@ export class GameEngine {
       node.questionId=replacement.id;node.category=replacement.category;node.tier=replacement.tier;
       this.phase="map";
     }
+    this.map = refreshRouteOptions(this.map, this.routePool());
     this.log("Verten byttet spørsmål. Det gamle spørsmålet trekkes ikke igjen.");
     return true;
   }
@@ -241,6 +243,7 @@ export class GameEngine {
       return;
     }
     question.status = "used";
+    this.map = refreshRouteOptions(this.map, this.routePool());
     this.friendAnswers = {};
     if (question.mode === "friend_group") {
       const playerNames = [...new Set(this.teams.flatMap((team) => team.players).filter(Boolean))];
@@ -294,6 +297,7 @@ export class GameEngine {
     if (!["map", "ready"].includes(this.questionPhase()) || !this.activeQuestion) return;
     this.resetClock();
     this.revealedQuestion = null;
+    this.questionCardDismissed = false;
     this.completedQuestion = null;
     this.setQuestionPhase("reading");
     this.log("Verten begynte å lese spørsmålet.");
@@ -303,6 +307,7 @@ export class GameEngine {
     if (this.paused) return;
     if (!["reading", "map", "ready"].includes(this.questionPhase()) || !this.activeQuestion) return;
     this.revealedQuestion = null;
+    this.questionCardDismissed = false;
     this.setQuestionPhase("buzzing");
     this.armClock("question",this.clock.questionRemainingMs);
     this.buzzOrder = [];
@@ -532,8 +537,15 @@ export class GameEngine {
 
   revealQuestion() {
     if (!this.completedQuestion) return;
+    this.questionCardDismissed = false;
     const q = this.completedQuestion;
     this.revealedQuestion = {prompt:q.prompt, answer:q.answer, media:q.revealMedia ?? q.media};
+  }
+
+  dismissQuestionCard() {
+    if (!this.revealedQuestion) return;
+    this.revealedQuestion = null;
+    this.questionCardDismissed = true;
   }
 
   finishRoutePhase(force = false) {
@@ -600,6 +612,7 @@ export class GameEngine {
     final.roundPhase = "resolved";
     this.phase = "ended";
     this.revealedQuestion = null;
+    this.questionCardDismissed = false;
     this.log(`${final.winnerIds.length > 1 ? "Delt seier" : "Vinner"}: ${final.winnerIds.map(id=>this.teamName(id)).join(" og ")}.`);
   }
 
@@ -669,6 +682,7 @@ export class GameEngine {
       questionPoolTotal: this.questionPool.length,
       friendAnswers: this.friendAnswers,
       canRevealQuestion: this.completedQuestion !== null,
+      canDismissQuestionCard: this.revealedQuestion !== null,
       canUndo: this.undoHistory.length > 0,
       undoLabel: this.undoHistory.at(-1)?.label ?? null,
       canReplaceQuestion: !!this.activeQuestion && (this.phase === "final" ? this.questionPool : this.routePool()).some(q=>q.status==="unused"),
@@ -701,6 +715,7 @@ export class GameEngine {
       legalNextNodeIds: this.phase === "route_choice" ? legalNextNodeIds(this.map) : [],
       friendAnswersSubmitted: Object.keys(this.friendAnswers),
       revealedQuestion: this.revealedQuestion,
+      questionCardDismissed: this.questionCardDismissed,
     };
   }
 }
