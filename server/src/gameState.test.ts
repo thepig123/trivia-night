@@ -169,6 +169,7 @@ test("second qualifier remains in the Final instead of returning to route choice
   assert.equal(game.phase, "final");
   assert.deepEqual(game.finalState?.finalists, [first.id, second.id]);
   assert.ok(game.activeQuestion);
+  assert.ok(game.toPublicState().revealedQuestion);
 });
 
 
@@ -254,7 +255,9 @@ test("five-question final awards separate scores, excludes spectators and declar
     assert.equal(game.registerBuzz(a.id),true);
     if(i===1){game.markWrong(a.id);assert.equal(game.finalState!.roundPhase,"buzzing");game.registerBuzz(b.id);game.markCorrect(b.id);}
     else game.markCorrect(a.id);
-    assert.equal(game.finalState!.roundPhase,"resolved");game.advanceFinal();
+    assert.equal(game.finalState!.roundPhase,"resolved");
+    assert.ok(game.toPublicState().revealedQuestion);
+    game.advanceFinal();
   }
   assert.equal(game.phase,"ended");assert.deepEqual(game.finalState!.winnerIds,[a.id]);
   assert.equal(game.finalState!.scores[a.id],600);assert.equal(game.finalState!.scores[b.id],200);
@@ -444,4 +447,19 @@ test("Gutta previews get 1.5x category weight even outside their stored tier", (
     }
   } finally { Math.random = originalRandom; }
   assert.equal(gutta, 600); // 1.5 / (1.5 + 1), independent of bank size
+});
+
+
+test("a correct route answer automatically reveals fasit and the host can toggle back to the map", () => {
+  const {game, team} = activeGame();
+  const question = game.activeQuestion!;
+  game.startReading(); game.openBuzzers(); game.registerBuzz(team.id); game.markCorrect(team.id);
+  assert.equal(game.phase, "route_choice");
+  assert.equal(game.toPublicState().revealedQuestion?.answer, question.answer);
+  assert.equal(game.toPublicState().revealedQuestion?.prompt, question.prompt);
+  assert.equal(game.toHostState().canDismissQuestionCard, true);
+  game.dismissQuestionCard();
+  assert.equal(game.toPublicState().revealedQuestion, null);
+  game.revealQuestion();
+  assert.equal(game.toPublicState().revealedQuestion?.answer, question.answer);
 });

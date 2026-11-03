@@ -353,6 +353,7 @@ export class GameEngine {
       this.award(team, questionPoints(this.activeQuestion!));
       this.log(`${team.name} svarte riktig i finalen.`);
       this.resolveFinalQuestion();
+      this.revealQuestion();
       if (this.finalState!.suddenDeath) this.endFinal();
       return;
     }
@@ -369,6 +370,7 @@ export class GameEngine {
     this.activeNodeId = null;
 
     this.checkQualification(team);
+    this.revealQuestion();
 
     // The second qualifier starts the Final immediately. Do not overwrite
     // that transition with route_choice below.

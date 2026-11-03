@@ -219,10 +219,11 @@ runs out, activation falls back to remaining questions and updates the node's
 actual category/tier/points. Creating a room with no playable questions gives
 an actionable error.
 
-The host can reveal the previous question's answer and optional reveal media
-on TV with **Vis fasit på TV**. Use **Skjul fasit · vis kart** to clear the
-question and answer card so players can scout the map. Fasit can be shown again;
-the next reading restores normal question display. Private-choice
+Confirming a correct answer automatically shows fasit and optional reveal media
+on TV. One host button switches between **Vis kart** (clear the question and
+answer card so players can scout) and **Vis fasit** (show it again). The same
+button reveals fasit after unanswered questions. The next reading restores
+normal question display. Private-choice
 rounds reveal automatically. Audio pauses on buzz/game pause and resumes after
 an incorrect answer without restarting the clip. Browsers may require someone
 to press Play on the TV before audio is allowed.

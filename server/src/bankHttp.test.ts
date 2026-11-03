@@ -106,7 +106,7 @@ test("four real controllers complete route recovery, undo, qualification and a s
     const tv = await connect(base); sockets.push(tv);
     let publicNext = message(tv, "state:public");
     tv.send(JSON.stringify({type:"tv:hello",roomCode:code})); await publicNext;
-    await rpc("host:reveal_question");
+    assert.equal(state.canDismissQuestionCard, true); // correct answer auto-reveals
     const deniedDismiss = message(tv, "error");
     tv.send(JSON.stringify({type:"host:dismiss_question_card",roomCode:code}));
     assert.match((await deniedDismiss).message, /vert/);
