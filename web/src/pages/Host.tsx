@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useGameSocket } from "../lib/ws";
-import GameClock from "../components/GameClock";
 import { TierLegend } from "../components/RouteMap";
 
 export default function Host() {
@@ -102,7 +101,6 @@ function AdminPanel({ state, roomCode, send, connected, lastError }: any) {
       </aside>
 
       <main className="admin-main">
-        <GameClock clock={state.questionClock} paused={state.paused}/>
         {!connected && <div role="status" className="error-banner">Mistet forbindelsen. Venter på serveren…</div>}
         {lastError && <div role="alert" className="error-banner">{lastError}</div>}
         {state.phase === "route_choice" && <div className="card"><h3>Verten kan velge rute</h3><p>Bruk dette hvis laget trenger hjelp eller har mistet forbindelsen.</p><div className="control-row">{state.legalNextNodeIds.map((id: string) => {const node=state.map.nodes.find((n: any)=>n.id===id);return <button key={id} disabled={!connected||state.paused} onClick={()=>rc("host:choose_route",{nodeId:id})}>{node.category} · {node.tier}</button>;})}</div></div>}
@@ -192,7 +190,6 @@ function AdminPanel({ state, roomCode, send, connected, lastError }: any) {
                       </span>
                       {isCurrent && (
                         <span style={{ display: "flex", gap: 8 }}>
-                          {!state.questionClock.answerStarted && <button className="btn violet" disabled={state.paused} onClick={()=>rc("host:answer_started")}>Laget har begynt å svare</button>}
                           <button className="btn teal" style={{ width: "auto" }} onClick={() => rc("host:mark_correct", { teamId: b.teamId })}>
                             Riktig
                           </button>
@@ -233,7 +230,7 @@ function FinalPanel({ state, roomCode, send }: any) {
   return <section className="card"><h2>🏆 {final.suddenDeath?"Omspill":"Finale"}</h2><p>{final.finalists.map(teamName).join(" mot ")} · Spørsmål {final.currentIndex+1} av {final.questionIds.length}</p><p>Separate finale-poeng. Riktig buzzer-svar gir spørsmålets verdi; feil trekker samme verdi. Privat flervalg gir poeng til alle riktige og ingen minus. Ved uavgjort trekkes nye omspillsspørsmål så lenge banken har flere.</p>
     <div className="control-row">{final.finalists.map((id:string)=><strong key={id}>{teamName(id)}: {final.scores[id]}</strong>)}</div>
     {state.activeQuestion&&<div className="question-box"><p>{state.activeQuestion.category} · {state.activeQuestion.tier} · {tierPoints(state.activeQuestion.tier)} poeng</p><h3>{state.activeQuestion.prompt}</h3><p><b>Fasit:</b> {state.activeQuestion.answer}</p><p>{state.activeQuestion.hostNote}</p></div>}
-    <div className="control-row">{final.roundPhase==="ready"&&<button className="btn teal" disabled={state.paused} onClick={()=>rc("host:start_reading")}>Les finalespørsmålet</button>}{final.roundPhase==="reading"&&<button className="btn pink" disabled={state.paused} onClick={()=>rc("host:open_buzzers")}>Åpne svar</button>}{final.roundPhase==="buzzing"&&["private_choice","friend_group"].includes(state.activeQuestion?.mode)&&<button className="btn teal" disabled={state.paused} onClick={()=>rc("host:reveal_friend_answers")}>Avslør private svar ({Object.keys(state.friendAnswers).length}/{final.finalists.length})</button>}{final.roundPhase==="adjudicating"&&state.currentResponderId&&<><p>{teamName(state.currentResponderId)} svarer</p>{!state.questionClock.answerStarted&&<button className="btn violet" disabled={state.paused} onClick={()=>rc("host:answer_started")}>Laget har begynt å svare</button>}<button className="btn teal" disabled={state.paused} onClick={()=>rc("host:mark_correct",{teamId:state.currentResponderId})}>Riktig</button><button className="btn coral" disabled={state.paused} onClick={()=>rc("host:mark_wrong",{teamId:state.currentResponderId})}>Feil</button></>}
+    <div className="control-row">{final.roundPhase==="ready"&&<button className="btn teal" disabled={state.paused} onClick={()=>rc("host:start_reading")}>Les finalespørsmålet</button>}{final.roundPhase==="reading"&&<button className="btn pink" disabled={state.paused} onClick={()=>rc("host:open_buzzers")}>Åpne svar</button>}{final.roundPhase==="buzzing"&&["private_choice","friend_group"].includes(state.activeQuestion?.mode)&&<button className="btn teal" disabled={state.paused} onClick={()=>rc("host:reveal_friend_answers")}>Avslør private svar ({Object.keys(state.friendAnswers).length}/{final.finalists.length})</button>}{final.roundPhase==="adjudicating"&&state.currentResponderId&&<><p>{teamName(state.currentResponderId)} svarer</p><button className="btn teal" disabled={state.paused} onClick={()=>rc("host:mark_correct",{teamId:state.currentResponderId})}>Riktig</button><button className="btn coral" disabled={state.paused} onClick={()=>rc("host:mark_wrong",{teamId:state.currentResponderId})}>Feil</button></>}
     {final.roundPhase!=="resolved"&&<button className="btn ghost" disabled={state.paused} onClick={()=>rc("host:skip_question")}>Hopp over finalespørsmålet</button>}{state.canRevealQuestion&&<button className="btn ghost" onClick={()=>rc("host:reveal_question")}>Vis fasit på TV</button>}{final.roundPhase==="resolved"&&<button className="btn teal" disabled={state.paused} onClick={()=>rc("host:advance_final")}>{final.currentIndex+1>=final.questionIds.length?"Avgjør finalen / trekk omspill":"Neste finalespørsmål"}</button>}</div>
   </section>;
 }

@@ -667,7 +667,3 @@ button {
 .tv-results h1 {font-size:clamp(2rem,6vw,5rem);color:var(--yellow);}
 .tv-results h2 {font-size:clamp(1.5rem,3vw,3rem);}
 .tv-final-title {position:absolute;top:12px;left:0;right:0;text-align:center;letter-spacing:.2em;font-size:1.5rem;color:var(--yellow);}
-
-.game-clock {display:flex;gap:12px;justify-content:center;align-items:center;padding:10px 16px;border:1px solid #ffffff30;border-radius:12px;background:#1b152a;color:var(--teal);font-size:1rem;}
-.game-clock strong {font-variant-numeric:tabular-nums;font-size:1.5rem;}
-.game-clock--urgent {color:var(--coral);border-color:var(--coral);}

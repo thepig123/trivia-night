@@ -315,20 +315,21 @@ test("replacement clears answers and buzzes without reusing the old question; un
   game.undo();assert.equal(game.activeQuestion!.id,old);assert.equal(game.phase,"adjudicating");assert.equal(game.currentResponderId(),team.id);
 });
 
-test("server answer clock penalizes silence once, reopens with at least five seconds and freezes during a spoken answer",()=>{
+test("answer warning fires once after seven seconds without penalty or releasing the responder",()=>{
   const {game,team}=activeGame();game.addTeam("B");game.startReading();game.openBuzzers();
-  assert.equal(game.clock.kind,"question");game.registerBuzz(team.id);assert.equal(game.clock.kind,"answer");
-  const due=game.clock.deadline!;assert.equal(game.tick(due-1),false);assert.equal(game.tick(due),true);
-  assert.equal(team.score,-TIER_POINTS[game.activeQuestion!.tier]);assert.equal(game.phase,"buzzing");assert.ok(game.clock.remainingMs>=5000);
-  const other=game.teams[1];game.registerBuzz(other.id);game.answerStarted();assert.equal(game.clock.kind,null);
-  assert.equal(game.tick(Date.now()+60000),false);assert.equal(game.phase,"adjudicating");
+  assert.equal(game.clock.remainingMs,15000);game.registerBuzz(team.id);
+  assert.equal(game.clock.remainingMs,7000);const due=game.clock.deadline!;
+  assert.equal(game.tick(due-1),false);assert.equal(game.tick(due),true);
+  assert.equal(team.score,0);assert.equal(game.phase,"adjudicating");assert.equal(game.currentResponderId(),team.id);assert.ok(game.clock.warningId);
+  const id=game.clock.warningId;assert.equal(game.tick(due+60000),false);assert.equal(game.clock.warningId,id);
+  game.markWrong(team.id);assert.equal(team.score,-TIER_POINTS[game.activeQuestion!.tier]);assert.equal(game.phase,"buzzing");
 });
 
-test("pause and recovery preserve remaining clock time; a late correct command cannot beat expiry",()=>{
+test("pause/recovery preserve the warning clock and a host can accept an answer after its warning deadline",()=>{
   const {game,team}=activeGame();game.startReading();game.openBuzzers();game.registerBuzz(team.id);
   game.pause();const remaining=game.clock.remainingMs;assert.equal(game.clock.deadline,null);assert.equal(game.tick(Date.now()+60000),false);
   const restored=BaseGameEngine.restore(game.exportState());assert.equal(restored.clock.remainingMs,remaining);assert.equal(restored.paused,true);restored.resume();assert.equal(restored.clock.kind,"answer");
-  game.resume();game.clock.deadline=Date.now()-1;game.markCorrect(team.id);assert.ok(team.score<0);assert.equal(game.phase,"dead_question");
+  game.resume();game.clock.deadline=Date.now()-1;game.markCorrect(team.id);assert.ok(team.score>0);assert.equal(game.phase,"route_choice");
 });
 
 test("question deadline ends normal buzzing and auto-reveals private choices",()=>{

@@ -270,10 +270,14 @@ their own rooms without re-entering the editor key.
   game for inspection. Current connection status and team photos are preserved.
 - **Bytt aktivt spørsmål** swaps in an unused question, clears buzzes/private
   answers and returns to reading preparation. The old question stays used.
-- Buzzing has a 30-second server clock. A buzz freezes the main clock and starts
-  five seconds to **begin** answering. Click **Laget har begynt å svare** as soon
-  as speech starts; it stops that clock so longer spoken answers are allowed.
-  Correct/Wrong can also be used directly. Silence incurs the normal penalty.
+- Questions have a 15-second server clock, without a visible countdown on TV,
+  phones or the host panel. The question card stays over the map during reading,
+  buzzing, spoken answers and the wait for host reveal. Audio pauses on buzz.
+- A buzz freezes the question clock. After seven seconds, the TV plays one
+  warning chime. It does **not** deduct points, lock out the team or release its
+  turn. The host judges the answer with Correct/Wrong whenever appropriate;
+  no “has started answering” click is required. Sound is enabled by the TV
+  connect click, or the small **Aktiver lydsignal** button after an auto-rejoin.
 - After a wrong answer, remaining teams get at least five seconds. With no
   eligible teams, or when question time runs out, the host reveals/skips.
   Private-choice questions reveal automatically on timeout.

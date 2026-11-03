@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import type { CSSProperties } from "react";
-import GameClock from "../components/GameClock";
+import { useAnswerCue } from "../lib/answerCue";
 import RouteMap from "../components/RouteMap";
 import { useGameSocket } from "../lib/ws";
 import type { PublicGameState, Team } from "../types";
@@ -10,6 +10,7 @@ type PublicQuestion = NonNullable<PublicGameState["activeQuestionPublic"]>;
 export default function Tv() {
   const { connected, publicState, lastError, send } = useGameSocket("tv");
   const [roomInput, setRoomInput] = useState("");
+  const cue=useAnswerCue(publicState?.questionClock.warningId);
 
   if (!publicState) {
     return (
@@ -22,7 +23,7 @@ export default function Tv() {
             <label>Romkode</label>
             <input value={roomInput} onChange={(event) => setRoomInput(event.target.value.toUpperCase())} maxLength={6} placeholder="ABCDE" />
           </div>
-          <button className="btn teal" disabled={!connected || !roomInput.trim()} onClick={() => send({ type: "tv:hello", roomCode: roomInput.trim() })}>
+          <button className="btn teal" disabled={!connected || !roomInput.trim()} onClick={() => {void cue.enable();send({ type: "tv:hello", roomCode: roomInput.trim() });}}>
             Koble til spillet
           </button>
         </div>
@@ -31,8 +32,7 @@ export default function Tv() {
   }
 
   const questionPhase = publicState.phase === "final" ? publicState.finalState?.roundPhase : publicState.phase;
-  const showQuestionCard = ["reading", "buzzing", "adjudicating"].includes(questionPhase ?? "") && publicState.activeQuestionPublic;
-  const showQuestionContent = questionPhase !== "adjudicating";
+  const showQuestionCard = ["reading", "buzzing", "adjudicating", "dead_question"].includes(questionPhase ?? "") && publicState.activeQuestionPublic;
 
   return (
     <main className="tv-screen">
@@ -40,16 +40,16 @@ export default function Tv() {
       {lastError && <div role="alert" className="error-banner">{lastError}</div>}
       <header className="tv-header">
         <h1>TRIVIA NIGHT</h1>
+        {!cue.enabled && <button className="btn ghost" style={{width:"auto"}} onClick={()=>void cue.enable()}>Aktiver lydsignal</button>}
         {publicState.phase === "lobby" && <span>ROM {publicState.roomCode}</span>}
       </header>
 
-      <GameClock clock={publicState.questionClock} paused={publicState.paused}/>
       <div className="tv-stage">
         {publicState.phase === "ended" ? <section className="tv-results"><h2>🏆 {publicState.finalState!.winnerIds.length>1?"Delt seier":"Vinner"}</h2><h1>{publicState.finalState!.winnerIds.map(id=>publicState.teams.find(t=>t.id===id)?.name).join(" og ")}</h1><p>{publicState.finalState!.resultNote}</p></section> : publicState.phase === "qualification" ? <section className="tv-results"><h2>Omspill om finaleplassen</h2><p>Verten avgjør hvem som går videre.</p></section> : publicState.phase === "final" ? <div className="tv-final-title">{publicState.finalState?.suddenDeath?"OMSPILL":"FINALE"}</div> : <RouteMap map={publicState.map} legalNodeIds={publicState.legalNextNodeIds} rowsAhead={6} />}
         {publicState.revealedQuestion && <section className="tv-question" aria-label="Fasit"><div className="tv-question__content"><p>{publicState.revealedQuestion.prompt}</p><p><b>{publicState.revealedQuestion.answer}</b></p>{publicState.revealedQuestion.media?.type === "image" && <img className="tv-question__image" src={publicState.revealedQuestion.media.url} alt="Fasitbilde"/>}{publicState.revealedQuestion.media?.type === "audio" && <audio controls src={publicState.revealedQuestion.media.url}/>}</div></section>}
         {!publicState.revealedQuestion && showQuestionCard && (
-          <section className={`tv-question ${showQuestionContent ? "" : "tv-question--blank"}`} aria-label="Aktivt spørsmål">
-            <div style={{visibility:showQuestionContent?"visible":"hidden"}}><QuestionContent key={publicState.activeNodeId} question={publicState.activeQuestionPublic!} paused={publicState.paused || !showQuestionContent} /></div>
+          <section className="tv-question" aria-label="Aktivt spørsmål">
+            <div><QuestionContent key={publicState.activeNodeId} question={publicState.activeQuestionPublic!} paused={publicState.paused || questionPhase === "adjudicating"} /></div>
           </section>
         )}
       </div>

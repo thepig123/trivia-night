@@ -100,7 +100,7 @@ test("four real controllers complete route recovery, undo, qualification and a s
     for(let i=0;i<4;i++){const ws=await connect(base);sockets.push(ws);const joined=message(ws,"team:joined");ws.send(JSON.stringify({type:"team:join",roomCode:code,teamName:`Lag ${i}`,players:[`Spiller ${i}a`,`Spiller ${i}b`]}));teams.push({ws,...await joined});}
     state=await rpc("host:start_reading",{},m=>m.state.phase==="reading");state=await rpc("host:open_buzzers",{},m=>m.state.phase==="buzzing");
     const buzz=async(index:number)=>{const result=message(host,"state:host",m=>m.state.currentResponderId===teams[index].teamId);teams[index].ws.send(JSON.stringify({type:"team:buzz",roomCode:code,teamId:teams[index].teamId}));return(await result).state;};
-    await buzz(0);await rpc("host:answer_started");await rpc("host:mark_wrong",{teamId:teams[0].teamId});
+    await buzz(0);await rpc("host:mark_wrong",{teamId:teams[0].teamId});
     state=await rpc("host:undo");assert.equal(state.paused,true);assert.equal(state.teams[0].score,0);assert.equal(state.phase,"adjudicating");
     await rpc("host:resume");state=await rpc("host:mark_correct",{teamId:teams[0].teamId});assert.equal(state.phase,"route_choice");
     state=await rpc("host:choose_route",{nodeId:state.legalNextNodeIds[0]});assert.equal(state.phase,"map");

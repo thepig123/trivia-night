@@ -97,7 +97,7 @@ export interface QuestionClock {
   remainingMs: number;
   deadline: number | null;
   questionRemainingMs: number;
-  answerStarted: boolean;
+  warningId: string | null;
 }
 
 export interface EventLogEntry {
@@ -189,7 +189,6 @@ export type ClientMessage =
   | { type: "host:pause"; roomCode: string }
   | { type: "host:resume"; roomCode: string }
   | { type: "host:adjust_score"; roomCode: string; teamId: string; delta: number }
-  | { type: "host:answer_started"; roomCode: string }
   | { type: "host:undo"; roomCode: string }
   | { type: "host:replace_question"; roomCode: string }
   | { type: "host:finish_route"; roomCode: string }

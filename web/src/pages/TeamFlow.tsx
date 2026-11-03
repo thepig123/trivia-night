@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useGameSocket } from "../lib/ws";
-import GameClock from "../components/GameClock";
 import RouteMap, { TierLegend } from "../components/RouteMap";
 
 export default function TeamFlow() {
@@ -122,7 +121,6 @@ function TeamController({ roomCode, teamId, publicState, send, connected, lastEr
         </div>
       </div>
 
-      {publicState?.questionClock && <GameClock clock={publicState.questionClock} paused={publicState.paused}/>}
       {publicState?.phase === "ended" ? <div className="qualified-card"><strong>{publicState.finalState.winnerIds.includes(teamId) ? "🏆 GRATULERER!" : "SPILLET ER FERDIG"}</strong><span>{publicState.finalState.winnerIds.map((id:string)=>publicState.teams.find((t:any)=>t.id===id)?.name).join(" og ")} vant.</span></div> : inFinal && !isFinalist ? <div className="qualified-card"><strong>FINALE</strong><span>Følg finalen på TV.</span></div> : qualified ? <div className="qualified-card"><strong>FINALIST</strong><span>Finaleplassen er sikret. Følg kampen mellom de andre lagene.</span></div> : isControlling ? (
         <div className="map-choice-wrap">
           <h3>Velg rute</h3>

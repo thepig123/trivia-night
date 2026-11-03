@@ -305,10 +305,6 @@ wss.on("connection", (ws) => {
           break;
         }
 
-        case "host:answer_started": {
-          const room = requireHost(ws, info, msg.roomCode); if (!room) return;
-          room.answerStarted(); broadcast(msg.roomCode); break;
-        }
         case "host:undo": {
           const room = requireHost(ws, info, msg.roomCode); if (!room) return;
           room.undo(); broadcast(msg.roomCode); break;

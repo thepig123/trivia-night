@@ -39,7 +39,7 @@ export class GameEngine {
   private completedQuestion: Question | null = null;
   reservedFinalQuestionIds: string[] = [];
   finalCandidateIds: string[] = [];
-  clock: QuestionClock = {kind:null, remainingMs:30000, deadline:null, questionRemainingMs:30000, answerStarted:false};
+  clock: QuestionClock = {kind:null, remainingMs:15000, deadline:null, questionRemainingMs:15000, warningId:null};
   private undoHistory: {label:string;state:Record<string,unknown>}[] = [];
   revealedQuestion: PublicGameState["revealedQuestion"] = null;
 
@@ -63,6 +63,9 @@ export class GameEngine {
     const data=value as any;
     if (!data || typeof data.roomCode !== "string" || !Array.isArray(data.questionPool) || !Array.isArray(data.teams) || !data.map || !data.gameId) throw new Error("Ugyldig lagret spill.");
     const game=Object.assign(new GameEngine(data.roomCode,data.questionPool),data);
+    game.clock.warningId ??= null;
+    game.clock.questionRemainingMs=Math.min(15000,game.clock.questionRemainingMs);
+    if(game.clock.kind === "question")game.clock.remainingMs=Math.min(15000,game.clock.remainingMs);
     for(const team of game.teams) team.connected=false;
     if(!["lobby","ended"].includes(game.phase)) game.paused=true;
     return game;
@@ -109,21 +112,18 @@ export class GameEngine {
     return true;
   }
 
-  private resetClock() { this.clock={kind:null,remainingMs:30000,deadline:null,questionRemainingMs:30000,answerStarted:false}; }
+  private resetClock() { this.clock={kind:null,remainingMs:15000,deadline:null,questionRemainingMs:15000, warningId:null}; }
   private freezeClock(now=Date.now()) { if(this.clock.deadline!==null)this.clock.remainingMs=Math.max(0,this.clock.deadline-now);this.clock.deadline=null; }
-  private stopClock() { this.freezeClock();this.clock.kind=null;this.clock.answerStarted=false; }
+  private stopClock() { this.freezeClock();this.clock.kind=null; }
   private armClock(kind: "question" | "answer", milliseconds:number) { this.clock.kind=kind;this.clock.remainingMs=milliseconds;this.clock.deadline=this.paused?null:Date.now()+milliseconds; }
   private clockSnapshot() { return {...this.clock,remainingMs:this.clock.deadline===null?this.clock.remainingMs:Math.max(0,this.clock.deadline-Date.now())}; }
-  answerStarted() {
-    if(this.paused || this.questionPhase()!=="adjudicating" || !this.currentResponderId() || this.tick())return;
-    this.stopClock();this.clock.answerStarted=true;
-    this.log("Laget har begynt å svare. Svartiden er stoppet.");
-  }
   tick(now=Date.now()): boolean {
     if(this.paused || this.clock.deadline===null || now<this.clock.deadline)return false;
     const kind=this.clock.kind;this.clock.remainingMs=0;this.clock.deadline=null;
     if(kind==="answer") {
-      const responder=this.currentResponderId();if(responder)this.markWrong(responder);
+      this.stopClock();
+      this.clock.warningId=nanoid(10);
+      this.log("Lydsignal: laget har brukt sju sekunder. Verten avgjør svaret uten automatisk trekk.");
     } else if(kind==="question") {
       if(["private_choice","friend_group"].includes(this.activeQuestion?.mode??"")) this.revealFriendAnswers();
       else {
@@ -310,7 +310,7 @@ export class GameEngine {
     this.buzzOrder.push({ teamId, serverTimestamp: Date.now() });
     if (this.currentResponderId() === teamId) {
       this.freezeClock();this.clock.questionRemainingMs=this.clock.remainingMs;
-      this.clock.answerStarted=false;this.armClock("answer",5000);
+      this.clock.warningId=null;this.armClock("answer",7000);
       this.setQuestionPhase("adjudicating");
       this.log(`${this.teamName(teamId)} buzzet inn.`);
     }
@@ -328,7 +328,8 @@ export class GameEngine {
   }
 
   markCorrect(teamId: string) {
-    if (this.paused || this.tick()) return;
+    if (this.paused) return;
+    this.tick();
     if (this.questionPhase() !== "adjudicating") return;
     if (this.currentResponderId() !== teamId) return; // only the team currently up can be adjudicated
     this.checkpoint("riktig svar");
@@ -373,7 +374,8 @@ export class GameEngine {
   }
 
   markWrong(teamId: string) {
-    if (this.paused || this.tick()) return;
+    if (this.paused) return;
+    this.tick();
     if (this.questionPhase() !== "adjudicating") return;
     if (this.currentResponderId() !== teamId) return;
     this.checkpoint("feil svar");
@@ -391,7 +393,7 @@ export class GameEngine {
       // If another team already buzzed earlier, they become the new current
       // responder immediately; otherwise buzzers stay open for fresh buzzes.
       this.setQuestionPhase(this.currentResponderId() ? "adjudicating" : "buzzing");
-      this.clock.answerStarted=false;
+
       this.clock.questionRemainingMs=Math.max(5000,this.clock.questionRemainingMs);
       this.armClock("question",this.clock.questionRemainingMs);
     } else {
