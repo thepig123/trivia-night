@@ -96,6 +96,7 @@ test("four real controllers complete route recovery, undo, qualification and a s
     await fetch(base+"/api/bank",{headers,method:"PUT",body:JSON.stringify(bank)});
     const host=await connect(base);sockets.push(host);let next=message(host,"state:host");host.send(JSON.stringify({type:"host:create_room",adminKey:"integration-test-key"}));let state=(await next).state;const code=state.roomCode;
     const rpc=async(type:string,extra:object={},predicate:(m:any)=>boolean=()=>true)=>{const result=message(host,"state:host",predicate);host.send(JSON.stringify({type,roomCode:code,...extra}));return (await result).state;};
+    state=await rpc("host:configure_lobby",{title:"quiz med gutta",joinUrl:"https://quiz.vercel.app",musicUrl:""});assert.equal(state.lobby.title,"quiz med gutta");
     const teams:any[]=[];
     for(let i=0;i<4;i++){const ws=await connect(base);sockets.push(ws);const joined=message(ws,"team:joined");ws.send(JSON.stringify({type:"team:join",roomCode:code,teamName:`Lag ${i}`,players:[`Spiller ${i}a`,`Spiller ${i}b`]}));teams.push({ws,...await joined});}
     state=await rpc("host:start_reading",{},m=>m.state.phase==="reading");state=await rpc("host:open_buzzers",{},m=>m.state.phase==="buzzing");
@@ -150,6 +151,11 @@ test("four real controllers complete route recovery, undo, qualification and a s
       state=await rpc("host:mark_correct",{teamId:teams[0].teamId});assert.equal(state.finalState.roundPhase,"resolved");state=await rpc("host:advance_final");
     }
     assert.equal(state.phase,"ended");assert.deepEqual(state.finalState.winnerIds,[teams[0].teamId]);assert.equal(state.finalState.scores[teams[0].teamId],count*200);assert.equal(state.teams[0].score,200);
+    const report=message(tv,"state:public",m=>m.state.phase==="ended");tv.send(JSON.stringify({type:"tv:hello",roomCode:code}));const published=(await report).state;
+    assert.equal(published.lobby.joinUrl,"https://quiz.vercel.app");assert.ok(published.statistics);
+    const firstStats=published.statistics.teams.find((row:any)=>row.teamId===teams[0].teamId);
+    assert.equal(firstStats.correct,count+1);assert.equal(firstStats.wrong,0); // original wrong judgment was undone
+    assert.equal(published.statistics.teams.find((row:any)=>row.teamId===teams[1].teamId).playoffCorrect,5);
   } finally {for(const ws of sockets)ws.terminate();if(server)await stop(server.child);rmSync(directory,{recursive:true,force:true});}
 });
 

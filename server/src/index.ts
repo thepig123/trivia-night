@@ -357,6 +357,11 @@ wss.on("connection", (ws, request) => {
           const room = requireHost(ws, info, msg.roomCode); if (!room) return;
           room.selectFinalists(msg.teamIds); broadcast(msg.roomCode); break;
         }
+        case "host:configure_lobby": {
+          const room=requireHost(ws,info,msg.roomCode);if(!room)return;
+          if(!room.configureLobby(msg.title,msg.joinUrl,msg.musicUrl))return sendError(ws,"Bruk en gyldig HTTP(S)-adresse for deltakere og HTTP(S) eller /media/ for musikk. Lobbyen kan bare endres før start.");
+          broadcast(msg.roomCode);break;
+        }
         case "host:advance_playoff": {
           const room=requireHost(ws,info,msg.roomCode);if(!room)return;
           room.advancePlayoff();broadcast(msg.roomCode);break;

@@ -3,14 +3,15 @@ import assert from "node:assert/strict";
 import {GameEngine} from "./gameState.js";
 import type {Question, Tier} from "./types.js";
 
-function playoffGame() {
+function playoffGame(mainScores=[2100,100,50],target=10000) {
   const pool:Question[]=Array.from({length:32},(_,i)=>({id:`PLAY${i}`,category:i===2?"Gutta":"General",tier:(["T5","T4","T3","T2","T1"] as Tier[])[i%5],prompt:`Question ${i}`,answer:"A",acceptedAlternatives:[],status:"unused",mode:"buzzer"}));
   const playoffIds=pool.slice(0,5).map(q=>q.id),finalIds=pool.slice(5,10).map(q=>q.id);
   const game=new GameEngine("PLAY1",pool,finalIds,playoffIds);
   const first=game.addTeam("Main winner"),b=game.addTeam("High main score"),c=game.addTeam("Low main score"),d=game.addTeam("Other team");
+  game.targetScore=target;
   game.activateCurrentNode();
   const points=game.toPublicState().activeQuestionPublic!.points;
-  first.score=game.targetScore-points;b.score=9000;c.score=100;d.score=50;
+  first.score=game.targetScore-points;b.score=mainScores[0];c.score=mainScores[1];d.score=mainScores[2];
   game.startReading();game.openBuzzers();game.registerBuzz(first.id);game.markCorrect(first.id);
   return {game,first,b,c,d,playoffIds,finalIds};
 }
@@ -30,7 +31,7 @@ test("first target hit freezes the route and starts exactly five reserved, equal
   game.adjustScore(c.id,10000);assert.equal(c.score,100);assert.equal(game.playoffState!.scores[c.id],0);
 });
 
-test("all five questions are played and the most correct wins regardless of main score, tier or Gutta",()=>{
+test("all five questions are played and correct answers decide when gaps earn no head start",()=>{
   const {game,first,b,c,d,finalIds}=playoffGame();
   for(let i=0;i<5;i++){
     const winner=i<3?c:b;
@@ -43,13 +44,13 @@ test("all five questions are played and the most correct wins regardless of main
   }
   assert.equal(game.phase,"final");assert.deepEqual(new Set(game.finalState!.finalists),new Set([first.id,c.id]));
   assert.equal(game.playoffState!.scores[c.id],3);assert.equal(game.playoffState!.scores[b.id],2);
-  assert.deepEqual([first.score,b.score,c.score,d.score],[10000,9000,100,50]);
+  assert.deepEqual([first.score,b.score,c.score,d.score],[10000,2100,100,50]);
   assert.deepEqual(Object.values(game.finalState!.scores),[0,0]);assert.deepEqual(new Set(game.finalState!.questionIds),new Set(finalIds));
 });
 
 test("wrong playoff answers lock out the team but never deduct points, and skip counts as an unanswered slot",()=>{
   const {game,b,c}=playoffGame();answer(game,b.id);game.advancePlayoff();game.startReading();game.openBuzzers();game.registerBuzz(b.id);game.markWrong(b.id);
-  assert.equal(game.playoffState!.scores[b.id],1);assert.equal(b.score,9000);assert.ok(game.lockedOutTeamIds.includes(b.id));
+  assert.equal(game.playoffState!.scores[b.id],1);assert.equal(b.score,2100);assert.ok(game.lockedOutTeamIds.includes(b.id));
   assert.equal(game.registerBuzz(b.id),false);assert.equal(game.registerBuzz(c.id),true);game.markCorrect(c.id);
   game.advancePlayoff();game.skipQuestion();assert.equal(game.playoffState!.currentIndex,2);game.advancePlayoff();assert.equal(game.playoffState!.currentIndex,3);
 });
@@ -85,7 +86,7 @@ test("playoff private choice and nearest-number rounds award one each and reject
     assert.equal(game.toPublicState().revealedQuestion,null);game.revealFriendAnswers();
     assert.equal(game.playoffState!.scores[b.id],1);assert.equal(game.playoffState!.scores[c.id],1);assert.equal(game.playoffState!.scores[d.id],0);
     assert.equal(game.toPublicState().feedback?.points,1);assert.equal(game.toPublicState().revealedQuestion?.results?.length,3);
-    assert.equal(game.playoffState!.roundPhase,"resolved");assert.equal(b.score,9000);
+    assert.equal(game.playoffState!.roundPhase,"resolved");assert.equal(b.score,2100);
   }
 });
 
@@ -119,4 +120,32 @@ test("automatic playoff reservation keeps five available until the first target 
   game.activateCurrentNode();for(let i=0;i<3;i++){assert.ok(!held.includes(game.activeQuestion!.id));game.skipQuestion();}
   a.score=10000;game.setTargetScore(10000);
   assert.equal(game.phase,"playoff");assert.deepEqual(new Set(game.playoffState!.questionIds),new Set(held));
+});
+
+test("gap-based head starts recognise main scores in quarter-target steps, capped at two",()=>{
+  const {game,b,c,d}=playoffGame([9000,6500,4000]);
+  assert.deepEqual(game.playoffState!.headStarts,{[b.id]:2,[c.id]:1,[d.id]:0});
+  assert.deepEqual(game.playoffState!.scores,{[b.id]:0,[c.id]:0,[d.id]:0});
+  assert.deepEqual(game.playoffState!.mainScores,{[b.id]:9000,[c.id]:6500,[d.id]:4000});
+  game.adjustScore(d.id,5000);game.setTargetScore(2000);
+  assert.equal(d.score,4000);assert.equal(game.targetScore,10000);assert.equal(game.playoffState!.headStarts![d.id],0);
+  const scaled=playoffGame([3000,2000,1000],4000);
+  assert.deepEqual(Object.values(scaled.game.playoffState!.headStarts!),[2,1,0]);
+  const justBelow=playoffGame([6499,4000,4000]);assert.deepEqual(Object.values(justBelow.game.playoffState!.headStarts!),[0,0,0]);
+});
+test("head starts affect advancement but never count as correct answers or grand-final points",()=>{
+  const {game,first,b,c,d}=playoffGame([9000,6500,4000]);
+  for(const winner of [d,d,d,b,b]){answer(game,winner.id);game.advancePlayoff();}
+  assert.equal(game.phase,"final");assert.deepEqual(new Set(game.finalState!.finalists),new Set([first.id,b.id]));
+  assert.equal(game.playoffState!.scores[b.id],2);assert.equal(game.playoffState!.scores[d.id],3);
+  assert.equal(game.toHostState().statistics.teams.find(t=>t.teamId===b.id)!.playoffCorrect,2);
+  assert.equal(game.toHostState().statistics.teams.find(t=>t.teamId===d.id)!.playoffCorrect,3);
+  assert.deepEqual(Object.values(game.finalState!.scores),[0,0]);
+});
+test("ties use correct answers plus frozen bonuses and a lower main team can still win sudden death",()=>{
+  const {game,b,c,d}=playoffGame([9000,6500,4000]);
+  for(const winner of [d,d,d,b,c]){answer(game,winner.id);game.advancePlayoff();}
+  assert.equal(game.phase,"playoff");assert.equal(game.playoffState!.suddenDeath,true);
+  assert.deepEqual(new Set(game.playoffState!.contenders),new Set([b.id,d.id]));
+  answer(game,d.id);game.advancePlayoff();assert.equal(game.phase,"final");assert.ok(game.finalState!.finalists.includes(d.id));
 });

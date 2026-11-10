@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useGameSocket } from "../lib/ws";
+import {roomFromQuery} from "../lib/joinLink";
 import TeamController from "../components/TeamController";
 
 export default function TeamFlow() {
   const { connected, publicState, lastError, roomCode, teamId, send, testControllers } = useGameSocket("team");
-  const [roomInput, setRoomInput] = useState("");
+  const [roomInput, setRoomInput] = useState(()=>roomFromQuery(window.location.search));
   const [teamName, setTeamName] = useState("");
   const [playerOne, setPlayerOne] = useState("");
   const [playerTwo, setPlayerTwo] = useState("");

@@ -5,6 +5,8 @@ import type {
   EventLogEntry,
   FinalState,
   PlayoffState,
+  LobbySettings,
+  QuestionRecord,
   GamePhase,
   HostGameState,
   PublicGameState,
@@ -15,6 +17,7 @@ import type {
 } from "./types.js";
 import { questionPoints, isGutta, numericAnswer } from "./types.js";
 import { generateRouteMap, legalNextNodeIds, chooseRoute, markNodeCompleted, refreshRouteOptions } from "./map.js";
+import { summarizeStats } from "./statistics.js";
 import { TEAM_COLORS } from "./palette.js";
 import questionsData from "./data/questions.json" with { type: "json" };
 
@@ -28,6 +31,10 @@ export class GameEngine {
   eventMode = false;
   feedback: GameFeedback | null = null;
   startedAt: number | null = null;
+  lobby: LobbySettings = {title:"quiz med gutta",joinUrl:"",musicUrl:""};
+  private questionHistory: QuestionRecord[] = [];
+  private buzzElapsedMs = 0;
+  private buzzWindowStartedAt: number | null = null;
   phase: GamePhase = "lobby";
   paused = false;
   targetScore = TARGET_SCORE;
@@ -74,6 +81,8 @@ export class GameEngine {
     const state=JSON.parse(JSON.stringify(this));
     if(state.clock.deadline!==null)state.clock.remainingMs=Math.max(0,state.clock.deadline-Date.now());
     state.clock.deadline=null;
+    state.buzzElapsedMs=this.buzzElapsedMs+(this.buzzWindowStartedAt===null?0:Math.max(0,Date.now()-this.buzzWindowStartedAt));
+    state.buzzWindowStartedAt=null;
     return state;
   }
 
@@ -117,6 +126,7 @@ export class GameEngine {
     const replacement=pool.find(q=>q.tier===this.activeQuestion!.tier&&q.category===this.activeQuestion!.category)??pool.find(q=>q.tier===this.activeQuestion!.tier)??pool[0];
     if(!replacement)return false;
     this.checkpoint("byttet spørsmål");
+    const replaced=this.questionHistory.find(q=>q.questionId===this.activeQuestion!.id);if(replaced)replaced.voided=true;
     replacement.status="used";
     this.activeQuestion=replacement;
     this.resetClock();
@@ -135,10 +145,36 @@ export class GameEngine {
     return true;
   }
 
+  configureLobby(title:string,joinUrl:string,musicUrl:string):boolean {
+    if(this.phase!=="lobby" || !title.trim() || title.length>80)return false;
+    const webUrl=(value:string)=>{try{const url=new URL(value);return ["http:","https:"].includes(url.protocol)&&!url.username&&!url.password;}catch{return false;}};
+    if(joinUrl && !webUrl(joinUrl))return false;
+    if(musicUrl && !webUrl(musicUrl) && !/^\/media\/[a-zA-Z0-9._-]+$/.test(musicUrl))return false;
+    this.lobby={title:title.trim(),joinUrl,musicUrl};return true;
+  }
+
+  private freezeBuzzWindow(now=Date.now()) {
+    if(this.buzzWindowStartedAt!==null)this.buzzElapsedMs+=Math.max(0,now-this.buzzWindowStartedAt);
+    this.buzzWindowStartedAt=null;
+  }
+  private trackQuestion() {
+    const q=this.activeQuestion;if(!q)return null;
+    let record=this.questionHistory.find(record=>record.questionId===q.id&&!record.voided);
+    if(!record){record={questionId:q.id,category:q.category,round:this.phase==="final"?"final":this.phase==="playoff"?"playoff":"main",eligibleTeamIds:this.teams.filter(t=>this.eligible(t)).map(t=>t.id),resolved:false,skipped:false,voided:false,attempts:[]};this.questionHistory.push(record);}
+    return record;
+  }
+  private judgeAttempt(teamId:string,correct:boolean) {
+    const record=this.trackQuestion();if(!record)return;
+    if(!record.eligibleTeamIds.includes(teamId))record.eligibleTeamIds.push(teamId);
+    const attempt=record.attempts.find(a=>a.teamId===teamId);
+    if(attempt)attempt.correct=correct;else record.attempts.push({teamId,correct});
+  }
+  private completeStats(skipped=false) { const record=this.trackQuestion();if(record){record.resolved=true;record.skipped ||= skipped;} }
+
   private duration() { return this.activeQuestion?.mode === "closest" ? 30000 : 15000; }
-  private resetClock() { this.clock={kind:null,remainingMs:this.duration(),deadline:null,questionRemainingMs:this.duration(), warningId:null}; this.imageRevealStage=0; }
+  private resetClock() { this.clock={kind:null,remainingMs:this.duration(),deadline:null,questionRemainingMs:this.duration(), warningId:null}; this.imageRevealStage=0; this.buzzElapsedMs=0;this.buzzWindowStartedAt=null; }
   private freezeClock(now=Date.now()) { if(this.clock.deadline!==null)this.clock.remainingMs=Math.max(0,this.clock.deadline-now);this.clock.deadline=null; }
-  private stopClock() { this.freezeClock();this.clock.kind=null; }
+  private stopClock() { this.freezeClock();this.freezeBuzzWindow();this.clock.kind=null; }
   private armClock(kind: "question" | "answer", milliseconds:number) { this.clock.kind=kind;this.clock.remainingMs=milliseconds;this.clock.deadline=this.paused?null:Date.now()+milliseconds; }
   private clockSnapshot() { return {...this.clock,remainingMs:this.clock.deadline===null?this.clock.remainingMs:Math.max(0,this.clock.deadline-Date.now())}; }
   tick(now=Date.now()): boolean {
@@ -152,6 +188,7 @@ export class GameEngine {
       if(["private_choice","friend_group","closest"].includes(this.activeQuestion?.mode??"")) this.revealFriendAnswers();
       else {
         this.checkpoint("spørsmålstiden løp ut");
+        this.completeStats();
         this.completedQuestion=this.activeQuestion;
         if(this.phase==="final")this.resolveFinalQuestion();else if(this.phase==="playoff")this.resolvePlayoffQuestion();else this.setQuestionPhase("dead_question");
         this.stopClock();this.log("Tiden er ute. Verten kan vise fasit og gå videre.");
@@ -327,6 +364,7 @@ export class GameEngine {
     this.completedQuestion = null;
     this.completedAnswers = [];
     this.imageRevealStage = 0;
+    this.trackQuestion();
     this.setQuestionPhase("reading");
     this.log("Verten begynte å lese spørsmålet.");
   }
@@ -336,7 +374,9 @@ export class GameEngine {
     if (!["reading", "map", "ready"].includes(this.questionPhase()) || !this.activeQuestion) return;
     this.revealedQuestion = null;
     this.questionCardDismissed = false;
+    const record=this.trackQuestion();if(record)record.eligibleTeamIds=this.teams.filter(t=>this.eligible(t)).map(t=>t.id);
     this.setQuestionPhase("buzzing");
+    this.buzzElapsedMs=0;this.buzzWindowStartedAt=Date.now();
     this.armClock("question",this.clock.questionRemainingMs);
     this.buzzOrder = [];
     this.lockedOutTeamIds = [];
@@ -349,6 +389,10 @@ export class GameEngine {
     if (this.questionPhase() !== "buzzing" || ["friend_group", "private_choice", "closest"].includes(this.activeQuestion?.mode ?? "")) return false;
     if (this.lockedOutTeamIds.includes(teamId)) return false;
     if (this.buzzOrder.some((b) => b.teamId === teamId)) return false;
+    const record=this.trackQuestion();
+    this.freezeBuzzWindow();
+    if(record&&!record.eligibleTeamIds.includes(teamId))record.eligibleTeamIds.push(teamId);
+    record?.attempts.push({teamId,correct:null,buzzMs:Math.round(this.buzzElapsedMs),rebound:record.attempts.length>0});
     this.buzzOrder.push({ teamId, serverTimestamp: Date.now() });
     if (this.currentResponderId() === teamId) {
       this.freezeClock();this.clock.questionRemainingMs=this.clock.remainingMs;
@@ -375,6 +419,7 @@ export class GameEngine {
     if (this.questionPhase() !== "adjudicating") return;
     if (this.currentResponderId() !== teamId) return; // only the team currently up can be adjudicated
     this.checkpoint("riktig svar");
+    this.judgeAttempt(teamId,true);this.completeStats();
     this.stopClock();
     if(this.phase === "playoff") {
       const team=this.teams.find(t=>t.id===teamId)!;
@@ -433,6 +478,7 @@ export class GameEngine {
     if (this.questionPhase() !== "adjudicating") return;
     if (this.currentResponderId() !== teamId) return;
     this.checkpoint("feil svar");
+    this.judgeAttempt(teamId,false);
     this.stopClock();
     const team = this.teams.find(team => team.id === teamId)!;
     const points = questionPoints(this.activeQuestion!);
@@ -452,8 +498,10 @@ export class GameEngine {
       this.setQuestionPhase(this.currentResponderId() ? "adjudicating" : "buzzing");
 
       this.clock.questionRemainingMs=Math.max(5000,this.clock.questionRemainingMs);
+      this.buzzWindowStartedAt=Date.now();
       this.armClock("question",this.clock.questionRemainingMs);
     } else {
+      this.completeStats();
       // Nobody left to answer — question is dead, host must skip.
       if (this.phase === "final") this.resolveFinalQuestion();
       else if (this.phase === "playoff") this.resolvePlayoffQuestion();
@@ -466,14 +514,15 @@ export class GameEngine {
   skipQuestion() {
     if (this.paused) return;
     if (this.phase === "playoff") {
-      if(this.activeQuestion){this.checkpoint("hoppet over kvalifiseringsspørsmål");this.resolvePlayoffQuestion();this.revealQuestion();}return;
+      if(this.activeQuestion){this.checkpoint("hoppet over kvalifiseringsspørsmål");this.completeStats(true);this.resolvePlayoffQuestion();this.revealQuestion();}return;
     }
     if (this.phase === "final") {
-      if (this.activeQuestion) { this.checkpoint("hoppet over finalespørsmål"); this.resolveFinalQuestion(); }
+      if (this.activeQuestion) { this.checkpoint("hoppet over finalespørsmål"); this.completeStats(true); this.resolveFinalQuestion(); }
       return;
     }
     if (!this.activeNodeId || !["map", "reading", "buzzing", "adjudicating", "dead_question"].includes(this.phase)) return;
     this.checkpoint("hoppet over spørsmål");
+    this.completeStats(true);
     this.stopClock();
     this.completedQuestion = this.activeQuestion;
     this.activeQuestion = null;
@@ -562,6 +611,8 @@ export class GameEngine {
     const distances=new Map(entrants.map(t=>[t.id,target === null ? Infinity : Math.abs(numericAnswer(this.friendAnswers[t.id])!-target)]));
     const best=Math.min(...distances.values());
     const correct=entrants.filter(t=>q.mode === "closest" ? Math.abs(distances.get(t.id)!-best) <= Number.EPSILON*4*Math.max(1,best) : this.friendAnswers[t.id] === q.answer);
+    for(const team of entrants)this.judgeAttempt(team.id,correct.includes(team));
+    this.completeStats();
     if(correct.length)this.announce("correct",correct.map(t=>t.id),q.mode === "closest" ? "Nærmest!" : "Riktig!",this.phase === "playoff" ? 1 : questionPoints(q));
     this.completedAnswers=entrants.map(t=>({teamId:t.id,answer:this.friendAnswers[t.id],correct:correct.includes(t),...(q.mode === "closest" ? {distance:distances.get(t.id)} : {})}));
     if(this.phase === "playoff") {
@@ -643,11 +694,14 @@ export class GameEngine {
     const extras=unused.filter(q=>!this.reservedPlayoffQuestionIds.includes(q.id)).sort(()=>Math.random()-.5);
     const picks=[...reserved,...extras].slice(0,5);
     for(const q of picks)q.status="used";
-    this.playoffState={firstQualifierId,contenders,questionIds:picks.map(q=>q.id),currentIndex:0,scores:Object.fromEntries(contenders.map(id=>[id,0])),roundPhase:picks.length?"ready":"resolved",suddenDeath:false};
+    const baseline=Math.min(...contenders.map(id=>this.teams.find(t=>t.id===id)!.score));
+    const mainScores=Object.fromEntries(contenders.map(id=>[id,this.teams.find(t=>t.id===id)!.score]));
+    const headStarts=Object.fromEntries(contenders.map(id=>[id,Math.min(2,Math.floor(Math.max(0,mainScores[id]-baseline)/(this.targetScore/4)))]));
+    this.playoffState={firstQualifierId,contenders,mainScores,headStarts,questionIds:picks.map(q=>q.id),currentIndex:0,scores:Object.fromEntries(contenders.map(id=>[id,0])),roundPhase:picks.length?"ready":"resolved",suddenDeath:false};
     this.phase="playoff";this.qualificationPurpose="second";this.finalCandidateIds=[];
     this.activeQuestion=picks[0]??null;this.activeNodeId=null;this.controllingTeamId=null;this.buzzOrder=[];this.lockedOutTeamIds=[];this.friendAnswers={};this.resetClock();
     this.announce("qualified",[firstQualifierId],"Første finaleplass er sikret!");
-    this.log(`Kvalifisering om andreplassen: ${picks.length} av fem spørsmål tilgjengelig. Alle starter på null riktige svar.`);
+    this.log(`Kvalifisering om andreplassen: ${picks.length} av fem spørsmål tilgjengelig. Alle starter på null riktige svar, med inntil to bonuspoeng fra hovedrunden.`);
   }
 
   private resolvePlayoffQuestion() {
@@ -662,8 +716,8 @@ export class GameEngine {
     const next=round.currentIndex+1;
     if(next<round.questionIds.length){round.currentIndex=next;this.activeQuestion=this.questionPool.find(q=>q.id===round.questionIds[next])??null;}
     else {
-      const high=Math.max(...round.contenders.map(id=>round.scores[id]));
-      const leaders=round.contenders.filter(id=>round.scores[id]===high);
+      const high=Math.max(...round.contenders.map(id=>round.scores[id]+(round.headStarts?.[id]??0)));
+      const leaders=round.contenders.filter(id=>round.scores[id]+(round.headStarts?.[id]??0)===high);
       if(leaders.length===1){this.teams.find(t=>t.id===leaders[0])!.qualifiedForFinal=true;this.startFinal();return;}
       const unused=this.playoffPool().filter(q=>q.status==="unused");
       if(!unused.length){
@@ -751,12 +805,13 @@ export class GameEngine {
   }
 
   pause() {
-    this.tick();this.freezeClock();
+    this.tick();this.freezeClock();this.freezeBuzzWindow();
     this.paused = true;
   }
   resume() {
     if(!this.paused)return;
     this.paused = false;
+    if(this.questionPhase()==="buzzing")this.buzzWindowStartedAt=Date.now();
     if(this.clock.kind)this.armClock(this.clock.kind,this.clock.remainingMs);
   }
 
@@ -776,6 +831,7 @@ export class GameEngine {
       isTestRoom: this.isTestRoom,
       eventMode: this.eventMode,
       feedback: this.feedback,
+      lobby: this.lobby,
       gameId: this.gameId,
       phase: this.phase,
       paused: this.paused,
@@ -792,6 +848,7 @@ export class GameEngine {
       finalState: this.finalState,
       playoffState: this.playoffState,
       qualificationPurpose: this.qualificationPurpose,
+      statistics: summarizeStats(this.questionHistory,this.teams),
       eventLog: this.eventLog,
       questionPoolRemaining: this.routePool().filter((q) => q.status === "unused").length,
       questionPoolTotal: this.questionPool.length,
@@ -816,6 +873,7 @@ export class GameEngine {
       isTestRoom: this.isTestRoom,
       eventMode: this.eventMode,
       feedback: this.feedback,
+      lobby: this.lobby,
       phase: this.phase,
       paused: this.paused,
       questionClock: this.clockSnapshot(),
@@ -838,6 +896,7 @@ export class GameEngine {
       friendAnswersSubmitted: Object.keys(this.friendAnswers),
       revealedQuestion: this.revealedQuestion,
       imageRevealStage: this.imageRevealStage,
+      statistics: this.phase==="ended"?summarizeStats(this.questionHistory,this.teams):null,
       questionCardDismissed: this.questionCardDismissed,
     };
   }

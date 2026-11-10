@@ -100,7 +100,7 @@ test("playoff phones show a separate tally, hide the route and make first finali
   assert.equal(game.phase,"playoff");
   game.startReading();game.openBuzzers();
   const first=render(game,a.id);assert.match(first,/FINALIST/);assert.doesNotMatch(first,/buzzer-wrap|choose route/);
-  const contender=render(game,c.id);assert.match(contender,/RIKTIGE I KVALIFISERINGEN/);assert.match(contender,/Kvalifisering om andreplassen/);assert.doesNotMatch(contender,/route-map|final-progress/);
+  const contender=render(game,c.id);assert.match(contender,/KVALIFISERING · TOTALT/);assert.match(contender,/Kvalifisering om andreplassen/);assert.doesNotMatch(contender,/route-map|final-progress/);
   assert.equal(game.registerBuzz(c.id),true);game.markCorrect(c.id);
   assert.match(render(game,c.id),/1 riktige/);
   game.playoffState!.contenders=[b.id,c.id];game.playoffState!.suddenDeath=true;

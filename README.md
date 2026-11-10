@@ -129,8 +129,9 @@ exit; the following row always restores a choice.
 5. The first team to reach the target (10,000 by default) wins the first Final
    seat. The route map freezes. All other teams play five shared playoff
    questions, starting at zero correct answers; one correct answer earns one
-   playoff point, regardless of tier or category. The most correct advances.
-   Main-game points do not carry into this playoff or break ties. The host may
+   playoff point, regardless of tier or category. Correct answers plus a capped
+   main-game head start decide advancement. Main scores are not used again to
+   break a tied playoff total. The host may
    adjust the main target in 500-point increments before the playoff starts.
 
 ## Teams and Friend Group rounds
@@ -413,7 +414,8 @@ arrive. Reduced-motion preferences disable the announcement entrance animation.
 ## Five-question playoff for the second Final seat
 
 The first target-score qualifier wins the main game and sits out. All remaining
-teams start a **Kvalifisering om andreplassen** at zero. The host runs exactly
+teams start a **Kvalifisering om andreplassen** with zero correct answers and
+a frozen **0–2 point head start** based on main-game performance. The host runs exactly
 five questions using the normal read/open/judge/reveal flow. Every question is
 worth **one correct answer**, including Gutta, easy and hard tiers, closest-number
 and private-choice rounds. Shared correct/nearest answers can each earn one.
@@ -422,10 +424,11 @@ Main scores are frozen, and route choice is unavailable. The host cannot add
 points manually during the playoff; use Undo to correct a judgment.
 
 All five questions are played, even if a team establishes a large lead. After
-the fifth, **Neste / avgjør kvalifiseringen** advances the sole leader to the
+the fifth, **Neste / avgjør kvalifiseringen** advances the sole leader in
+correct answers plus head-start points to the
 Final alongside the main winner. Both begin the grand Final on zero Final
 points. If tied, only the tied leaders continue with extra unused questions;
-main-game scores are never used to separate them. If nobody answers a tiebreak,
+main-game scores are not used again to separate a tied playoff total. If nobody answers a tiebreak,
 another question is drawn. With no questions left, the host runs an oral
 playoff and selects the winner from those tied leaders, keeping the first seat.
 With only two teams in the room, the remaining team takes the other seat directly.
@@ -442,7 +445,8 @@ shortfall, and an empty bank requires a host tiebreak rather than picking a
 winner arbitrarily. A skipped playoff question counts as unanswered; use
 **Bytt aktivt spørsmål** instead if a question cannot be used.
 
-The host, TV and phones show separate correct-answer tallies and playoff progress.
+The host, TV and phones show correct-answer tallies, frozen head starts and
+combined playoff totals separately, alongside question progress.
 The first qualifier and teams eliminated from a tiebreak cannot buzz or submit
 private answers. Scores, the five-question list, answers, current stage and
 eligibility survive event recovery. Undo restores the previous playoff state and
@@ -450,3 +454,81 @@ pauses for inspection. The host's early-end control can start this same playoff
 from the current sole main-score leader; tied main leaders first need an oral
 first-place tiebreak. Older saved games with two qualifiers can still open their
 Final.
+
+
+## Main-game head starts
+
+When the playoff starts, each remaining team's main score is compared with the
+lowest remaining team's score. Its head start is:
+
+`min(2, floor((main score - lowest remaining score) / (main target / 4)))`
+
+At the usual 10,000 target, one bonus is awarded per 2,500 points of advantage,
+up to two. For example, scores of 9,000 / 6,500 / 4,000 give +2 / +1 / +0.
+The first qualifier is excluded from this calculation. The same proportional
+rule works with a lower or higher main target. The bonuses are locked when the
+playoff starts and survive Undo/recovery; older already-running playoffs without
+bonuses retain zero. Correct answers are recorded separately, so bonuses never
+inflate statistics. All five questions are still played. The grand Final begins
+at zero for both finalists regardless of these bonuses.
+
+## Welcome lobby, joining and music
+
+The TV lobby now welcomes teams with **quiz med gutta**, the room code, joining
+instructions and a live team roster. Open **Velkomstskjerm og QR** in the host
+panel before starting to change the title, participant URL or optional music URL.
+The settings save with the event. A root URL such as `https://your-app.vercel.app`
+is converted to `/join?room=ABCDE`; a full joining path is also accepted. The QR
+code is generated locally with `qrcode`, without a third-party QR service or
+session tokens. Scanning prefills the room code; the team still enters its own
+name and two players. A visible link is provided as a fallback.
+
+If no URL is configured, the QR uses the TV page's origin. A localhost URL is not
+shown as a phone QR because it would point at each phone itself. Use your actual
+Vercel URL or a reachable LAN address instead. Setting the QR destination does
+not deploy the app or configure its backend: the participant frontend must also
+have a reachable game server via `VITE_WS_URL` (use WSS when serving the frontend
+over HTTPS). `/api` and `/media` routing must reach that same backend when used.
+
+**Spill lobby-musikk** on the TV starts an original soft ambient loop, or the
+optional audio URL configured by the host. Music requires an explicit click,
+has its own saved volume, stops when play starts and pauses with the game.
+A custom file may be an HTTP(S) audio URL or an existing `/media/...` upload.
+The game-cue volume slider remains separate from music volume.
+
+## Pause screen
+
+The host's primary panel has a **Pause** button in addition to the sidebar.
+TV and joined phones display a full-screen **PAUSE** modal while the game is
+paused. Questions, answer clocks, route choices and image-stage controls stay
+frozen. TV clue/reveal audio is paused; previously playing media resumes when
+appropriate. Only the host resumes with **Fortsett spillet**. Pausing does not
+advance the question or reset scoring.
+
+## Evening statistics
+
+Open **Statistikk for kvelden** in the host panel for live team and category
+results, with a CSV export. The TV winner screen shows highlights, and phones
+show their team's summary after the evening. Full public statistics are sent
+only after the game ends. The host can inspect them throughout.
+
+Tracked per team: valid buzz count, first (non-rebound) buzz count, average /
+fastest / slowest buzz, correct and incorrect judgments, accuracy, available
+resolved questions, correct counts per round, and category breakdowns. Category
+rankings use the highest and lowest accuracy among categories with at least
+three judged attempts; smaller samples remain visible but unranked. Closest-number
+winners count as successful answers under that format's rules. Unsubmitted
+private answers do not count as incorrect judgments or invented buzz samples.
+
+Buzz time is measured on the server from when answers open. Active buzzer-window
+time accumulates across rebounds; host adjudication and global pauses are
+excluded. Network latency remains part of this server-observed measure. Invalid,
+premature, duplicate and spectator buzzes are excluded. No-sample metrics show a
+dash, not a fabricated zero.
+
+The question history saves with event state. Undo restores it along with scores;
+replacing an unusable question voids its stats, and skipped questions are counted
+separately. Saved accumulated buzzer-window time survives recovery, with paused
+or offline recovery time excluded. Existing events without a history begin
+tracking from this version; old reactions cannot be reconstructed. Head-start
+bonuses and manual score changes are not recorded as correct answers.

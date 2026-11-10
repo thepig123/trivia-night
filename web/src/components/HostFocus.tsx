@@ -24,6 +24,7 @@ export default function HostFocus({state, connected, send}: {state:HostGameState
         {phase==="resolved" && state.phase==="playoff" && <button className="btn teal" disabled={disabled} onClick={()=>rc("host:advance_playoff")}>Neste / avgjør kvalifiseringen</button>}
         {phase==="resolved" && state.phase==="final" && <button className="btn teal" disabled={disabled} onClick={()=>rc("host:advance_final")}>Neste / avgjør finalen</button>}
       </>}
+      {!state.paused && state.phase!=="ended" && <button className="btn ghost" disabled={!connected} onClick={()=>rc("host:pause")}>Pause</button>}
       {state.activeQuestion?.progressiveImage && ["reading","buzzing"].includes(phase) && <button className="btn ghost" disabled={disabled || state.imageRevealStage>=3} onClick={()=>rc("host:advance_image")}>Avslør mer av bildet · {state.imageRevealStage+1}/4</button>}
       {state.canRevealQuestion && phase!=="dead_question" && <button className="btn ghost" disabled={!connected} onClick={()=>rc(state.canDismissQuestionCard ? "host:dismiss_question_card" : "host:reveal_question")}>{state.canDismissQuestionCard ? state.phase==="playoff" ? "Vis kvalifisering" : state.phase==="final" ? "Vis finale" : "Vis kart" : "Vis fasit"}</button>}
     </div>

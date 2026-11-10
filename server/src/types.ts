@@ -102,6 +102,8 @@ export interface FinalState {
 }
 
 export interface PlayoffState {
+  headStarts?: Record<string, number>;
+  mainScores?: Record<string, number>;
   firstQualifierId: string;
   contenders: string[];
   questionIds: string[];
@@ -126,6 +128,24 @@ export interface TestControllerSession {
   teamName: string;
 }
 
+export interface LobbySettings { title:string; joinUrl:string; musicUrl:string }
+export interface QuestionRecord {
+  questionId:string; category:string; round:"main"|"playoff"|"final";
+  eligibleTeamIds:string[]; resolved:boolean; skipped:boolean; voided:boolean;
+  attempts:{teamId:string; correct:boolean|null; buzzMs?:number; rebound?:boolean}[];
+}
+export interface CategoryStats { category:string; questions:number; attempts:number; correct:number; wrong:number; accuracy:number|null }
+export interface TeamStats {
+  teamId:string; buzzCount:number; firstBuzzes:number; averageBuzzMs:number|null; fastestBuzzMs:number|null; slowestBuzzMs:number|null;
+  correct:number; wrong:number; accuracy:number|null; questionsSeen:number; mainCorrect:number; playoffCorrect:number; finalCorrect:number;
+  categories:CategoryStats[]; hardestCategory:CategoryStats|null; easiestCategory:CategoryStats|null;
+}
+export interface GameStats {
+  trackedQuestions:number; completedQuestions:number; skippedQuestions:number; teams:TeamStats[]; categories:CategoryStats[];
+  fastestBuzz:{teamId:string;milliseconds:number}|null; mostCorrectTeamIds:string[];
+  hardestCategory:CategoryStats|null; easiestCategory:CategoryStats|null;
+}
+
 export interface GameFeedback { id:string; kind:"correct"|"wrong"|"qualified"|"final"|"winner"; teamIds:string[]; points?:number; label:string; createdAt:number }
 
 export interface EventLogEntry {
@@ -140,6 +160,7 @@ export interface HostGameState {
   isTestRoom: boolean;
   eventMode: boolean;
   feedback: GameFeedback | null;
+  lobby: LobbySettings;
   gameId: string;
   phase: GamePhase;
   paused: boolean;
@@ -156,6 +177,7 @@ export interface HostGameState {
   finalState: FinalState | null;
   playoffState: PlayoffState | null;
   qualificationPurpose: "first" | "second";
+  statistics: GameStats;
   eventLog: EventLogEntry[];
   questionPoolRemaining: number;
   questionPoolTotal: number;
@@ -178,6 +200,7 @@ export interface PublicGameState {
   isTestRoom: boolean;
   eventMode: boolean;
   feedback: GameFeedback | null;
+  lobby: LobbySettings;
   phase: GamePhase;
   paused: boolean;
   questionClock: QuestionClock;
@@ -207,6 +230,7 @@ export interface PublicGameState {
   finalCandidateIds: string[];
   friendAnswersSubmitted: string[];
   imageRevealStage: number;
+  statistics: GameStats | null;
   questionCardDismissed: boolean;
   revealedQuestion: { prompt: string; answer: string; media?: Question["media"]; results?: {teamId:string; answer:string; correct:boolean; distance?:number}[] } | null;
 }
@@ -241,6 +265,7 @@ export type ClientMessage =
   | { type: "host:replace_question"; roomCode: string }
   | { type: "host:finish_route"; roomCode: string }
   | { type: "host:select_finalists"; roomCode: string; teamIds: string[] }
+  | { type: "host:configure_lobby"; roomCode:string; title:string; joinUrl:string; musicUrl:string }
   | { type: "host:advance_playoff"; roomCode: string }
   | { type: "host:select_first_qualifier"; roomCode: string; teamId: string }
   | { type: "host:advance_final"; roomCode: string }

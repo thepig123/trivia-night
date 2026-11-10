@@ -1,6 +1,7 @@
 import type { ClientMessage } from "./types.js";
 
 const fields: Record<string,string[]> = {
+  "host:configure_lobby":["title","joinUrl","musicUrl"],
   "host:advance_playoff":[], "host:select_first_qualifier":["teamId"],
   "host:advance_image":[],
   "host:list_events":["adminKey"], "host:recover_event":["adminKey"],
@@ -29,6 +30,8 @@ export function validateMessage(value: unknown): ClientMessage {
       case "roomCode":valid=typeof item==="string"&&/^[A-Z0-9]{5}$/.test(item);break;
       case "teamId":case "nodeId":valid=id(item);break;
       case "teamIds":valid=Array.isArray(item)&&item.length===2&&item.every(id)&&new Set(item).size===2;break;
+      case "title":valid=text(item,80);break;
+      case "joinUrl":case "musicUrl":valid=typeof item==="string"&&item.length<=2000;break;
       case "teamName":case "name":valid=text(item,24);break;
       case "players":valid=Array.isArray(item)&&item.length===2&&item.every(v=>text(v,24));break;
       case "eventMode":case "testMode":valid=typeof item==="boolean";break;

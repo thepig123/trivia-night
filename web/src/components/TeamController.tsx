@@ -1,4 +1,6 @@
 import React from "react";
+import {buzzTime} from "./StatisticsPanel";
+import PauseOverlay from "./PauseOverlay";
 import PlayoffSummary from "./PlayoffSummary";
 import NumericAnswerPanel from "./NumericAnswerPanel";
 import RouteMap, { TierLegend } from "./RouteMap";
@@ -38,6 +40,7 @@ export default function TeamController({ roomCode, teamId, publicState, send, co
 
   return (
     <div className="screen">
+      <PauseOverlay paused={!!publicState?.paused}/>
       {!connected && <div role="status" className="error-banner">Mistet forbindelsen. Kobler til igjen…</div>}
       {publicState?.paused && <div role="status" className="error-banner">Spillet er satt på pause. Venter på at verten fortsetter spillet.</div>}
       {lastError && <div role="alert" className="error-banner">{lastError}</div>}
@@ -48,9 +51,9 @@ export default function TeamController({ roomCode, teamId, publicState, send, co
           <h2 style={{ color: me?.color }}>{me?.name}</h2>
         </div>
         <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: "0.7rem", opacity: 0.6 }}>{inPlayoff && !me?.qualifiedForFinal ? "RIKTIGE I KVALIFISERINGEN" : "POENG"}</div>
+          <div style={{ fontSize: "0.7rem", opacity: 0.6 }}>{inPlayoff && !me?.qualifiedForFinal ? "KVALIFISERING · TOTALT" : "POENG"}</div>
           <div style={{ fontFamily: "var(--font-display)", fontSize: "1.8rem", color: "var(--yellow)" }}>
-            {(inPlayoff && !me?.qualifiedForFinal ? publicState.playoffState.scores[teamId] : isFinalist ? publicState.finalState.scores[teamId] : me?.score) ?? 0}
+            {(inPlayoff && !me?.qualifiedForFinal ? (publicState.playoffState.scores[teamId]+(publicState.playoffState.headStarts?.[teamId]??0)) : isFinalist ? publicState.finalState.scores[teamId] : me?.score) ?? 0}
           </div>
         </div>
       </div>
@@ -94,6 +97,7 @@ export default function TeamController({ roomCode, teamId, publicState, send, co
       <div style={{ opacity: 0.55, fontSize: "0.8rem", marginTop: 16, textTransform: "uppercase", letterSpacing: "0.06em" }}>
         {publicState?.paused ? "Spillet er satt på pause" : phaseLabel(phase)}
       </div>
+      {publicState?.phase === "ended" && publicState.statistics?.teams.find((row:any)=>row.teamId===teamId) && <div className="card"><h3>Lagets kveld</h3>{publicState.statistics.teams.filter((row:any)=>row.teamId===teamId).map((row:any)=><p key={row.teamId}>{row.correct} riktige · {row.wrong} feil<br/>Snitt buzz: {buzzTime(row.averageBuzzMs)}<br/>Raskest: {buzzTime(row.fastestBuzzMs)} · tregest: {buzzTime(row.slowestBuzzMs)}</p>)}</div>}
       {me && !qualified && !inPlayoff && <div className="final-progress"><div><span>Veien til finalen</span><b>{Math.max(0, publicState.targetScore - me.score).toLocaleString()} poeng igjen</b></div><progress value={Math.max(0,me.score)} max={publicState.targetScore} /></div>}
     </div>
   );

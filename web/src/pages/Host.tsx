@@ -1,3 +1,5 @@
+import StatisticsPanel from "../components/StatisticsPanel";
+import LobbySettings from "../components/LobbySettings";
 import PlayoffSummary from "../components/PlayoffSummary";
 import HostFocus from "../components/HostFocus";
 import { questionPoints, isGutta } from "../types";
@@ -74,7 +76,7 @@ function AdminPanel({ state, roomCode, send, connected, lastError, testControlle
             <div className="team-row" key={t.id} style={{flexWrap:"wrap"}}>
               <span className="team-overview__identity"><span className="team-dot" style={{ background: t.color }} /><span><b>{t.name}</b><small>{t.players?.filter(Boolean).join(" & ")}</small></span>{!t.connected && " ⚠️"}{t.qualifiedForFinal && " 🏆"}</span>
               <span className="team-overview__score">
-                <b>{((state.phase==="playoff" ? state.playoffState?.scores[t.id] : state.finalState?.scores[t.id]) ?? t.score).toLocaleString()}</b>
+                <b>{((state.phase==="playoff" ? (state.playoffState?.scores[t.id]??0)+(state.playoffState?.headStarts?.[t.id]??0) : state.finalState?.scores[t.id]) ?? t.score).toLocaleString()}</b>
                 <button className="btn ghost" style={{ width: "auto", padding: "2px 8px" }} disabled={!!state.playoffState&&!state.finalState} onClick={() => rc("host:adjust_score", { teamId: t.id, delta: -100 })}>
                   -
                 </button>
@@ -125,6 +127,8 @@ function AdminPanel({ state, roomCode, send, connected, lastError, testControlle
         {!connected && <div role="status" className="error-banner">Mistet forbindelsen. Venter på serveren…</div>}
         {lastError && <div role="alert" className="error-banner">{lastError}</div>}
         <HostFocus state={state} connected={connected} send={send}/>
+        <LobbySettings state={state} connected={connected} send={send}/>
+        <StatisticsPanel statistics={state.statistics} teams={state.teams}/>
         {state.phase === "route_choice" && <details className="card"><summary>Overstyr rutevalg</summary><p>Bruk dette hvis laget trenger hjelp eller har mistet forbindelsen.</p><div className="control-row">{state.legalNextNodeIds.map((id: string) => {const node=state.map.nodes.find((n: any)=>n.id===id);return <button key={id} disabled={!connected||state.paused} onClick={()=>rc("host:choose_route",{nodeId:id})}>{node.category} · {questionPoints(node)} poeng</button>;})}</div></details>}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h2 style={{ textTransform: "uppercase", letterSpacing: "0.04em" }}>
@@ -234,8 +238,8 @@ function TeamLobbyControls({team,disabled,send,roomCode}:any) {
 
 function QualificationPanel({state,roomCode,send}: any) {
   const [selected,setSelected]=useState<string[]>(state.teams.filter((t:any)=>t.qualifiedForFinal).map((t:any)=>t.id));
-  if(state.qualificationPurpose === "first") return <section className="card"><h2>Omspill om første finaleplass</h2><p>Lagene står likt i hovedrunden. Gjennomfør et muntlig omspill, og velg vinneren. De øvrige lagene starter deretter på null i kvalifiseringen.</p>{state.teams.filter((t:any)=>state.finalCandidateIds.includes(t.id)).map((t:any)=><button className="btn teal" key={t.id} disabled={state.paused} onClick={()=>send({type:"host:select_first_qualifier",roomCode,teamId:t.id})}>Velg {t.name} som første finalist</button>)}</section>;
-  return <section className="card">{state.playoffState&&<PlayoffSummary state={state}/>}<h2>Avgjør finaleplassen</h2><p>Det er likt i kvalifiseringen og ingen flere spørsmål tilgjengelig. Gjennomfør et muntlig omspill mellom de delte lederne, og velg finalistene. Allerede kvalifiserte lag beholder plassen.</p>{state.teams.filter((t:any)=>state.finalCandidateIds.includes(t.id)).map((t:any)=><label key={t.id} style={{display:"block",padding:12}}><input type="checkbox" checked={selected.includes(t.id)} disabled={t.qualifiedForFinal || state.paused} onChange={e=>setSelected(ids=>e.target.checked?[...ids,t.id]:ids.filter(id=>id!==t.id))}/> {t.name} · {state.playoffState?.scores[t.id] ?? t.score} {state.playoffState ? "riktige" : "poeng"}</label>)}<button className="btn teal" disabled={state.paused || selected.length!==2} onClick={()=>send({type:"host:select_finalists",roomCode,teamIds:selected})}>Start finalen med valgte lag</button></section>;
+  if(state.qualificationPurpose === "first") return <section className="card"><h2>Omspill om første finaleplass</h2><p>Lagene står likt i hovedrunden. Gjennomfør et muntlig omspill, og velg vinneren. De øvrige lagene starter deretter kvalifiseringen med null riktige og et eventuelt forsprang fra hovedrunden.</p>{state.teams.filter((t:any)=>state.finalCandidateIds.includes(t.id)).map((t:any)=><button className="btn teal" key={t.id} disabled={state.paused} onClick={()=>send({type:"host:select_first_qualifier",roomCode,teamId:t.id})}>Velg {t.name} som første finalist</button>)}</section>;
+  return <section className="card">{state.playoffState&&<PlayoffSummary state={state}/>}<h2>Avgjør finaleplassen</h2><p>Det er likt i kvalifiseringen og ingen flere spørsmål tilgjengelig. Gjennomfør et muntlig omspill mellom de delte lederne, og velg finalistene. Allerede kvalifiserte lag beholder plassen.</p>{state.teams.filter((t:any)=>state.finalCandidateIds.includes(t.id)).map((t:any)=><label key={t.id} style={{display:"block",padding:12}}><input type="checkbox" checked={selected.includes(t.id)} disabled={t.qualifiedForFinal || state.paused} onChange={e=>setSelected(ids=>e.target.checked?[...ids,t.id]:ids.filter(id=>id!==t.id))}/> {t.name} · {state.playoffState ? (state.playoffState.scores[t.id]??0)+(state.playoffState.headStarts?.[t.id]??0) : t.score} poeng</label>)}<button className="btn teal" disabled={state.paused || selected.length!==2} onClick={()=>send({type:"host:select_finalists",roomCode,teamIds:selected})}>Start finalen med valgte lag</button></section>;
 }
 
 function FinalPanel({ state, roomCode, send }: any) {
