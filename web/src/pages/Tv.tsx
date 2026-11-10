@@ -76,7 +76,7 @@ export default function Tv() {
             team={publicState.finalState?.finalists.includes(team.id) ? {...team,score:publicState.finalState.scores[team.id]} : team}
             targetScore={publicState.targetScore}
             scoreText={publicState.phase === "playoff" ? publicState.teams.find(t=>t.id===team.id)?.qualifiedForFinal ? "✓" : String((publicState.playoffState?.scores[team.id]??0)+(publicState.playoffState?.headStarts?.[team.id]??0)) : undefined}
-            statusText={publicState.phase === "playoff" ? team.qualifiedForFinal ? "FØRSTE FINALIST" : publicState.playoffState?.contenders.includes(team.id) ? `KVALIFISERING · +${publicState.playoffState?.headStarts?.[team.id]??0} FORSPRANG` : "UTE AV OMSPILLET" : undefined}
+            statusText={publicState.phase === "playoff" ? team.qualifiedForFinal ? "FØRSTE FINALIST" : publicState.playoffState?.contenders.includes(team.id) ? publicState.playoffState?.stage?.startsWith("duel") ? "DUELL · FLEST RIKTIGE" : `KVALIFISERING · +${publicState.playoffState?.headStarts?.[team.id]??0} FORSPRANG` : publicState.playoffState?.safeTeamIds?.includes(team.id) ? "KLAR FOR DUELLEN" : "UTE AV KVALIFISERINGEN" : undefined}
             isResponder={publicState.currentResponderId === team.id}
             isLocked={publicState.lockedOutTeamIds.includes(team.id)}
           />

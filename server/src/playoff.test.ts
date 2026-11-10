@@ -42,8 +42,12 @@ test("all five questions are played and correct answers decide when gaps earn no
     game.advancePlayoff();
     if(i<4)assert.equal(game.phase,"playoff");
   }
+  assert.equal(game.playoffState!.stage,"duel");assert.equal(game.phase,"playoff");
+  assert.deepEqual(new Set(game.playoffState!.contenders),new Set([b.id,c.id]));
+  assert.deepEqual(Object.values(game.playoffState!.scores),[0,0]);
+  assert.equal(game.playoffState!.eliminationResult!.scores[c.id],3);
+  for(let i=0;i<3;i++){answer(game,c.id);assert.equal(game.phase,"playoff");game.advancePlayoff();}
   assert.equal(game.phase,"final");assert.deepEqual(new Set(game.finalState!.finalists),new Set([first.id,c.id]));
-  assert.equal(game.playoffState!.scores[c.id],3);assert.equal(game.playoffState!.scores[b.id],2);
   assert.deepEqual([first.score,b.score,c.score,d.score],[10000,2100,100,50]);
   assert.deepEqual(Object.values(game.finalState!.scores),[0,0]);assert.deepEqual(new Set(game.finalState!.questionIds),new Set(finalIds));
 });
@@ -55,25 +59,44 @@ test("wrong playoff answers lock out the team but never deduct points, and skip 
   game.advancePlayoff();game.skipQuestion();assert.equal(game.playoffState!.currentIndex,2);game.advancePlayoff();assert.equal(game.playoffState!.currentIndex,3);
 });
 
-test("ties use only the tied leaders and never use main points or grand-final questions as a tiebreak",()=>{
+test("bottom-place ties preserve a safe team's seat and protect duel/final reserves",()=>{
   const {game,first,b,c,d,finalIds}=playoffGame();
-  for(const winner of [b,c,b,c,d]){answer(game,winner.id);game.advancePlayoff();}
-  assert.equal(game.phase,"playoff");assert.equal(game.playoffState!.suddenDeath,true);
-  assert.deepEqual(new Set(game.playoffState!.contenders),new Set([b.id,c.id]));
-  assert.ok(finalIds.every(id=>game.questionPool.find(q=>q.id===id)!.status==="unused"));
-  game.startReading();game.openBuzzers();assert.equal(game.registerBuzz(first.id),false);assert.equal(game.registerBuzz(d.id),false);
-  game.registerBuzz(b.id);game.markWrong(b.id);game.registerBuzz(c.id);game.markWrong(c.id);
-  assert.equal(game.playoffState!.roundPhase,"resolved");game.advancePlayoff();assert.equal(game.phase,"playoff");
-  answer(game,c.id);game.advancePlayoff();assert.equal(game.phase,"final");assert.ok(game.finalState!.finalists.includes(c.id));
+  for(const winner of [b,b,b,c,d]){answer(game,winner.id);game.advancePlayoff();}
+  assert.equal(game.playoffState!.stage,"elimination_tiebreak");
+  assert.deepEqual(game.playoffState!.safeTeamIds,[b.id]);
+  assert.deepEqual(new Set(game.playoffState!.contenders),new Set([c.id,d.id]));
+  assert.ok([...finalIds,...game.reservedDuelQuestionIds].every(id=>game.questionPool.find(q=>q.id===id)!.status==="unused"));
+  game.startReading();game.openBuzzers();assert.equal(game.registerBuzz(first.id),false);assert.equal(game.registerBuzz(b.id),false);
+  game.registerBuzz(c.id);game.markCorrect(c.id);game.advancePlayoff();
+  assert.equal(game.playoffState!.stage,"duel");assert.deepEqual(new Set(game.playoffState!.contenders),new Set([b.id,c.id]));
+  assert.deepEqual(Object.values(game.playoffState!.scores),[0,0]);assert.deepEqual(game.playoffState!.headStarts,{});
 });
 
-test("exhausted tiebreak banks require an explicit host decision among the tied leaders",()=>{
-  const {game,first,b,c,d}=playoffGame();
-  for(const winner of [b,c,b,c,d]){answer(game,winner.id);if(game.playoffState!.currentIndex<4)game.advancePlayoff();}
-  for(const q of game.questionPool)if(!game.reservedFinalQuestionIds.includes(q.id))q.status="used";
+test("all-team tie locks each earned seat before resolving the remaining cutoff",()=>{
+  const {game,b,c,d}=playoffGame();
+  for(let i=0;i<5;i++){game.skipQuestion();game.advancePlayoff();}
+  answer(game,b.id);game.advancePlayoff();
+  assert.deepEqual(game.playoffState!.safeTeamIds,[b.id]);assert.deepEqual(new Set(game.playoffState!.contenders),new Set([c.id,d.id]));
+  answer(game,d.id);game.advancePlayoff();assert.equal(game.playoffState!.stage,"duel");
+  assert.deepEqual(new Set(game.playoffState!.contenders),new Set([b.id,d.id]));
+});
+
+test("exhausted elimination ties require host decision and cannot remove a safe team",()=>{
+  const {game,b,c,d}=playoffGame();
+  for(const winner of [b,b,b,c,d]){answer(game,winner.id);if(game.playoffState!.currentIndex<4)game.advancePlayoff();}
+  for(const q of game.questionPool)if(![...game.reservedFinalQuestionIds,...game.reservedDuelQuestionIds].includes(q.id))q.status="used";
+  game.advancePlayoff();assert.equal(game.phase,"qualification");assert.equal(game.qualificationPurpose,"elimination");
+  game.selectDuelists([c.id,d.id]);assert.equal(game.phase,"qualification");
+  game.selectDuelists([b.id,c.id]);assert.equal(game.phase,"playoff");assert.equal(game.playoffState!.stage,"duel");assert.equal(game.playoffState!.questionIds.length,3);
+});
+
+test("a tied three-question duel uses sudden death, then oral fallback if exhausted",()=>{
+  const {game,first,b,c}=playoffGame();
+  for(const winner of [b,b,b,c,c]){answer(game,winner.id);game.advancePlayoff();}
+  for(const winner of [b,c,null]){if(winner)answer(game,winner.id);else game.skipQuestion();game.advancePlayoff();}
+  assert.equal(game.playoffState!.stage,"duel_tiebreak");assert.deepEqual(new Set(game.playoffState!.contenders),new Set([b.id,c.id]));
+  game.skipQuestion();for(const q of game.questionPool)if(!game.reservedFinalQuestionIds.includes(q.id))q.status="used";
   game.advancePlayoff();assert.equal(game.phase,"qualification");assert.equal(game.qualificationPurpose,"second");
-  assert.deepEqual(new Set(game.finalCandidateIds),new Set([first.id,b.id,c.id]));
-  game.selectFinalists([first.id,d.id]);assert.equal(game.phase,"qualification");
   game.selectFinalists([b.id,c.id]);assert.equal(game.phase,"qualification");
   game.selectFinalists([first.id,c.id]);assert.equal(game.phase,"final");
 });
@@ -115,7 +138,7 @@ test("simultaneous main-game leaders require a first-place tiebreak before the s
 test("automatic playoff reservation keeps five available until the first target is reached",()=>{
   const {game:source}=playoffGame();
   const game=new GameEngine("AUTOQ",source.questionPool.map(q=>({...q,status:"unused"})),source.reservedFinalQuestionIds);
-  const a=game.addTeam("A");game.addTeam("B");game.addTeam("C");
+  const a=game.addTeam("A");game.addTeam("B");game.addTeam("C");game.addTeam("D");
   const held=[...game.reservedPlayoffQuestionIds];assert.equal(held.length,5);
   game.activateCurrentNode();for(let i=0;i<3;i++){assert.ok(!held.includes(game.activeQuestion!.id));game.skipQuestion();}
   a.score=10000;game.setTargetScore(10000);
@@ -136,16 +159,38 @@ test("gap-based head starts recognise main scores in quarter-target steps, cappe
 test("head starts affect advancement but never count as correct answers or grand-final points",()=>{
   const {game,first,b,c,d}=playoffGame([9000,6500,4000]);
   for(const winner of [d,d,d,b,b]){answer(game,winner.id);game.advancePlayoff();}
-  assert.equal(game.phase,"final");assert.deepEqual(new Set(game.finalState!.finalists),new Set([first.id,b.id]));
-  assert.equal(game.playoffState!.scores[b.id],2);assert.equal(game.playoffState!.scores[d.id],3);
+  assert.equal(game.playoffState!.stage,"duel");assert.deepEqual(new Set(game.playoffState!.contenders),new Set([b.id,d.id]));
+  assert.equal(game.playoffState!.eliminationResult!.scores[b.id],2);assert.equal(game.playoffState!.eliminationResult!.scores[d.id],3);
   assert.equal(game.toHostState().statistics.teams.find(t=>t.teamId===b.id)!.playoffCorrect,2);
   assert.equal(game.toHostState().statistics.teams.find(t=>t.teamId===d.id)!.playoffCorrect,3);
-  assert.deepEqual(Object.values(game.finalState!.scores),[0,0]);
+  assert.deepEqual(Object.values(game.playoffState!.scores),[0,0]);
+  for(let i=0;i<3;i++){answer(game,b.id);game.advancePlayoff();}
+  assert.deepEqual(new Set(game.finalState!.finalists),new Set([first.id,b.id]));
 });
-test("ties use correct answers plus frozen bonuses and a lower main team can still win sudden death",()=>{
+test("main-game bonuses do not carry over into the duel",()=>{
   const {game,b,c,d}=playoffGame([9000,6500,4000]);
   for(const winner of [d,d,d,b,c]){answer(game,winner.id);game.advancePlayoff();}
-  assert.equal(game.phase,"playoff");assert.equal(game.playoffState!.suddenDeath,true);
+  assert.equal(game.playoffState!.stage,"duel");assert.equal(game.playoffState!.suddenDeath,false);
   assert.deepEqual(new Set(game.playoffState!.contenders),new Set([b.id,d.id]));
-  answer(game,d.id);game.advancePlayoff();assert.equal(game.phase,"final");assert.ok(game.finalState!.finalists.includes(d.id));
+  for(const winner of [d,b,d]){answer(game,winner.id);game.advancePlayoff();}
+  assert.equal(game.phase,"final");assert.ok(game.finalState!.finalists.includes(d.id));
+});
+
+test("undo and recovery across the duel transition preserve elimination scores, bonus and stats",()=>{
+  const {game,b,c}=playoffGame();
+  for(const winner of [b,b,b,c,c]){answer(game,winner.id);if(game.playoffState!.currentIndex<4)game.advancePlayoff();}
+  const before=JSON.parse(JSON.stringify(game.playoffState));const count=game.toHostState().questionsPlayed;
+  game.advancePlayoff();assert.equal(game.playoffState!.stage,"duel");assert.equal(game.toHostState().questionsPlayed,count);
+  game.undo();assert.deepEqual(game.playoffState,before);game.resume();game.advancePlayoff();
+  const restored=GameEngine.restore(game.exportState());assert.deepEqual(restored.playoffState,game.playoffState);restored.resume();restored.setConnected(c.id,true);
+  answer(restored,c.id);assert.equal(restored.playoffState!.scores[c.id],1);
+  assert.equal(restored.toHostState().statistics.teams.find(t=>t.teamId===c.id)!.playoffCorrect,3);
+});
+
+test("two remaining teams go straight to a three-question duel without bonuses",()=>{
+  const source=playoffGame();const game=new GameEngine("SMALL",source.game.questionPool.map(q=>({...q,status:"unused"})));
+  const first=game.addTeam("First"),b=game.addTeam("Second"),c=game.addTeam("Third");first.score=10000;b.score=9000;c.score=100;
+  game.setTargetScore(10000);assert.equal(game.playoffState!.stage,"duel");assert.equal(game.playoffState!.questionIds.length,3);
+  assert.deepEqual(game.playoffState!.headStarts,{});assert.equal(game.playoffState!.eliminationResult,undefined);
+  assert.equal(game.toHostState().questionsPlayed,0);
 });

@@ -411,49 +411,53 @@ score feedback. Test the volume and music clips on the actual TV before guests
 arrive. Reduced-motion preferences disable the announcement entrance animation.
 
 
-## Five-question playoff for the second Final seat
+## Five-question elimination and three-question duel
 
-The first target-score qualifier wins the main game and sits out. All remaining
-teams start a **Kvalifisering om andreplassen** with zero correct answers and
-a frozen **0–2 point head start** based on main-game performance. The host runs exactly
-five questions using the normal read/open/judge/reveal flow. Every question is
-worth **one correct answer**, including Gutta, easy and hard tiers, closest-number
-and private-choice rounds. Shared correct/nearest answers can each earn one.
-Incorrect answers never subtract, but ordinary buzzer lockout still applies.
-Main scores are frozen, and route choice is unavailable. The host cannot add
-points manually during the playoff; use Undo to correct a judgment.
+The first target-score qualifier wins the main game and sits out. The three
+remaining teams play five questions, starting with zero correct answers and
+a frozen **0–2 point head start** based on main-game performance. Every question
+is worth one point, regardless of category, difficulty or format. Shared correct
+answers can each earn one; wrong answers never subtract. Main scores are frozen.
+Use the normal read/open/judge/reveal flow and **Neste / avgjør kvalifiseringen**
+to advance. All five questions are played, even when a team has a large lead.
 
-All five questions are played, even if a team establishes a large lead. After
-the fifth, **Neste / avgjør kvalifiseringen** advances the sole leader in
-correct answers plus head-start points to the
-Final alongside the main winner. Both begin the grand Final on zero Final
-points. If tied, only the tied leaders continue with extra unused questions;
-main-game scores are not used again to separate a tied playoff total. If nobody answers a tiebreak,
-another question is drawn. With no questions left, the host runs an oral
-playoff and selects the winner from those tied leaders, keeping the first seat.
-With only two teams in the room, the remaining team takes the other seat directly.
+The top two totals (correct answers plus head start) advance to a **three-question
+1v1 duel**. Both start on zero: no main-game bonuses carry over. All three
+questions are played. The team with most correct answers joins the main winner
+in the grand Final, where both finalists again start on zero Final points.
 
-On `/questions`, use the **Kvalifisering (5)** column to reserve up to five
-questions. These cannot overlap the grand-final pool. The game supplements a
-partial curated pool and reserves five automatically when the bank has enough
-questions, so the main route cannot consume them. Copies and JSON exports retain
-these selections. Event rooms require room for all five playoff questions and
-at least one main-game question outside the Final reserve. Prepare enough
-additional questions for tiebreaks and a full grand Final. Small practice banks
-may have fewer than five available; their screens explicitly warn about the
-shortfall, and an empty bank requires a host tiebreak rather than picking a
-winner arbitrarily. A skipped playoff question counts as unanswered; use
-**Bytt aktivt spørsmål** instead if a question cannot be used.
+A tie across the elimination cutoff is settled only between the tied teams;
+a team already safely through sits out and keeps its place. If all three tie,
+the first team to earn a safe spot then sits out while the others compete for
+the last spot. A tied duel continues one question at a time until one team leads.
+Only unused questions outside the grand-final reserve are used. Elimination
+tiebreaks also protect the three reserved duel questions. If there are no spare
+questions, the host runs an oral tiebreak and selects the advancing teams;
+secured places cannot be removed. The host cannot award manual points during
+qualification; use Undo to correct a judgment.
 
-The host, TV and phones show correct-answer tallies, frozen head starts and
-combined playoff totals separately, alongside question progress.
-The first qualifier and teams eliminated from a tiebreak cannot buzz or submit
-private answers. Scores, the five-question list, answers, current stage and
-eligibility survive event recovery. Undo restores the previous playoff state and
-pauses for inspection. The host's early-end control can start this same playoff
-from the current sole main-score leader; tied main leaders first need an oral
-first-place tiebreak. Older saved games with two qualifiers can still open their
-Final.
+With only two remaining contenders, play the three-question duel directly,
+without head starts. With just one contender, that team qualifies directly.
+Rooms with more than three contenders still send only the top two to the duel.
+
+On `/questions`, **Kvalifisering (5)** reserves up to five elimination questions,
+separate from the grand-final pool. The game supplements a partial selection
+and automatically reserves five when enough questions exist. Three additional
+duel questions are automatically held away from the main route and elimination
+round. Event rooms require at least nine questions outside the Final reserve:
+five elimination, three duel and one main question. Prepare many more main and
+tiebreak questions for a full evening. Fourteen playable questions is a bare
+minimum with a five-question grand Final. Small practice banks explicitly warn
+about shortages. Skips count as unanswered slots; use **Bytt aktivt spørsmål**
+when a question cannot be used.
+
+Host, TV and phones show the current stage, progress, correct answers and
+head starts separately. Safe teams awaiting a cutoff tiebreak are identified;
+eliminated teams and the first finalist cannot answer. The duel retains an
+expandable elimination result. Scores, question lists, stage, safe places and
+statistics survive event recovery and Undo. Undo pauses for inspection, including
+across the transition into the duel. The host can end the main route early to
+start this flow; tied main leaders first need an oral first-place tiebreak.
 
 
 ## Main-game head starts
@@ -469,8 +473,8 @@ The first qualifier is excluded from this calculation. The same proportional
 rule works with a lower or higher main target. The bonuses are locked when the
 playoff starts and survive Undo/recovery; older already-running playoffs without
 bonuses retain zero. Correct answers are recorded separately, so bonuses never
-inflate statistics. All five questions are still played. The grand Final begins
-at zero for both finalists regardless of these bonuses.
+inflate statistics. All five elimination questions are still played. Bonuses
+apply only to that elimination set: the duel and grand Final both start at zero.
 
 ## Welcome lobby, joining and music
 

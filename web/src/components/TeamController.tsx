@@ -53,13 +53,13 @@ export default function TeamController({ roomCode, teamId, publicState, send, co
         <div style={{ textAlign: "right" }}>
           <div style={{ fontSize: "0.7rem", opacity: 0.6 }}>{inPlayoff && !me?.qualifiedForFinal ? "KVALIFISERING · TOTALT" : "POENG"}</div>
           <div style={{ fontFamily: "var(--font-display)", fontSize: "1.8rem", color: "var(--yellow)" }}>
-            {(inPlayoff && !me?.qualifiedForFinal ? (publicState.playoffState.scores[teamId]+(publicState.playoffState.headStarts?.[teamId]??0)) : isFinalist ? publicState.finalState.scores[teamId] : me?.score) ?? 0}
+            {(inPlayoff && !me?.qualifiedForFinal ? ((publicState.playoffState.scores[teamId]??0)+(publicState.playoffState.headStarts?.[teamId]??0)) : isFinalist ? publicState.finalState.scores[teamId] : me?.score) ?? 0}
           </div>
         </div>
       </div>
 
       {inPlayoff && <PlayoffSummary state={publicState}/>}
-      {publicState?.phase === "ended" ? <div className="qualified-card"><strong>{publicState.finalState.winnerIds.includes(teamId) ? "🏆 GRATULERER!" : "SPILLET ER FERDIG"}</strong><span>{publicState.finalState.winnerIds.map((id:string)=>publicState.teams.find((t:any)=>t.id===id)?.name).join(" og ")} vant.</span></div> : inFinal && !isFinalist ? <div className="qualified-card"><strong>FINALE</strong><span>Følg finalen på TV.</span></div> : inPlayoff && !isContender && !qualified ? <div className="qualified-card"><strong>UTE AV OMSPILLET</strong><span>Følg kampen om andreplassen på TV.</span></div> : qualified ? <div className="qualified-card"><strong>FINALIST</strong><span>Finaleplassen er sikret. Følg kampen mellom de andre lagene.</span></div> : isControlling ? (
+      {publicState?.phase === "ended" ? <div className="qualified-card"><strong>{publicState.finalState.winnerIds.includes(teamId) ? "🏆 GRATULERER!" : "SPILLET ER FERDIG"}</strong><span>{publicState.finalState.winnerIds.map((id:string)=>publicState.teams.find((t:any)=>t.id===id)?.name).join(" og ")} vant.</span></div> : inFinal && !isFinalist ? <div className="qualified-card"><strong>FINALE</strong><span>Følg finalen på TV.</span></div> : inPlayoff && !isContender && !qualified ? <div className="qualified-card"><strong>{publicState.playoffState?.safeTeamIds?.includes(teamId)?"KLAR FOR DUELLEN":"UTE AV KVALIFISERINGEN"}</strong><span>Følg kampen om andreplassen på TV.</span></div> : qualified ? <div className="qualified-card"><strong>FINALIST</strong><span>Finaleplassen er sikret. Følg kampen mellom de andre lagene.</span></div> : isControlling ? (
         <div className="map-choice-wrap">
           <h3>Velg rute</h3>
           <p>{publicState.paused ? "Rutevalget fortsetter når verten opphever pausen." : !connected ? "Kobler til igjen før dere kan velge rute…" : "Velg mellom de lysende kategoriene."}</p>

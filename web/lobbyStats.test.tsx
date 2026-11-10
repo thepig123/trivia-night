@@ -37,7 +37,7 @@ test("statistics render honest empty values and export summary rows without ques
 });
 
 test("playoff summary shows head starts separately from actual correct answers",()=>{
-  const game=new GameEngine("ABCDE");const a=game.addTeam("First"),b=game.addTeam("Leading"),c=game.addTeam("Trailing");a.score=10000;b.score=9000;c.score=4000;game.setTargetScore(10000);game.playoffState!.scores[b.id]=2;
+  const game=new GameEngine("ABCDE");const a=game.addTeam("First"),b=game.addTeam("Leading"),c=game.addTeam("Trailing");game.addTeam("Fourth").score=4000;a.score=10000;b.score=9000;c.score=4000;game.setTargetScore(10000);game.playoffState!.scores[b.id]=2;
   const html=renderToStaticMarkup(<PlayoffSummary state={game.toPublicState()}/>);
   assert.match(html,/4 poeng/);assert.match(html,/2 riktige \+ 2 i forsprang/);assert.match(html,/maks \+2/);
 });

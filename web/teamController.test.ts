@@ -100,9 +100,20 @@ test("playoff phones show a separate tally, hide the route and make first finali
   assert.equal(game.phase,"playoff");
   game.startReading();game.openBuzzers();
   const first=render(game,a.id);assert.match(first,/FINALIST/);assert.doesNotMatch(first,/buzzer-wrap|choose route/);
-  const contender=render(game,c.id);assert.match(contender,/KVALIFISERING · TOTALT/);assert.match(contender,/Kvalifisering om andreplassen/);assert.doesNotMatch(contender,/route-map|final-progress/);
+  const contender=render(game,c.id);assert.match(contender,/KVALIFISERING · TOTALT/);assert.match(contender,/Fem spørsmål · to går videre/);assert.doesNotMatch(contender,/route-map|final-progress/);
   assert.equal(game.registerBuzz(c.id),true);game.markCorrect(c.id);
   assert.match(render(game,c.id),/1 riktige/);
   game.playoffState!.contenders=[b.id,c.id];game.playoffState!.suddenDeath=true;
-  const eliminated=render(game,d.id);assert.match(eliminated,/UTE AV OMSPILLET/);assert.doesNotMatch(eliminated,/buzzer-wrap/);
+  const eliminated=render(game,d.id);assert.match(eliminated,/UTE AV KVALIFISERINGEN/);assert.doesNotMatch(eliminated,/buzzer-wrap/);
+});
+
+test("safe teams sit out cutoff ties and duel phones show the reset scores",()=>{
+  const game=new GameEngine("PHONE",questions);
+  const a=game.addTeam("Alpha"),b=game.addTeam("Beta"),c=game.addTeam("Gamma"),d=game.addTeam("Delta");
+  a.score=10000;game.setTargetScore(10000);
+  for(const team of [b,b,b,c,d]){game.startReading();game.openBuzzers();game.registerBuzz(team.id);game.markCorrect(team.id);game.advancePlayoff();}
+  assert.match(render(game,b.id),/KLAR FOR DUELLEN/);assert.doesNotMatch(render(game,b.id),/buzzer-wrap/);
+  game.startReading();game.openBuzzers();game.registerBuzz(c.id);game.markCorrect(c.id);game.advancePlayoff();
+  const duel=render(game,c.id);assert.match(duel,/Duell om andre finaleplass/);assert.match(duel,/av 3/);assert.match(duel,/Begge lag starter på null/);assert.match(duel,/0 riktige/);
+  assert.match(render(game,d.id),/UTE AV KVALIFISERINGEN/);
 });

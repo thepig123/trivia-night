@@ -92,7 +92,7 @@ test("four real controllers complete route recovery, undo, qualification and a s
   try {
     server=await start(directory);const base=server.base;
     const bank=await(await fetch(base+"/api/bank",{headers})).json() as any;
-    bank.questions=Array.from({length:12},(_,i)=>({id:`MATCH${i}`,category:"Generelt",tier:"T5",prompt:`Testspørsmål ${i}`,answer:"Svar",acceptedAlternatives:[],status:"unused",format:"text",selection:"PICK",readiness:"ready",source:"test",sourceUrl:"",assetBrief:"",notes:"",originalFormat:""}));bank.packs[0].questionIds=bank.questions.map((q:any)=>q.id);
+    bank.questions=Array.from({length:32},(_,i)=>({id:`MATCH${i}`,category:"Generelt",tier:"T5",prompt:`Testspørsmål ${i}`,answer:"Svar",acceptedAlternatives:[],status:"unused",format:"text",selection:"PICK",readiness:"ready",source:"test",sourceUrl:"",assetBrief:"",notes:"",originalFormat:""}));bank.packs[0].questionIds=bank.questions.map((q:any)=>q.id);
     await fetch(base+"/api/bank",{headers,method:"PUT",body:JSON.stringify(bank)});
     const host=await connect(base);sockets.push(host);let next=message(host,"state:host");host.send(JSON.stringify({type:"host:create_room",adminKey:"integration-test-key"}));let state=(await next).state;const code=state.roomCode;
     const rpc=async(type:string,extra:object={},predicate:(m:any)=>boolean=()=>true)=>{const result=message(host,"state:host",predicate);host.send(JSON.stringify({type,roomCode:code,...extra}));return (await result).state;};
@@ -143,6 +143,15 @@ test("four real controllers complete route recovery, undo, qualification and a s
       assert.equal(state.playoffState.scores[teams[1].teamId],i+1);
       state=await rpc("host:advance_playoff");
     }
+    // The high-scoring team is safely through; resolve the tied second duel seat.
+    assert.equal(state.playoffState.stage,"elimination_tiebreak");
+    await rpc("host:start_reading");await rpc("host:open_buzzers");await buzz(2);
+    await rpc("host:mark_correct",{teamId:teams[2].teamId});state=await rpc("host:advance_playoff");
+    assert.equal(state.playoffState.stage,"duel");assert.deepEqual(Object.values(state.playoffState.scores),[0,0]);
+    for(let i=0;i<3;i++){
+      await rpc("host:start_reading");await rpc("host:open_buzzers");await buzz(1);
+      await rpc("host:mark_correct",{teamId:teams[1].teamId});state=await rpc("host:advance_playoff");
+    }
     assert.equal(state.phase,"final");
     assert.deepEqual(new Set(state.finalState.finalists),new Set([teams[0].teamId,teams[1].teamId]));
     const count=state.finalState.questionIds.length;
@@ -155,7 +164,7 @@ test("four real controllers complete route recovery, undo, qualification and a s
     assert.equal(published.lobby.joinUrl,"https://quiz.vercel.app");assert.ok(published.statistics);
     const firstStats=published.statistics.teams.find((row:any)=>row.teamId===teams[0].teamId);
     assert.equal(firstStats.correct,count+1);assert.equal(firstStats.wrong,0); // original wrong judgment was undone
-    assert.equal(published.statistics.teams.find((row:any)=>row.teamId===teams[1].teamId).playoffCorrect,5);
+    assert.equal(published.statistics.teams.find((row:any)=>row.teamId===teams[1].teamId).playoffCorrect,8);
   } finally {for(const ws of sockets)ws.terminate();if(server)await stop(server.child);rmSync(directory,{recursive:true,force:true});}
 });
 
@@ -207,7 +216,7 @@ test("event nights recover without environment flags and require editor authenti
   try {
     server=await start(directory,false);
     const bank=await(await fetch(server.base+"/api/bank",{headers})).json() as any;
-    bank.questions=Array.from({length:9},(_,i)=>({id:`EVENT${i}`,category:"History",tier:"T5",prompt:`Event ${i}`,answer:"A",acceptedAlternatives:[],status:"unused",format:"text",selection:"PICK",readiness:"ready",source:"test",sourceUrl:"",assetBrief:"",notes:"",originalFormat:""}));bank.packs[0].questionIds=bank.questions.map((q:any)=>q.id);
+    bank.questions=Array.from({length:18},(_,i)=>({id:`EVENT${i}`,category:"History",tier:"T5",prompt:`Event ${i}`,answer:"A",acceptedAlternatives:[],status:"unused",format:"text",selection:"PICK",readiness:"ready",source:"test",sourceUrl:"",assetBrief:"",notes:"",originalFormat:""}));bank.packs[0].questionIds=bank.questions.map((q:any)=>q.id);
     await fetch(server.base+"/api/bank",{headers,method:"PUT",body:JSON.stringify(bank)});
     const host=await connect(server.base);sockets.push(host);
     let next=message(host,"state:host");host.send(JSON.stringify({type:"host:create_room",adminKey:"integration-test-key",eventMode:true}));let state=(await next).state;const code=state.roomCode;
@@ -232,7 +241,7 @@ test("closest guesses and image stages travel over WebSockets with role checks a
   try {
     server=await start(directory,false);const base=server.base;
     let bank=await(await fetch(base+"/api/bank",{headers})).json() as any;
-    bank.questions=Array.from({length:9},(_,i)=>({id:`NUM${i}`,category:"Tall",tier:"T5",prompt:`Tall ${i}`,answer:"10",acceptedAlternatives:[],status:"unused",format:"closest",selection:"PICK",readiness:"ready",source:"test",sourceUrl:"",assetBrief:"",notes:"",originalFormat:""}));bank.packs[0].questionIds=bank.questions.map((q:any)=>q.id);
+    bank.questions=Array.from({length:18},(_,i)=>({id:`NUM${i}`,category:"Tall",tier:"T5",prompt:`Tall ${i}`,answer:"10",acceptedAlternatives:[],status:"unused",format:"closest",selection:"PICK",readiness:"ready",source:"test",sourceUrl:"",assetBrief:"",notes:"",originalFormat:""}));bank.packs[0].questionIds=bank.questions.map((q:any)=>q.id);
     let response=await fetch(base+"/api/bank",{headers,method:"PUT",body:JSON.stringify(bank)});assert.equal(response.status,200);bank=await response.json();
     const host=await connect(base);sockets.push(host);let next=message(host,"state:host");host.send(JSON.stringify({type:"host:create_room",adminKey:"integration-test-key",testMode:true}));let state=(await next).state;let code=state.roomCode;
     const rpc=async(type:string,extra:object={})=>{const result=message(host,"state:host");host.send(JSON.stringify({type,roomCode:code,...extra}));return (await result).state;};

@@ -47,8 +47,9 @@ export class GameEngine {
   controllingTeamId: string | null = null;
   finalState: FinalState | null = null;
   playoffState: PlayoffState | null = null;
-  qualificationPurpose: "first" | "second" = "second";
+  qualificationPurpose: "first" | "second" | "elimination" = "second";
   reservedPlayoffQuestionIds: string[] = [];
+  reservedDuelQuestionIds: string[] = [];
   eventLog: EventLogEntry[] = [];
   friendAnswers: Record<string, string> = {};
   questionPool: Question[];
@@ -74,6 +75,7 @@ export class GameEngine {
     const spare=this.questionPool.filter(q=>!this.reservedFinalQuestionIds.includes(q.id));
     const playoffReserveCount=Math.max(curatedPlayoff.length,spare.length>=6 ? 5 : Math.floor(spare.length/4));
     this.reservedPlayoffQuestionIds=[...curatedPlayoff,...spare.filter(q=>!curatedPlayoff.includes(q.id)).sort(()=>Math.random()-.5).map(q=>q.id)].slice(0,playoffReserveCount);
+    this.reservedDuelQuestionIds=spare.filter(q=>!this.reservedPlayoffQuestionIds.includes(q.id)).sort(()=>Math.random()-.5).slice(0,spare.length>=9?3:0).map(q=>q.id);
     this.map = generateRouteMap(this.routePool());
   }
 
@@ -90,6 +92,7 @@ export class GameEngine {
     const data=value as any;
     if (!data || typeof data.roomCode !== "string" || !Array.isArray(data.questionPool) || !Array.isArray(data.teams) || !data.map || !data.gameId) throw new Error("Ugyldig lagret spill.");
     const game=Object.assign(new GameEngine(data.roomCode,data.questionPool),data);
+    if(!Array.isArray(data.reservedDuelQuestionIds))game.reservedDuelQuestionIds=[];
     game.clock.warningId ??= null;
     game.clock.questionRemainingMs=Math.min(game.duration(),game.clock.questionRemainingMs);
     if(game.clock.kind === "question")game.clock.remainingMs=Math.min(game.duration(),game.clock.remainingMs);
@@ -336,8 +339,8 @@ export class GameEngine {
     return eligible[Math.floor(Math.random() * eligible.length)];
   }
 
-  private routePool() { return this.questionPool.filter(q => !this.reservedFinalQuestionIds.includes(q.id) && !this.reservedPlayoffQuestionIds.includes(q.id)); }
-  private playoffPool() { return this.questionPool.filter(q=>!this.reservedFinalQuestionIds.includes(q.id)); }
+  private routePool() { return this.questionPool.filter(q => !this.reservedFinalQuestionIds.includes(q.id) && !this.reservedPlayoffQuestionIds.includes(q.id) && !this.reservedDuelQuestionIds.includes(q.id)); }
+  private playoffPool() { return this.questionPool.filter(q=>!this.reservedFinalQuestionIds.includes(q.id) && (this.playoffState?.stage?.startsWith("duel") || !this.reservedDuelQuestionIds.includes(q.id))); }
   private questionPhase(): string { return this.phase === "final" ? this.finalState!.roundPhase : this.phase === "playoff" ? this.playoffState!.roundPhase : this.phase; }
   private setQuestionPhase(phase: "map" | "reading" | "buzzing" | "adjudicating" | "dead_question") {
     if (this.phase === "final" || this.phase === "playoff") (this.phase === "final" ? this.finalState! : this.playoffState!).roundPhase = phase === "map" ? "ready" : phase === "dead_question" ? "resolved" : phase;
@@ -697,10 +700,11 @@ export class GameEngine {
     const baseline=Math.min(...contenders.map(id=>this.teams.find(t=>t.id===id)!.score));
     const mainScores=Object.fromEntries(contenders.map(id=>[id,this.teams.find(t=>t.id===id)!.score]));
     const headStarts=Object.fromEntries(contenders.map(id=>[id,Math.min(2,Math.floor(Math.max(0,mainScores[id]-baseline)/(this.targetScore/4)))]));
-    this.playoffState={firstQualifierId,contenders,mainScores,headStarts,questionIds:picks.map(q=>q.id),currentIndex:0,scores:Object.fromEntries(contenders.map(id=>[id,0])),roundPhase:picks.length?"ready":"resolved",suddenDeath:false};
+    this.playoffState={stage:"elimination",safeTeamIds:[],eliminatedTeamIds:[],firstQualifierId,contenders,mainScores,headStarts,questionIds:picks.map(q=>q.id),currentIndex:0,scores:Object.fromEntries(contenders.map(id=>[id,0])),roundPhase:picks.length?"ready":"resolved",suddenDeath:false};
     this.phase="playoff";this.qualificationPurpose="second";this.finalCandidateIds=[];
     this.activeQuestion=picks[0]??null;this.activeNodeId=null;this.controllingTeamId=null;this.buzzOrder=[];this.lockedOutTeamIds=[];this.friendAnswers={};this.resetClock();
     this.announce("qualified",[firstQualifierId],"Første finaleplass er sikret!");
+    if(contenders.length===2){this.beginDuel(contenders,false);return;}
     this.log(`Kvalifisering om andreplassen: ${picks.length} av fem spørsmål tilgjengelig. Alle starter på null riktige svar, med inntil to bonuspoeng fra hovedrunden.`);
   }
 
@@ -716,19 +720,57 @@ export class GameEngine {
     const next=round.currentIndex+1;
     if(next<round.questionIds.length){round.currentIndex=next;this.activeQuestion=this.questionPool.find(q=>q.id===round.questionIds[next])??null;}
     else {
-      const high=Math.max(...round.contenders.map(id=>round.scores[id]+(round.headStarts?.[id]??0)));
-      const leaders=round.contenders.filter(id=>round.scores[id]+(round.headStarts?.[id]??0)===high);
-      if(leaders.length===1){this.teams.find(t=>t.id===leaders[0])!.qualifiedForFinal=true;this.startFinal();return;}
+      const duel=round.stage?.startsWith("duel");
+      let tied:string[];
+      if(duel){
+        const high=Math.max(...round.contenders.map(id=>round.scores[id]));
+        tied=round.contenders.filter(id=>round.scores[id]===high);
+        if(tied.length===1){this.teams.find(t=>t.id===tied[0])!.qualifiedForFinal=true;this.startFinal();return;}
+      } else {
+        const safe=round.safeTeamIds??[];
+        const total=(id:string)=>round.scores[id]+(round.headStarts?.[id]??0);
+        const ranked=[...round.contenders].sort((a,b)=>total(b)-total(a));
+        const cutoff=total(ranked[Math.min(2-safe.length,ranked.length)-1]);
+        const above=ranked.filter(id=>total(id)>cutoff);
+        tied=ranked.filter(id=>total(id)===cutoff);
+        round.safeTeamIds=[...safe,...above];
+        round.eliminatedTeamIds=[...new Set([...(round.eliminatedTeamIds??[]),...ranked.filter(id=>total(id)<cutoff)])];
+        if(tied.length<=2-round.safeTeamIds.length){this.beginDuel([...round.safeTeamIds,...tied]);return;}
+      }
+      round.contenders=tied;round.stage=duel?"duel_tiebreak":"elimination_tiebreak";round.suddenDeath=true;
       const unused=this.playoffPool().filter(q=>q.status==="unused");
       if(!unused.length){
-        this.phase="qualification";this.qualificationPurpose="second";this.finalCandidateIds=[round.firstQualifierId,...leaders];this.activeQuestion=null;
-        this.log("Lik kvalifiseringsscore og ingen nye spørsmål. Verten avgjør et muntlig omspill mellom de delte lederne.");return;
+        this.phase="qualification";this.qualificationPurpose=duel?"second":"elimination";
+        this.finalCandidateIds=duel?[round.firstQualifierId,...tied]:[...(round.safeTeamIds??[]),...tied];this.activeQuestion=null;
+        this.log("Lik score og ingen nye spørsmål. Verten avgjør et muntlig omspill mellom de likestilte lagene.");return;
       }
-      round.contenders=leaders;round.suddenDeath=true;const q=unused[Math.floor(Math.random()*unused.length)];q.status="used";
+      const q=unused[Math.floor(Math.random()*unused.length)];q.status="used";
       round.questionIds.push(q.id);round.currentIndex=next;this.activeQuestion=q;
-      this.log("Lik kvalifiseringsscore: bare de delte lederne spiller videre i omspill.");
+      this.log(duel?"Uavgjort duell: ett spørsmål av gangen til ett lag leder.":"Omspill om duellplassene. Lag som allerede er videre, sitter over.");
     }
     round.roundPhase="ready";this.revealedQuestion=null;this.completedQuestion=null;this.completedAnswers=[];this.friendAnswers={};this.buzzOrder=[];this.lockedOutTeamIds=[];this.resetClock();
+  }
+
+  private beginDuel(ids:string[], playedElimination=true) {
+    const round=this.playoffState!;
+    if(playedElimination)round.eliminationResult={questionIds:[...round.questionIds],scores:{...round.scores},headStarts:{...round.headStarts}};
+    // With two contenders, release the unplayed elimination reservations.
+    if(!playedElimination)for(const id of round.questionIds){const q=this.questionPool.find(q=>q.id===id);if(q)q.status="unused";}
+    const unused=this.questionPool.filter(q=>q.status==="unused"&&!this.reservedFinalQuestionIds.includes(q.id));
+    const picks=[...unused.filter(q=>this.reservedDuelQuestionIds.includes(q.id)),...unused.filter(q=>!this.reservedDuelQuestionIds.includes(q.id)).sort(()=>Math.random()-.5)].slice(0,3);
+    for(const q of picks)q.status="used";
+    round.eliminatedTeamIds=this.teams.filter(t=>t.id!==round.firstQualifierId&&!ids.includes(t.id)).map(t=>t.id);
+    round.stage="duel";round.contenders=ids;round.safeTeamIds=[];round.scores=Object.fromEntries(ids.map(id=>[id,0]));round.headStarts={};
+    round.questionIds=picks.map(q=>q.id);round.currentIndex=0;round.suddenDeath=false;round.roundPhase=picks.length?"ready":"resolved";
+    this.phase="playoff";this.activeQuestion=picks[0]??null;this.finalCandidateIds=[];this.qualificationPurpose="second";
+    this.completedQuestion=null;this.completedAnswers=[];this.revealedQuestion=null;this.friendAnswers={};this.buzzOrder=[];this.lockedOutTeamIds=[];this.resetClock();
+    this.log("Duell om andre finaleplass: tre spørsmål, begge lag starter på null. Uavgjort gir omspill.");
+  }
+
+  selectDuelists(ids:string[]) {
+    if(this.paused||this.phase!=="qualification"||this.qualificationPurpose!=="elimination"||ids.length!==2||new Set(ids).size!==2)return;
+    if(ids.some(id=>!this.finalCandidateIds.includes(id))||(this.playoffState?.safeTeamIds??[]).some(id=>!ids.includes(id)))return;
+    this.checkpoint("valgte duellag");this.beginDuel(ids);
   }
 
   selectFinalists(ids: string[]) {
@@ -854,7 +896,7 @@ export class GameEngine {
       questionPoolTotal: this.questionPool.length,
       friendAnswers: this.friendAnswers,
       startedAt: this.startedAt,
-      questionsPlayed: this.map.nodes.filter(n=>n.status === "completed").length + (this.playoffState ? this.playoffState.currentIndex + (this.playoffState.roundPhase === "resolved" ? 1 : 0) : 0) + (this.finalState ? this.finalState.currentIndex + (this.finalState.roundPhase === "resolved" ? 1 : 0) : 0),
+      questionsPlayed: this.map.nodes.filter(n=>n.status === "completed").length + (this.playoffState ? (this.playoffState.eliminationResult?.questionIds.length??0) + this.playoffState.currentIndex + (this.playoffState.roundPhase === "resolved" ? 1 : 0) : 0) + (this.finalState ? this.finalState.currentIndex + (this.finalState.roundPhase === "resolved" ? 1 : 0) : 0),
       imageRevealStage: this.imageRevealStage,
       canRevealQuestion: this.completedQuestion !== null,
       canDismissQuestionCard: this.revealedQuestion !== null,

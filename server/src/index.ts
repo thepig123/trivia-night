@@ -165,7 +165,7 @@ wss.on("connection", (ws, request) => {
           if (!pool.length) return sendError(ws, "Kveldspakken har ingen klare, valgte spørsmål. Åpne spørsmålsbanken først.");
           if (pool.every(q=>finalIds.includes(q.id) || playoffIds.includes(q.id))) return sendError(ws,"Pakken trenger minst ett klart hovedspørsmål utenfor kvalifiserings- og finalepotten.");
           const room = new GameEngine(code, pool, finalIds, playoffIds);
-          if(msg.eventMode && pool.length-room.reservedFinalQuestionIds.length<6) return sendError(ws,"En spillkveld trenger fem kvalifiseringsspørsmål og minst ett hovedspørsmål utenfor finalepotten. Legg til flere klare spørsmål.");
+          if(msg.eventMode && pool.length-room.reservedFinalQuestionIds.length<9) return sendError(ws,"En spillkveld trenger fem kvalifiseringsspørsmål, tre duellspørsmål og minst ett hovedspørsmål utenfor finalepotten. Legg til flere klare spørsmål.");
           room.eventMode = !!msg.eventMode;
           room.initializeDefaultTeams();
           rooms.set(code, room);
@@ -352,6 +352,10 @@ wss.on("connection", (ws, request) => {
         case "host:finish_route": {
           const room = requireHost(ws, info, msg.roomCode); if (!room) return;
           room.finishRoutePhase(); broadcast(msg.roomCode); break;
+        }
+        case "host:select_duelists": {
+          const room = requireHost(ws, info, msg.roomCode); if (!room) return;
+          room.selectDuelists(msg.teamIds); broadcast(msg.roomCode); break;
         }
         case "host:select_finalists": {
           const room = requireHost(ws, info, msg.roomCode); if (!room) return;

@@ -12,7 +12,7 @@ const fields: Record<string,string[]> = {
   "host:choose_route":["nodeId"], "team:submit_friend_answer":["teamId","answer"], "tv:hello":[],
   "host:start_reading":[], "host:open_buzzers":[], "host:mark_correct":["teamId"], "host:mark_wrong":["teamId"],
   "host:skip_question":[], "host:pause":[], "host:resume":[], "host:adjust_score":["teamId","delta"],
-  "host:advance_final":[], "host:finish_route":[], "host:select_finalists":["teamIds"], "host:reveal_friend_answers":[], "host:reveal_question":[],
+  "host:advance_final":[], "host:finish_route":[], "host:select_duelists":["teamIds"], "host:select_finalists":["teamIds"], "host:reveal_friend_answers":[], "host:reveal_question":[],
 };
 export function validateMessage(value: unknown): ClientMessage {
   if(!value || typeof value!=="object" || Array.isArray(value)) throw new Error("Meldingen må være et objekt.");

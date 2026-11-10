@@ -81,7 +81,7 @@ export type GamePhase =
   | "adjudicating" // host is judging a spoken answer
   | "route_choice" // controlling team is choosing the next node
   | "qualification" // tied cutoff requires host adjudication
-  | "playoff" // five equal-weight questions for the second final place
+  | "playoff" // five-question elimination followed by a three-question duel
   | "final" // final round in progress
   | "ended";
 
@@ -102,6 +102,11 @@ export interface FinalState {
 }
 
 export interface PlayoffState {
+  stage?: "elimination" | "elimination_tiebreak" | "duel" | "duel_tiebreak";
+  safeTeamIds?: string[];
+  eliminatedTeamIds?: string[];
+  eliminationResult?: { questionIds:string[]; scores:Record<string,number>; headStarts:Record<string,number> };
+
   headStarts?: Record<string, number>;
   mainScores?: Record<string, number>;
   firstQualifierId: string;
@@ -176,7 +181,7 @@ export interface HostGameState {
   controllingTeamId: string | null;
   finalState: FinalState | null;
   playoffState: PlayoffState | null;
-  qualificationPurpose: "first" | "second";
+  qualificationPurpose: "first" | "second" | "elimination";
   statistics: GameStats;
   eventLog: EventLogEntry[];
   questionPoolRemaining: number;
@@ -225,7 +230,7 @@ export interface PublicGameState {
   controllingTeamId: string | null;
   finalState: FinalState | null;
   playoffState: PlayoffState | null;
-  qualificationPurpose: "first" | "second";
+  qualificationPurpose: "first" | "second" | "elimination";
   legalNextNodeIds: string[];
   finalCandidateIds: string[];
   friendAnswersSubmitted: string[];
@@ -264,6 +269,7 @@ export type ClientMessage =
   | { type: "host:undo"; roomCode: string }
   | { type: "host:replace_question"; roomCode: string }
   | { type: "host:finish_route"; roomCode: string }
+  | { type: "host:select_duelists"; roomCode: string; teamIds: string[] }
   | { type: "host:select_finalists"; roomCode: string; teamIds: string[] }
   | { type: "host:configure_lobby"; roomCode:string; title:string; joinUrl:string; musicUrl:string }
   | { type: "host:advance_playoff"; roomCode: string }
