@@ -133,8 +133,17 @@ test("four real controllers complete route recovery, undo, qualification and a s
     assert.equal(state.activeNodeId, choicesBeforeUndo[0]);
     assert.ok(state.activeQuestion);
 
-    state=await rpc("host:finish_route");assert.equal(state.phase,"qualification");
-    state=await rpc("host:select_finalists",{teamIds:[teams[0].teamId,teams[1].teamId]});assert.equal(state.phase,"final");
+    state=await rpc("host:finish_route");assert.equal(state.phase,"playoff");
+    assert.equal(state.playoffState.questionIds.length,5);
+    assert.deepEqual(Object.values(state.playoffState.scores),[0,0,0]);
+    for(let i=0;i<5;i++){
+      await rpc("host:start_reading");await rpc("host:open_buzzers");await buzz(1);
+      state=await rpc("host:mark_correct",{teamId:teams[1].teamId});
+      assert.equal(state.playoffState.scores[teams[1].teamId],i+1);
+      state=await rpc("host:advance_playoff");
+    }
+    assert.equal(state.phase,"final");
+    assert.deepEqual(new Set(state.finalState.finalists),new Set([teams[0].teamId,teams[1].teamId]));
     const count=state.finalState.questionIds.length;
     for(let i=0;i<count;i++){
       state=await rpc("host:start_reading");assert.equal(state.finalState.roundPhase,"reading");await rpc("host:open_buzzers");await buzz(0);

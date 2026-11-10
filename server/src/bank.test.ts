@@ -94,3 +94,14 @@ test("closest and progressive image formats validate ready fields and map into p
     assert.equal(playable.progressiveImage,true);assert.equal(playable.mode,"buzzer");
   }finally{rmSync(dir,{recursive:true,force:true});}
 });
+
+test("playoff question selection is capped at five and cannot overlap the grand finale",()=>{
+  const dir=mkdtempSync(join(tmpdir(),"trivia-playoff-bank-"));
+  try{
+    const bank=sampleBank(new BankStore(join(dir,"bank.json")));const pack=bank.packs[0];
+    pack.playoffQuestionIds=["FIXTURE"];pack.finalQuestionIds=["FIXTURE"];
+    assert.throws(()=>validateBank(bank),/overlapp/);
+    pack.finalQuestionIds=[];assert.deepEqual(validateBank(bank).packs[0].playoffQuestionIds,["FIXTURE"]);
+    pack.playoffQuestionIds=Array(6).fill("FIXTURE");assert.throws(()=>validateBank(bank),/maks fem/);
+  }finally{rmSync(dir,{recursive:true,force:true});}
+});

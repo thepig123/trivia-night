@@ -1,16 +1,19 @@
 import React from "react";
+import PlayoffSummary from "./PlayoffSummary";
 import NumericAnswerPanel from "./NumericAnswerPanel";
 import RouteMap, { TierLegend } from "./RouteMap";
 
 export default function TeamController({ roomCode, teamId, publicState, send, connected, lastError, testControllers }: any) {
   const me = publicState?.teams.find((t: any) => t.id === teamId);
+  const inPlayoff = publicState?.phase === "playoff" || (publicState?.phase === "qualification" && !!publicState?.playoffState);
+  const isContender = publicState?.playoffState?.contenders.includes(teamId);
   const inFinal = !!publicState?.finalState;
   const isFinalist = publicState?.finalState?.finalists.includes(teamId);
-  const phase = publicState?.phase === "final" ? publicState.finalState.roundPhase : publicState?.phase;
+  const phase = publicState?.phase === "final" ? publicState.finalState.roundPhase : publicState?.phase === "playoff" ? publicState.playoffState.roundPhase : publicState?.phase;
   const iBuzzed = publicState?.buzzOrder?.some((b: any) => b.teamId === teamId);
   const iAmLocked = publicState?.lockedOutTeamIds?.includes(teamId);
   const iAmFirst = phase === "adjudicating" && publicState?.currentResponderId === teamId;
-  const canBuzz = connected && !publicState?.paused && phase === "buzzing" && (!inFinal || isFinalist) && (inFinal || !me?.qualifiedForFinal) && publicState?.activeQuestionPublic?.mode !== "closest" && !iBuzzed && !iAmLocked;
+  const canBuzz = connected && !publicState?.paused && phase === "buzzing" && (!inFinal || isFinalist) && (!inPlayoff || isContender) && (inFinal || !me?.qualifiedForFinal) && publicState?.activeQuestionPublic?.mode !== "closest" && !iBuzzed && !iAmLocked;
   const isControlling = phase === "route_choice" && publicState?.controllingTeamId === teamId;
   const isFriendRound = ["friend_group", "private_choice"].includes(publicState?.activeQuestionPublic?.mode);
   const friendSubmitted = publicState?.friendAnswersSubmitted?.includes(teamId);
@@ -45,14 +48,15 @@ export default function TeamController({ roomCode, teamId, publicState, send, co
           <h2 style={{ color: me?.color }}>{me?.name}</h2>
         </div>
         <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: "0.7rem", opacity: 0.6 }}>POENG</div>
+          <div style={{ fontSize: "0.7rem", opacity: 0.6 }}>{inPlayoff && !me?.qualifiedForFinal ? "RIKTIGE I KVALIFISERINGEN" : "POENG"}</div>
           <div style={{ fontFamily: "var(--font-display)", fontSize: "1.8rem", color: "var(--yellow)" }}>
-            {(isFinalist ? publicState.finalState.scores[teamId] : me?.score) ?? 0}
+            {(inPlayoff && !me?.qualifiedForFinal ? publicState.playoffState.scores[teamId] : isFinalist ? publicState.finalState.scores[teamId] : me?.score) ?? 0}
           </div>
         </div>
       </div>
 
-      {publicState?.phase === "ended" ? <div className="qualified-card"><strong>{publicState.finalState.winnerIds.includes(teamId) ? "🏆 GRATULERER!" : "SPILLET ER FERDIG"}</strong><span>{publicState.finalState.winnerIds.map((id:string)=>publicState.teams.find((t:any)=>t.id===id)?.name).join(" og ")} vant.</span></div> : inFinal && !isFinalist ? <div className="qualified-card"><strong>FINALE</strong><span>Følg finalen på TV.</span></div> : qualified ? <div className="qualified-card"><strong>FINALIST</strong><span>Finaleplassen er sikret. Følg kampen mellom de andre lagene.</span></div> : isControlling ? (
+      {inPlayoff && <PlayoffSummary state={publicState}/>}
+      {publicState?.phase === "ended" ? <div className="qualified-card"><strong>{publicState.finalState.winnerIds.includes(teamId) ? "🏆 GRATULERER!" : "SPILLET ER FERDIG"}</strong><span>{publicState.finalState.winnerIds.map((id:string)=>publicState.teams.find((t:any)=>t.id===id)?.name).join(" og ")} vant.</span></div> : inFinal && !isFinalist ? <div className="qualified-card"><strong>FINALE</strong><span>Følg finalen på TV.</span></div> : inPlayoff && !isContender && !qualified ? <div className="qualified-card"><strong>UTE AV OMSPILLET</strong><span>Følg kampen om andreplassen på TV.</span></div> : qualified ? <div className="qualified-card"><strong>FINALIST</strong><span>Finaleplassen er sikret. Følg kampen mellom de andre lagene.</span></div> : isControlling ? (
         <div className="map-choice-wrap">
           <h3>Velg rute</h3>
           <p>{publicState.paused ? "Rutevalget fortsetter når verten opphever pausen." : !connected ? "Kobler til igjen før dere kan velge rute…" : "Velg mellom de lysende kategoriene."}</p>
@@ -74,7 +78,7 @@ export default function TeamController({ roomCode, teamId, publicState, send, co
         </div>
       ) : (
         <>
-          {publicState?.map && <RouteMap map={publicState.map} legalNodeIds={publicState.legalNextNodeIds} />}
+          {!inPlayoff && publicState?.map && <RouteMap map={publicState.map} legalNodeIds={publicState.legalNextNodeIds} />}
           {phase === "route_choice" ? <div className="qualified-card"><strong>NESTE RUTE VELGES</strong><span>{publicState.teams.find((t: any) => t.id === publicState.controllingTeamId)?.name ?? "Verten"} velger veien videre.</span></div> : <div className="buzzer-wrap">
             <button
               className={buzzerClass}
@@ -90,7 +94,7 @@ export default function TeamController({ roomCode, teamId, publicState, send, co
       <div style={{ opacity: 0.55, fontSize: "0.8rem", marginTop: 16, textTransform: "uppercase", letterSpacing: "0.06em" }}>
         {publicState?.paused ? "Spillet er satt på pause" : phaseLabel(phase)}
       </div>
-      {me && !qualified && <div className="final-progress"><div><span>Veien til finalen</span><b>{Math.max(0, publicState.targetScore - me.score).toLocaleString()} poeng igjen</b></div><progress value={Math.max(0,me.score)} max={publicState.targetScore} /></div>}
+      {me && !qualified && !inPlayoff && <div className="final-progress"><div><span>Veien til finalen</span><b>{Math.max(0, publicState.targetScore - me.score).toLocaleString()} poeng igjen</b></div><progress value={Math.max(0,me.score)} max={publicState.targetScore} /></div>}
     </div>
   );
 }

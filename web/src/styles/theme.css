@@ -698,3 +698,12 @@ summary { cursor: pointer; padding: 8px 0; }
 .tv-final-scores { display: flex; justify-content: center; flex-wrap: wrap; gap: 30px; margin-top: 32px; }
 .tv-final-scores span, .tv-final-scores strong { display: block; }
 .tv-final-scores strong { font-size: clamp(1.1rem,2vw,2rem); color: var(--yellow); }
+.playoff-summary { text-align: center; padding: 18px 12px; }
+.playoff-summary > small { color: var(--yellow); }
+.playoff-summary__scores { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; margin: 15px 0; }
+.playoff-summary__scores > div { background: var(--bg-panel-raised); border-radius: 8px; padding: 12px 20px; }
+.playoff-summary__scores span, .playoff-summary__scores strong, .playoff-summary__scores small { display: block; }
+.playoff-summary__scores strong { color: var(--yellow); font-size: 1.5rem; }
+.playoff-summary--out { opacity: .55; }
+.tv-stage > .playoff-summary { max-width: 90%; margin: auto; }
+.tv-stage > .playoff-summary h2 { font-size: clamp(1.5rem,3vw,3rem); }

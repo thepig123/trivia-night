@@ -92,3 +92,17 @@ test("pack overview renders curated finals and thin-pool warnings",()=>{
   const html=renderToStaticMarkup(createElement(PackOverview,{bank:{version:1,revision:1,questions:[q],packs:[pack],activePackId:"P"},pack}));
   assert.match(html,/reservert til finalen/);assert.match(html,/Ingen klare spørsmål til hovedrunden/);assert.match(html,/minst fem/);
 });
+
+test("playoff phones show a separate tally, hide the route and make first finalist a spectator",()=>{
+  const game=new GameEngine("PHONE",Array.from({length:20},(_,i)=>({...questions[i%questions.length],id:`PLAYPHONE${i}`})));
+  const a=game.addTeam("Alpha"),b=game.addTeam("Beta"),c=game.addTeam("Gamma"),d=game.addTeam("Delta");
+  a.score=10000;b.score=9000;c.score=100;game.setTargetScore(10000);
+  assert.equal(game.phase,"playoff");
+  game.startReading();game.openBuzzers();
+  const first=render(game,a.id);assert.match(first,/FINALIST/);assert.doesNotMatch(first,/buzzer-wrap|choose route/);
+  const contender=render(game,c.id);assert.match(contender,/RIKTIGE I KVALIFISERINGEN/);assert.match(contender,/Kvalifisering om andreplassen/);assert.doesNotMatch(contender,/route-map|final-progress/);
+  assert.equal(game.registerBuzz(c.id),true);game.markCorrect(c.id);
+  assert.match(render(game,c.id),/1 riktige/);
+  game.playoffState!.contenders=[b.id,c.id];game.playoffState!.suddenDeath=true;
+  const eliminated=render(game,d.id);assert.match(eliminated,/UTE AV OMSPILLET/);assert.doesNotMatch(eliminated,/buzzer-wrap/);
+});

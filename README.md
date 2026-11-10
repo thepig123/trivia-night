@@ -126,9 +126,12 @@ exit; the following row always restores a choice.
      nodes.
    - Wrong → that team is locked out for this question; buzzing reopens for
      everyone else still eligible.
-5. Repeat until two teams reach the target score (10,000 by default). The host
-   may adjust the target in 500-point increments if the event is running long.
-   Qualified teams become spectators while the remaining teams race onward.
+5. The first team to reach the target (10,000 by default) wins the first Final
+   seat. The route map freezes. All other teams play five shared playoff
+   questions, starting at zero correct answers; one correct answer earns one
+   playoff point, regardless of tier or category. The most correct advances.
+   Main-game points do not carry into this playoff or break ties. The host may
+   adjust the main target in 500-point increments before the playoff starts.
 
 ## Teams and Friend Group rounds
 
@@ -335,9 +338,12 @@ After five questions (or a shorter available set), the highest Final score wins.
 A tie draws additional unused questions. In sudden death, a sole correct team
 wins immediately; all-wrong / tied private answers can lead to another question.
 If no new questions remain, the result explicitly says **delt seier** instead
-of inventing a winner. A tie at the route qualification cutoff is different:
-the host runs an oral tiebreak and selects two finalists; already qualified
-teams and teams strictly above the cutoff keep their places.
+of inventing a winner. A tie for the second seat after the five-question playoff draws extra
+questions for tied leaders only. A tie for first place in the main game
+(for example on simultaneous private answers) uses an explicit host-adjudicated
+oral tiebreak to choose the first qualifier before the playoff. If the playoff
+tiebreak bank runs out, the host decides an oral tiebreak between the tied
+leaders; the first qualifier keeps its seat.
 
 ## Remaining development
 
@@ -402,3 +408,45 @@ answer warning. This slider controls game cues, not uploaded music/audio clips.
 Signals older than four seconds are not replayed on reconnect, and Undo clears
 score feedback. Test the volume and music clips on the actual TV before guests
 arrive. Reduced-motion preferences disable the announcement entrance animation.
+
+
+## Five-question playoff for the second Final seat
+
+The first target-score qualifier wins the main game and sits out. All remaining
+teams start a **Kvalifisering om andreplassen** at zero. The host runs exactly
+five questions using the normal read/open/judge/reveal flow. Every question is
+worth **one correct answer**, including Gutta, easy and hard tiers, closest-number
+and private-choice rounds. Shared correct/nearest answers can each earn one.
+Incorrect answers never subtract, but ordinary buzzer lockout still applies.
+Main scores are frozen, and route choice is unavailable. The host cannot add
+points manually during the playoff; use Undo to correct a judgment.
+
+All five questions are played, even if a team establishes a large lead. After
+the fifth, **Neste / avgjør kvalifiseringen** advances the sole leader to the
+Final alongside the main winner. Both begin the grand Final on zero Final
+points. If tied, only the tied leaders continue with extra unused questions;
+main-game scores are never used to separate them. If nobody answers a tiebreak,
+another question is drawn. With no questions left, the host runs an oral
+playoff and selects the winner from those tied leaders, keeping the first seat.
+With only two teams in the room, the remaining team takes the other seat directly.
+
+On `/questions`, use the **Kvalifisering (5)** column to reserve up to five
+questions. These cannot overlap the grand-final pool. The game supplements a
+partial curated pool and reserves five automatically when the bank has enough
+questions, so the main route cannot consume them. Copies and JSON exports retain
+these selections. Event rooms require room for all five playoff questions and
+at least one main-game question outside the Final reserve. Prepare enough
+additional questions for tiebreaks and a full grand Final. Small practice banks
+may have fewer than five available; their screens explicitly warn about the
+shortfall, and an empty bank requires a host tiebreak rather than picking a
+winner arbitrarily. A skipped playoff question counts as unanswered; use
+**Bytt aktivt spørsmål** instead if a question cannot be used.
+
+The host, TV and phones show separate correct-answer tallies and playoff progress.
+The first qualifier and teams eliminated from a tiebreak cannot buzz or submit
+private answers. Scores, the five-question list, answers, current stage and
+eligibility survive event recovery. Undo restores the previous playoff state and
+pauses for inspection. The host's early-end control can start this same playoff
+from the current sole main-score leader; tied main leaders first need an oral
+first-place tiebreak. Older saved games with two qualifiers can still open their
+Final.

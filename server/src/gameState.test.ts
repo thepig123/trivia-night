@@ -111,15 +111,16 @@ function chooseTestRoute(game: GameEngine, nodeId: string) {
   return game.map;
 }
 
-test("lowering the target immediately qualifies the highest scoring teams", () => {
+test("lowering the target qualifies only the leader and starts equal-score playoff", () => {
   const game = new GameEngine("TARGET");
   const a = game.addTeam("A"); const b = game.addTeam("B"); const c = game.addTeam("C");
   a.score = 8000; b.score = 7500; c.score = 7000;
   game.setTargetScore(7500);
   assert.equal(a.qualifiedForFinal, true);
-  assert.equal(b.qualifiedForFinal, true);
+  assert.equal(b.qualifiedForFinal, false);
   assert.equal(c.qualifiedForFinal, false);
-  assert.equal(game.phase, "final");
+  assert.equal(game.phase, "playoff");
+  assert.deepEqual(Object.values(game.playoffState!.scores),[0,0]);
 });
 
 test("friend-group rounds score every correct team and give trailing winner route control", () => {
@@ -188,12 +189,15 @@ test("exhausted tier falls back to available questions with truthful points", ()
   assert.equal(game.registerBuzz(game.teams[0].id), true);
 });
 
-test("empty question pool safely enters Final instead of stalling", () => {
+test("an exhausted tied main game requests a host tiebreak before the Final", () => {
   const game = new GameEngine("EMPTY");
   game.addTeam("A"); game.addTeam("B");
   for (const q of game.questionPool) q.status = "used";
   game.activateCurrentNode();
-  assert.equal(game.phase, "final");
+  assert.equal(game.phase, "qualification");
+  assert.equal(game.qualificationPurpose,"first");
+  game.selectFirstQualifier(game.teams[0].id);
+  assert.equal(game.phase,"final");
   assert.equal(game.activeQuestion, null);
   game.advanceFinal();
   assert.equal(game.phase, "ended");
@@ -243,6 +247,7 @@ function finalGame(count=12) {
   const pool: Question[]=Array.from({length:count},(_,i)=>({id:`F${i}`,category:"Test",tier:"T5",prompt:`Spørsmål ${i}`,answer:"Ja",acceptedAlternatives:[],status:"unused",mode:"buzzer"}));
   const game=new BaseGameEngine("FINAL",pool);const a=game.addTeam("A"),b=game.addTeam("B"),c=game.addTeam("C");
   a.score=400;b.score=200;c.score=0;
+  a.qualifiedForFinal=true;b.qualifiedForFinal=true; // isolate grand-finale rules from qualification
   game.finishRoutePhase();assert.equal(game.phase,"final");return {game,a,b,c};
 }
 
@@ -273,18 +278,21 @@ test("tied final draws sudden-death questions and a correct answer settles it",(
   assert.equal(game.phase,"ended");assert.deepEqual(game.finalState!.winnerIds,[a.id]);
 });
 
-test("ties at the route cutoff require an explicit host decision",()=>{
+test("exhausted playoff ties require a host tiebreak and preserve the first qualifier",()=>{
   const game=new GameEngine("TIE");const a=game.addTeam("A"),b=game.addTeam("B"),c=game.addTeam("C");
-  a.qualifiedForFinal=true;a.score=10000;b.score=400;c.score=400;
-  game.finishRoutePhase();assert.equal(game.phase,"qualification");
+  a.qualifiedForFinal=true;a.score=10000;b.score=400;c.score=0;
+  game.finishRoutePhase();assert.equal(game.phase,"playoff");
+  for(const q of game.questionPool)q.status="used";
+  while(game.phase==="playoff"){game.skipQuestion();game.advancePlayoff();}
+  assert.equal(game.phase,"qualification");assert.equal(game.qualificationPurpose,"second");
   game.selectFinalists([b.id,c.id]);assert.equal(game.phase,"qualification");
-  game.selectFinalists([a.id,c.id]);assert.equal(game.phase,"final");assert.deepEqual(game.finalState!.finalists,[a.id,c.id]);
+  game.selectFinalists([a.id,c.id]);assert.equal(game.phase,"final");assert.deepEqual(game.finalState?.finalists,[a.id,c.id]);
 });
 
 test("route exhaustion preserves a reserved final set and an empty tied final ends explicitly shared",()=>{
   const {game,a,b}=finalGame();assert.ok(game.reservedFinalQuestionIds.length>0);
   const empty=new BaseGameEngine("EMPTYFINAL",[]);empty.addTeam("A");empty.addTeam("B");
-  empty.finishRoutePhase();empty.advanceFinal();assert.equal(empty.phase,"ended");assert.equal(empty.finalState!.winnerIds.length,2);assert.match(empty.finalState!.resultNote!,/delt seier/);
+  empty.finishRoutePhase();empty.selectFirstQualifier(empty.teams[0].id);empty.advanceFinal();assert.equal(empty.phase,"ended");assert.equal(empty.finalState!.winnerIds.length,2);assert.match(empty.finalState!.resultNote!,/delt seier/);
 });
 
 test("private multiple choice also works for finalists and never accepts spectator answers",()=>{
@@ -344,11 +352,12 @@ test("question deadline ends normal buzzing and auto-reveals private choices",()
   assert.ok(privateGame.team.score>0);assert.equal(privateGame.game.revealedQuestion?.answer,"Ja");
 });
 
-test("a team strictly above a tied cutoff cannot lose its finalist slot to host selection",()=>{
-  const game=new GameEngine("CUTOFF");const a=game.addTeam("A"),b=game.addTeam("B"),c=game.addTeam("C");a.score=600;b.score=400;c.score=400;
-  game.finishRoutePhase();assert.equal(game.phase,"qualification");assert.equal(a.qualifiedForFinal,true);
-  game.selectFinalists([b.id,c.id]);assert.equal(game.phase,"qualification");
-  game.selectFinalists([a.id,b.id]);assert.equal(game.phase,"final");
+test("an early end with tied main leaders requires choosing only one first qualifier",()=>{
+  const game=new GameEngine("CUTOFF");const a=game.addTeam("A"),b=game.addTeam("B"),c=game.addTeam("C");a.score=600;b.score=600;c.score=400;
+  game.finishRoutePhase();assert.equal(game.phase,"qualification");assert.equal(game.qualificationPurpose,"first");
+  game.selectFirstQualifier(c.id);assert.equal(game.phase,"qualification");
+  game.selectFinalists([a.id,b.id]);assert.equal(game.phase,"qualification");
+  game.selectFirstQualifier(a.id);assert.equal(game.phase,"playoff");assert.equal(a.qualifiedForFinal,true);assert.equal(b.qualifiedForFinal,false);
 });
 
 test("lobby teams can be edited/removed, but the roster is locked once reading begins",()=>{
@@ -400,6 +409,7 @@ test("route previews consume nothing and unchosen questions remain eligible for 
   const pool: Question[] = Array.from({length:12}, (_,i) => ({id:`D${i}`, category:i%2 ? "History" : "Music", tier:"T5", prompt:`Q${i}`, answer:"A", acceptedAlternatives:[], status:"unused", mode:"buzzer"}));
   const game = new BaseGameEngine("DRAWS", pool);
   game.reservedFinalQuestionIds = [];
+  game.reservedPlayoffQuestionIds = [];
   game.map = generateRouteMap(game.questionPool);
   assert.ok(game.map.nodes.every(n => n.questionId === null));
   assert.equal(game.questionPool.filter(q => q.status === "unused").length, 12);
@@ -501,6 +511,7 @@ test("curated final questions stay out of route draws and supply the finale",()=
   const pool:Question[]=Array.from({length:12},(_,i)=>({id:`CUR${i}`,category:"General",tier:"T5",prompt:`Q${i}`,answer:"A",acceptedAlternatives:[],status:"unused",mode:"buzzer"}));
   const reserved=pool.slice(0,5).map(q=>q.id);
   const game=new BaseGameEngine("CURAT",pool,reserved);
+  game.reservedPlayoffQuestionIds=[]; // this fixture isolates grand-finale reservation
   game.addTeam("A");game.addTeam("B");
   game.activateCurrentNode();
   assert.ok(!reserved.includes(game.activeQuestion!.id));
@@ -537,7 +548,7 @@ test("closest decimal ties work and timeout resolves only submitted answers",()=
 });
 test("closest rounds score finalists, reject spectators and retain result rows",()=>{
   const {game,a,b,c}=closestGame();game.skipQuestion();game.teams[0].score=1;game.finishRoutePhase();
-  assert.equal(game.phase,"qualification");game.selectFinalists([a.id,b.id]);game.startReading();game.openBuzzers();
+  game.teams[0].qualifiedForFinal=true;game.teams[1].qualifiedForFinal=true;game.playoffState=null;game.phase="map";game.finishRoutePhase();game.startReading();game.openBuzzers();
   game.submitFriendAnswer(c.id,"100");assert.equal(game.friendAnswers[c.id],undefined);
   game.submitFriendAnswer(a.id,"99");game.submitFriendAnswer(b.id,"80");game.revealFriendAnswers();
   assert.equal(game.finalState!.scores[a.id],600);assert.equal(game.finalState!.scores[b.id],0);

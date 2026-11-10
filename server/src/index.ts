@@ -159,10 +159,13 @@ wss.on("connection", (ws, request) => {
           const code = makeRoomCode();
           const bank = bankStore.get();
           const pool = playableQuestions(bank);
-          const finalIds = bank.packs.find(p=>p.id===bank.activePackId)!.finalQuestionIds ?? [];
+          const pack=bank.packs.find(p=>p.id===bank.activePackId)!;
+          const finalIds = pack.finalQuestionIds ?? [];
+          const playoffIds = pack.playoffQuestionIds ?? [];
           if (!pool.length) return sendError(ws, "Kveldspakken har ingen klare, valgte spørsmål. Åpne spørsmålsbanken først.");
-          if (finalIds.length && pool.every(q=>finalIds.includes(q.id))) return sendError(ws,"Pakken trenger minst ett klart spørsmål utenfor finalepotten til hovedrunden.");
-          const room = new GameEngine(code, pool, finalIds);
+          if (pool.every(q=>finalIds.includes(q.id) || playoffIds.includes(q.id))) return sendError(ws,"Pakken trenger minst ett klart hovedspørsmål utenfor kvalifiserings- og finalepotten.");
+          const room = new GameEngine(code, pool, finalIds, playoffIds);
+          if(msg.eventMode && pool.length-room.reservedFinalQuestionIds.length<6) return sendError(ws,"En spillkveld trenger fem kvalifiseringsspørsmål og minst ett hovedspørsmål utenfor finalepotten. Legg til flere klare spørsmål.");
           room.eventMode = !!msg.eventMode;
           room.initializeDefaultTeams();
           rooms.set(code, room);
@@ -353,6 +356,14 @@ wss.on("connection", (ws, request) => {
         case "host:select_finalists": {
           const room = requireHost(ws, info, msg.roomCode); if (!room) return;
           room.selectFinalists(msg.teamIds); broadcast(msg.roomCode); break;
+        }
+        case "host:advance_playoff": {
+          const room=requireHost(ws,info,msg.roomCode);if(!room)return;
+          room.advancePlayoff();broadcast(msg.roomCode);break;
+        }
+        case "host:select_first_qualifier": {
+          const room=requireHost(ws,info,msg.roomCode);if(!room)return;
+          room.selectFirstQualifier(msg.teamId);broadcast(msg.roomCode);break;
         }
         case "host:advance_final": {
           const room = requireHost(ws, info, msg.roomCode);

@@ -31,3 +31,10 @@ test("pack overview counts only playable pack members and separates reserved fin
   assert.deepEqual(summary.route.map(q=>q.id),["A"]);assert.deepEqual(summary.final.map(q=>q.id),["F"]);
   assert.equal(summary.blocked.length,1);assert.equal(summary.missingAssets.length,1);
 });
+
+test("pack overview keeps playoff and grand-final reservations out of main coverage",()=>{
+  const q={...newQuestion(),prompt:"Q",answer:"A",selection:"PICK" as const,readiness:"ready" as const};
+  const pack={id:"P",name:"Evening",questionIds:["M","Q","F"],playoffQuestionIds:["Q"],finalQuestionIds:["F"]};
+  const summary=packSummary({version:1,revision:1,questions:[{...q,id:"M"},{...q,id:"Q"},{...q,id:"F"}],packs:[pack],activePackId:"P"},pack);
+  assert.deepEqual(summary.route.map(q=>q.id),["M"]);assert.deepEqual(summary.playoff.map(q=>q.id),["Q"]);assert.deepEqual(summary.final.map(q=>q.id),["F"]);
+});

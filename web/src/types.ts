@@ -81,6 +81,7 @@ export type GamePhase =
   | "adjudicating" // host is judging a spoken answer
   | "route_choice" // controlling team is choosing the next node
   | "qualification" // tied cutoff requires host adjudication
+  | "playoff" // five equal-weight questions for the second final place
   | "final" // final round in progress
   | "ended";
 
@@ -98,6 +99,16 @@ export interface FinalState {
   winnerIds: string[];
   suddenDeath: boolean;
   resultNote: string | null;
+}
+
+export interface PlayoffState {
+  firstQualifierId: string;
+  contenders: string[];
+  questionIds: string[];
+  currentIndex: number;
+  scores: Record<string, number>;
+  roundPhase: FinalState["roundPhase"];
+  suddenDeath: boolean;
 }
 
 export interface QuestionClock {
@@ -143,6 +154,8 @@ export interface HostGameState {
   currentResponderId: string | null;
   controllingTeamId: string | null;
   finalState: FinalState | null;
+  playoffState: PlayoffState | null;
+  qualificationPurpose: "first" | "second";
   eventLog: EventLogEntry[];
   questionPoolRemaining: number;
   questionPoolTotal: number;
@@ -188,6 +201,8 @@ export interface PublicGameState {
   currentResponderId: string | null;
   controllingTeamId: string | null;
   finalState: FinalState | null;
+  playoffState: PlayoffState | null;
+  qualificationPurpose: "first" | "second";
   legalNextNodeIds: string[];
   finalCandidateIds: string[];
   friendAnswersSubmitted: string[];
@@ -226,6 +241,8 @@ export type ClientMessage =
   | { type: "host:replace_question"; roomCode: string }
   | { type: "host:finish_route"; roomCode: string }
   | { type: "host:select_finalists"; roomCode: string; teamIds: string[] }
+  | { type: "host:advance_playoff"; roomCode: string }
+  | { type: "host:select_first_qualifier"; roomCode: string; teamId: string }
   | { type: "host:advance_final"; roomCode: string }
   | { type: "host:reveal_friend_answers"; roomCode: string }
   | { type: "host:advance_image"; roomCode: string }

@@ -4,6 +4,7 @@ import type {
   GameFeedback,
   EventLogEntry,
   FinalState,
+  PlayoffState,
   GamePhase,
   HostGameState,
   PublicGameState,
@@ -38,6 +39,9 @@ export class GameEngine {
   lockedOutTeamIds: string[] = [];
   controllingTeamId: string | null = null;
   finalState: FinalState | null = null;
+  playoffState: PlayoffState | null = null;
+  qualificationPurpose: "first" | "second" = "second";
+  reservedPlayoffQuestionIds: string[] = [];
   eventLog: EventLogEntry[] = [];
   friendAnswers: Record<string, string> = {};
   questionPool: Question[];
@@ -51,13 +55,18 @@ export class GameEngine {
   questionCardDismissed = false;
   revealedQuestion: PublicGameState["revealedQuestion"] = null;
 
-  constructor(roomCode: string, questions: Question[] = questionsData as Question[], finalQuestionIds: string[] = []) {
+  constructor(roomCode: string, questions: Question[] = questionsData as Question[], finalQuestionIds: string[] = [], playoffQuestionIds: string[] = []) {
     this.roomCode = roomCode;
     this.gameId = nanoid(10);
     this.questionPool = JSON.parse(JSON.stringify(questions)) as Question[];
-    const reserveCount = Math.min(FINAL_QUESTION_COUNT, Math.max(0, Math.floor(this.questionPool.length / 3)));
-    const curated = this.questionPool.filter(q=>finalQuestionIds.includes(q.id)).map(q=>q.id);
-    this.reservedFinalQuestionIds = curated.length ? curated : [...this.questionPool].sort(() => Math.random() - .5).slice(0, reserveCount).map(q => q.id);
+    const curatedPlayoff=this.questionPool.filter(q=>playoffQuestionIds.includes(q.id)).map(q=>q.id);
+    const finalPool=this.questionPool.filter(q=>!curatedPlayoff.includes(q.id));
+    const reserveCount = Math.min(FINAL_QUESTION_COUNT, Math.max(0, Math.floor(finalPool.length / 3)));
+    const curated = finalPool.filter(q=>finalQuestionIds.includes(q.id)).map(q=>q.id);
+    this.reservedFinalQuestionIds = curated.length ? curated : [...finalPool].sort(() => Math.random() - .5).slice(0, reserveCount).map(q => q.id);
+    const spare=this.questionPool.filter(q=>!this.reservedFinalQuestionIds.includes(q.id));
+    const playoffReserveCount=Math.max(curatedPlayoff.length,spare.length>=6 ? 5 : Math.floor(spare.length/4));
+    this.reservedPlayoffQuestionIds=[...curatedPlayoff,...spare.filter(q=>!curatedPlayoff.includes(q.id)).sort(()=>Math.random()-.5).map(q=>q.id)].slice(0,playoffReserveCount);
     this.map = generateRouteMap(this.routePool());
   }
 
@@ -103,8 +112,8 @@ export class GameEngine {
     this.log(`Angret: ${previous.label}. Spillet er satt på pause for kontroll.`);
   }
   replaceQuestion(): boolean {
-    if(!this.activeQuestion || !["map","reading","buzzing","adjudicating","dead_question","final"].includes(this.phase))return false;
-    const pool=(this.phase==="final"?this.questionPool:this.routePool()).filter(q=>q.status==="unused");
+    if(!this.activeQuestion || !["map","reading","buzzing","adjudicating","dead_question","final","playoff"].includes(this.phase))return false;
+    const pool=(this.phase==="final"?this.questionPool:this.phase==="playoff"?this.playoffPool():this.routePool()).filter(q=>q.status==="unused");
     const replacement=pool.find(q=>q.tier===this.activeQuestion!.tier&&q.category===this.activeQuestion!.category)??pool.find(q=>q.tier===this.activeQuestion!.tier)??pool[0];
     if(!replacement)return false;
     this.checkpoint("byttet spørsmål");
@@ -112,9 +121,10 @@ export class GameEngine {
     this.activeQuestion=replacement;
     this.resetClock();
     this.buzzOrder=[];this.lockedOutTeamIds=[];this.friendAnswers={};this.completedQuestion=null;this.completedAnswers=[];this.revealedQuestion=null;
-    if(this.phase==="final") {
-      this.finalState!.questionIds[this.finalState!.currentIndex]=replacement.id;
-      this.finalState!.roundPhase="ready";
+    if(this.phase==="final" || this.phase==="playoff") {
+      const round=this.phase==="playoff"?this.playoffState!:this.finalState!;
+      round.questionIds[round.currentIndex]=replacement.id;
+      round.roundPhase="ready";
     } else {
       const node=this.map.nodes.find(n=>n.id===this.activeNodeId)!;
       node.questionId=replacement.id;node.category=replacement.category;node.tier=replacement.tier;
@@ -143,7 +153,7 @@ export class GameEngine {
       else {
         this.checkpoint("spørsmålstiden løp ut");
         this.completedQuestion=this.activeQuestion;
-        if(this.phase==="final")this.resolveFinalQuestion();else this.setQuestionPhase("dead_question");
+        if(this.phase==="final")this.resolveFinalQuestion();else if(this.phase==="playoff")this.resolvePlayoffQuestion();else this.setQuestionPhase("dead_question");
         this.stopClock();this.log("Tiden er ute. Verten kan vise fasit og gå videre.");
       }
     }
@@ -251,7 +261,7 @@ export class GameEngine {
 
     const question = this.pickQuestion(node.tier, node.category);
     if (!question) {
-      this.log(`Ingen ubrukte spørsmål igjen. Går videre til finalen.`);
+      this.log(`Ingen ubrukte hovedspørsmål igjen. Avslutter hovedrunden og avgjør finaleplassene.`);
       this.finishRoutePhase(true);
       return;
     }
@@ -289,19 +299,21 @@ export class GameEngine {
     return eligible[Math.floor(Math.random() * eligible.length)];
   }
 
-  private routePool() { return this.questionPool.filter(q => !this.reservedFinalQuestionIds.includes(q.id)); }
-  private questionPhase(): string { return this.phase === "final" ? this.finalState!.roundPhase : this.phase; }
+  private routePool() { return this.questionPool.filter(q => !this.reservedFinalQuestionIds.includes(q.id) && !this.reservedPlayoffQuestionIds.includes(q.id)); }
+  private playoffPool() { return this.questionPool.filter(q=>!this.reservedFinalQuestionIds.includes(q.id)); }
+  private questionPhase(): string { return this.phase === "final" ? this.finalState!.roundPhase : this.phase === "playoff" ? this.playoffState!.roundPhase : this.phase; }
   private setQuestionPhase(phase: "map" | "reading" | "buzzing" | "adjudicating" | "dead_question") {
-    if (this.phase === "final") this.finalState!.roundPhase = phase === "map" ? "ready" : phase === "dead_question" ? "resolved" : phase;
+    if (this.phase === "final" || this.phase === "playoff") (this.phase === "final" ? this.finalState! : this.playoffState!).roundPhase = phase === "map" ? "ready" : phase === "dead_question" ? "resolved" : phase;
     else this.phase = phase;
   }
-  private eligible(team: Team) { return team.connected && (this.phase === "final" ? !!this.finalState?.finalists.includes(team.id) : !team.qualifiedForFinal); }
+  private eligible(team: Team) { return team.connected && (this.phase === "final" ? !!this.finalState?.finalists.includes(team.id) : this.phase === "playoff" ? !!this.playoffState?.contenders.includes(team.id) : !team.qualifiedForFinal); }
   private clampScores() {
     for(const team of this.teams)team.score=Math.max(0,team.score);
     if(this.finalState)for(const id of this.finalState.finalists)this.finalState.scores[id]=Math.max(0,this.finalState.scores[id]);
   }
   private award(team: Team, points: number) {
-    if (this.phase === "final") this.finalState!.scores[team.id] = Math.max(0,this.finalState!.scores[team.id] + points);
+    if(this.phase === "playoff") { if(points>0)this.playoffState!.scores[team.id]++; }
+    else if (this.phase === "final") this.finalState!.scores[team.id] = Math.max(0,this.finalState!.scores[team.id] + points);
     else team.score = Math.max(0,team.score + points);
   }
 
@@ -364,6 +376,12 @@ export class GameEngine {
     if (this.currentResponderId() !== teamId) return; // only the team currently up can be adjudicated
     this.checkpoint("riktig svar");
     this.stopClock();
+    if(this.phase === "playoff") {
+      const team=this.teams.find(t=>t.id===teamId)!;
+      this.award(team,1);this.announce("correct",[team.id],"Riktig i kvalifiseringen!",1);
+      this.log(`${team.name} fikk ett riktig svar i kvalifiseringen.`);
+      this.resolvePlayoffQuestion();this.revealQuestion();return;
+    }
     if (this.phase === "final") {
       const team = this.teams.find(t => t.id === teamId)!;
       this.award(team, questionPoints(this.activeQuestion!));
@@ -392,9 +410,9 @@ export class GameEngine {
     this.checkQualification(team);
     this.revealQuestion();
 
-    // The second qualifier starts the Final immediately. Do not overwrite
-    // that transition with route_choice below.
-    if (this.finalState !== null) return;
+    // Qualification starts the playoff (or a two-team Final). Preserve
+    // that transition instead of returning to the route map.
+    if (this.finalState !== null || this.playoffState !== null || this.phase === "qualification") return;
 
     if (team.qualifiedForFinal) {
       const legal = legalNextNodeIds(this.map);
@@ -418,10 +436,10 @@ export class GameEngine {
     this.stopClock();
     const team = this.teams.find(team => team.id === teamId)!;
     const points = questionPoints(this.activeQuestion!);
-    const before = this.phase === "final" ? this.finalState!.scores[team.id] : team.score;
+    const before = this.phase === "final" ? this.finalState!.scores[team.id] : this.phase === "playoff" ? this.playoffState!.scores[team.id] : team.score;
     this.award(team, -points);
     this.lockedOutTeamIds.push(teamId);
-    const after = this.phase === "final" ? this.finalState!.scores[team.id] : team.score;
+    const after = this.phase === "final" ? this.finalState!.scores[team.id] : this.phase === "playoff" ? this.playoffState!.scores[team.id] : team.score;
     this.announce("wrong",[team.id],"Feil svar",after-before);
     this.log(`${team.name} svarte feil og er utelåst. ${before > after ? `−${before-after} poeng.` : "Ingen poeng å trekke."} Poeng: ${after}.`);
     // Doc section 5: lockout/rebound rule is still to be finalized.
@@ -438,6 +456,7 @@ export class GameEngine {
     } else {
       // Nobody left to answer — question is dead, host must skip.
       if (this.phase === "final") this.resolveFinalQuestion();
+      else if (this.phase === "playoff") this.resolvePlayoffQuestion();
       else this.setQuestionPhase("dead_question");
       this.completedQuestion = this.completedQuestion ?? this.activeQuestion;
       this.log("Ingen lag kan svare. Vis fasit eller hopp over spørsmålet.");
@@ -446,6 +465,9 @@ export class GameEngine {
 
   skipQuestion() {
     if (this.paused) return;
+    if (this.phase === "playoff") {
+      if(this.activeQuestion){this.checkpoint("hoppet over kvalifiseringsspørsmål");this.resolvePlayoffQuestion();this.revealQuestion();}return;
+    }
     if (this.phase === "final") {
       if (this.activeQuestion) { this.checkpoint("hoppet over finalespørsmål"); this.resolveFinalQuestion(); }
       return;
@@ -503,24 +525,21 @@ export class GameEngine {
   }
 
   private checkQualification(team: Team) {
-    if (team.qualifiedForFinal) return;
-    if (team.score < this.targetScore) return;
-    const alreadyQualified = this.teams.filter((t) => t.qualifiedForFinal);
-    if (alreadyQualified.length >= 2) return;
-    team.qualifiedForFinal = true;
-    this.announce("qualified",[team.id],"Finaleplassen er sikret!");
-    this.log(`${team.name} kvalifiserte seg til finalen!`);
-    if (this.teams.filter((t) => t.qualifiedForFinal).length === 2) {
-      this.startFinal();
-    }
+    if(this.playoffState || this.finalState || team.qualifiedForFinal || team.score<this.targetScore)return;
+    const existing=this.teams.find(t=>t.qualifiedForFinal);
+    if(existing){this.startPlayoff(existing.id);return;}
+    team.qualifiedForFinal=true;
+    this.log(`${team.name} vant hovedrunden og er første finalist.`);
+    this.startPlayoff(team.id);
   }
 
   private qualifyEligibleTeams() {
-    const eligible = this.teams.filter((team) => !team.qualifiedForFinal && team.score >= this.targetScore).sort((a, b) => b.score - a.score);
-    for (const team of eligible) {
-      if (this.teams.filter((candidate) => candidate.qualifiedForFinal).length >= 2) break;
-      this.checkQualification(team);
-    }
+    if(this.playoffState || this.finalState)return;
+    const eligible=this.teams.filter(t=>!t.qualifiedForFinal && t.score>=this.targetScore).sort((a,b)=>b.score-a.score);
+    if(!eligible.length)return;
+    const leaders=eligible.filter(t=>t.score===eligible[0].score);
+    if(leaders.length>1){this.requestFirstQualifier(leaders.map(t=>t.id));return;}
+    this.checkQualification(leaders[0]);
   }
 
   submitFriendAnswer(teamId: string, answer: string) {
@@ -538,13 +557,17 @@ export class GameEngine {
     this.checkpoint("avslørte private svar");
     this.stopClock();
     const q=this.activeQuestion!;
-    const entrants=this.teams.filter(t=>(this.phase === "final" ? this.finalState!.finalists.includes(t.id) : !t.qualifiedForFinal) && Object.hasOwn(this.friendAnswers,t.id));
+    const entrants=this.teams.filter(t=>(this.phase === "final" ? this.finalState!.finalists.includes(t.id) : this.phase === "playoff" ? this.playoffState!.contenders.includes(t.id) : !t.qualifiedForFinal) && Object.hasOwn(this.friendAnswers,t.id));
     const target=q.mode === "closest" ? numericAnswer(q.answer) : null;
     const distances=new Map(entrants.map(t=>[t.id,target === null ? Infinity : Math.abs(numericAnswer(this.friendAnswers[t.id])!-target)]));
     const best=Math.min(...distances.values());
     const correct=entrants.filter(t=>q.mode === "closest" ? Math.abs(distances.get(t.id)!-best) <= Number.EPSILON*4*Math.max(1,best) : this.friendAnswers[t.id] === q.answer);
-    if(correct.length)this.announce("correct",correct.map(t=>t.id),q.mode === "closest" ? "Nærmest!" : "Riktig!",questionPoints(q));
+    if(correct.length)this.announce("correct",correct.map(t=>t.id),q.mode === "closest" ? "Nærmest!" : "Riktig!",this.phase === "playoff" ? 1 : questionPoints(q));
     this.completedAnswers=entrants.map(t=>({teamId:t.id,answer:this.friendAnswers[t.id],correct:correct.includes(t),...(q.mode === "closest" ? {distance:distances.get(t.id)} : {})}));
+    if(this.phase === "playoff") {
+      for(const team of correct)this.award(team,1);
+      this.resolvePlayoffQuestion();this.revealQuestion();return;
+    }
     if (this.phase === "final") {
       for (const team of correct) this.award(team, questionPoints(this.activeQuestion!));
       this.resolveFinalQuestion(); this.revealQuestion();
@@ -555,9 +578,10 @@ export class GameEngine {
     if (!node?.tier) return;
     this.completedQuestion = this.activeQuestion;
     this.map = markNodeCompleted(this.map, node.id);
-    for (const team of correct) { team.score += questionPoints(node); this.checkQualification(team); }
+    for (const team of correct) team.score += questionPoints(node);
+    this.qualifyEligibleTeams();
     this.revealQuestion();
-    if (this.finalState) return;
+    if (this.finalState || this.playoffState || this.phase === "qualification") return;
     const controller = [...correct].filter((team) => !team.qualifiedForFinal).sort((a, b) => a.score - b.score)[0];
     this.activeQuestion = null; this.activeNodeId = null; this.friendAnswers = {};
     if (controller) { this.controllingTeamId = controller.id; this.phase = "route_choice"; }
@@ -587,27 +611,74 @@ export class GameEngine {
   }
 
   finishRoutePhase(force = false) {
-    if (this.finalState || this.paused || (!force && !["lobby", "map", "route_choice", "qualification"].includes(this.phase))) return;
+    if(this.finalState || this.playoffState || this.paused || (!force && !["lobby","map","route_choice"].includes(this.phase)))return;
     if(!force)this.checkpoint("avsluttet hovedrunden");
-    const required = this.teams.filter(t => t.qualifiedForFinal);
-    const remaining = this.teams.filter(t => !t.qualifiedForFinal).sort((a,b) => b.score - a.score);
-    const slots = Math.max(0, 2 - required.length);
-    const cutoff = remaining[Math.min(slots, remaining.length) - 1]?.score;
-    const candidates = remaining.filter(t => cutoff !== undefined && t.score >= cutoff);
-    if (candidates.length > slots) {
-      for(const team of remaining.filter(t=>t.score>cutoff!))team.qualifiedForFinal=true;
-      this.finalCandidateIds = [...required, ...candidates].map(t=>t.id);
-      this.activeQuestion = null; this.activeNodeId = null; this.buzzOrder = [];
-      this.phase = "qualification";
-      this.log("Lik poengsum ved finalegrensen. Verten må avgjøre hvem som går videre.");
-      return;
+    this.stopClock();
+    const qualified=this.teams.filter(t=>t.qualifiedForFinal);
+    if(qualified.length>=2){this.startFinal();return;} // older saved games
+    if(qualified.length===1){this.startPlayoff(qualified[0].id);return;}
+    const highest=Math.max(...this.teams.map(t=>t.score));
+    const leaders=this.teams.filter(t=>t.score===highest);
+    if(leaders.length!==1){this.requestFirstQualifier(leaders.map(t=>t.id));return;}
+    leaders[0].qualifiedForFinal=true;this.startPlayoff(leaders[0].id);
+  }
+
+  private requestFirstQualifier(ids:string[]) {
+    this.stopClock();this.activeQuestion=null;this.activeNodeId=null;this.buzzOrder=[];this.controllingTeamId=null;
+    this.finalCandidateIds=ids;this.qualificationPurpose="first";this.phase="qualification";
+    this.log("Lik hovedpoengsum på førsteplass. Verten avgjør et muntlig omspill før kvalifiseringen.");
+  }
+
+  selectFirstQualifier(teamId:string) {
+    if(this.paused || this.phase!=="qualification" || this.qualificationPurpose!=="first" || !this.finalCandidateIds.includes(teamId))return;
+    this.checkpoint("valgte vinner av hovedrunden");
+    this.teams.find(t=>t.id===teamId)!.qualifiedForFinal=true;this.startPlayoff(teamId);
+  }
+
+  private startPlayoff(firstQualifierId:string) {
+    const contenders=this.teams.filter(t=>t.id!==firstQualifierId).map(t=>t.id);
+    if(contenders.length===1){this.teams.find(t=>t.id===contenders[0])!.qualifiedForFinal=true;this.startFinal();return;}
+    const unused=this.playoffPool().filter(q=>q.status==="unused");
+    const reserved=unused.filter(q=>this.reservedPlayoffQuestionIds.includes(q.id)).sort(()=>Math.random()-.5);
+    const extras=unused.filter(q=>!this.reservedPlayoffQuestionIds.includes(q.id)).sort(()=>Math.random()-.5);
+    const picks=[...reserved,...extras].slice(0,5);
+    for(const q of picks)q.status="used";
+    this.playoffState={firstQualifierId,contenders,questionIds:picks.map(q=>q.id),currentIndex:0,scores:Object.fromEntries(contenders.map(id=>[id,0])),roundPhase:picks.length?"ready":"resolved",suddenDeath:false};
+    this.phase="playoff";this.qualificationPurpose="second";this.finalCandidateIds=[];
+    this.activeQuestion=picks[0]??null;this.activeNodeId=null;this.controllingTeamId=null;this.buzzOrder=[];this.lockedOutTeamIds=[];this.friendAnswers={};this.resetClock();
+    this.announce("qualified",[firstQualifierId],"Første finaleplass er sikret!");
+    this.log(`Kvalifisering om andreplassen: ${picks.length} av fem spørsmål tilgjengelig. Alle starter på null riktige svar.`);
+  }
+
+  private resolvePlayoffQuestion() {
+    this.stopClock();this.completedQuestion=this.activeQuestion;this.activeQuestion=null;
+    this.playoffState!.roundPhase="resolved";this.buzzOrder=[];this.lockedOutTeamIds=[];
+  }
+
+  advancePlayoff() {
+    const round=this.playoffState;
+    if(this.paused || this.phase!=="playoff" || !round || round.roundPhase!=="resolved")return;
+    this.checkpoint("gikk videre i kvalifiseringen");
+    const next=round.currentIndex+1;
+    if(next<round.questionIds.length){round.currentIndex=next;this.activeQuestion=this.questionPool.find(q=>q.id===round.questionIds[next])??null;}
+    else {
+      const high=Math.max(...round.contenders.map(id=>round.scores[id]));
+      const leaders=round.contenders.filter(id=>round.scores[id]===high);
+      if(leaders.length===1){this.teams.find(t=>t.id===leaders[0])!.qualifiedForFinal=true;this.startFinal();return;}
+      const unused=this.playoffPool().filter(q=>q.status==="unused");
+      if(!unused.length){
+        this.phase="qualification";this.qualificationPurpose="second";this.finalCandidateIds=[round.firstQualifierId,...leaders];this.activeQuestion=null;
+        this.log("Lik kvalifiseringsscore og ingen nye spørsmål. Verten avgjør et muntlig omspill mellom de delte lederne.");return;
+      }
+      round.contenders=leaders;round.suddenDeath=true;const q=unused[Math.floor(Math.random()*unused.length)];q.status="used";
+      round.questionIds.push(q.id);round.currentIndex=next;this.activeQuestion=q;
+      this.log("Lik kvalifiseringsscore: bare de delte lederne spiller videre i omspill.");
     }
-    for (const team of remaining.slice(0,slots)) team.qualifiedForFinal = true;
-    this.startFinal();
+    round.roundPhase="ready";this.revealedQuestion=null;this.completedQuestion=null;this.completedAnswers=[];this.friendAnswers={};this.buzzOrder=[];this.lockedOutTeamIds=[];this.resetClock();
   }
 
   selectFinalists(ids: string[]) {
-    if (this.paused || this.phase !== "qualification" || ids.length !== 2 || new Set(ids).size !== 2) return;
+    if (this.paused || this.phase !== "qualification" || this.qualificationPurpose!=="second" || ids.length !== 2 || new Set(ids).size !== 2) return;
     if (ids.some(id => !this.finalCandidateIds.includes(id))) return;
     if (this.teams.some(t => t.qualifiedForFinal && !ids.includes(t.id))) return;
     this.checkpoint("valgte finalister");
@@ -691,7 +762,7 @@ export class GameEngine {
 
   adjustScore(teamId: string, delta: number) {
     const team = this.teams.find((t) => t.id === teamId);
-    if (this.phase === "ended" || !team || !Number.isSafeInteger(delta) || Math.abs(delta) > 100000) return;
+    if (this.phase === "ended" || (this.playoffState && !this.finalState) || !team || !Number.isSafeInteger(delta) || Math.abs(delta) > 100000) return;
     this.checkpoint("justerte poeng");
     this.award(team, delta);
     this.log(`Verten justerte poengene til ${team.name} med ${delta > 0 ? "+" : ""}${delta}.`);
@@ -719,18 +790,20 @@ export class GameEngine {
       currentResponderId: this.currentResponderId(),
       controllingTeamId: this.controllingTeamId,
       finalState: this.finalState,
+      playoffState: this.playoffState,
+      qualificationPurpose: this.qualificationPurpose,
       eventLog: this.eventLog,
       questionPoolRemaining: this.routePool().filter((q) => q.status === "unused").length,
       questionPoolTotal: this.questionPool.length,
       friendAnswers: this.friendAnswers,
       startedAt: this.startedAt,
-      questionsPlayed: this.map.nodes.filter(n=>n.status === "completed").length + (this.finalState ? this.finalState.currentIndex + (this.finalState.roundPhase === "resolved" ? 1 : 0) : 0),
+      questionsPlayed: this.map.nodes.filter(n=>n.status === "completed").length + (this.playoffState ? this.playoffState.currentIndex + (this.playoffState.roundPhase === "resolved" ? 1 : 0) : 0) + (this.finalState ? this.finalState.currentIndex + (this.finalState.roundPhase === "resolved" ? 1 : 0) : 0),
       imageRevealStage: this.imageRevealStage,
       canRevealQuestion: this.completedQuestion !== null,
       canDismissQuestionCard: this.revealedQuestion !== null,
       canUndo: this.undoHistory.length > 0,
       undoLabel: this.undoHistory.at(-1)?.label ?? null,
-      canReplaceQuestion: !!this.activeQuestion && (this.phase === "final" ? this.questionPool : this.routePool()).some(q=>q.status==="unused"),
+      canReplaceQuestion: !!this.activeQuestion && (this.phase === "final" ? this.questionPool : this.phase === "playoff" ? this.playoffPool() : this.routePool()).some(q=>q.status==="unused"),
       finalCandidateIds: this.finalCandidateIds,
       legalNextNodeIds: this.phase === "route_choice" ? legalNextNodeIds(this.map) : [],
     };
@@ -750,14 +823,16 @@ export class GameEngine {
       teams: this.teams,
       map: this.map,
       activeNodeId: this.activeNodeId,
-      activeQuestionPublic: this.activeQuestion && (node?.tier || this.phase === "final")
-        ? { id:this.activeQuestion.id, category:this.activeQuestion.category, tier:this.activeQuestion.tier, points:questionPoints(this.activeQuestion), prompt:this.activeQuestion.prompt, mode:this.activeQuestion.mode ?? "buzzer", choices:this.activeQuestion.choices, progressiveImage:this.activeQuestion.progressiveImage, media:this.activeQuestion.media }
+      activeQuestionPublic: this.activeQuestion && (node?.tier || this.phase === "final" || this.phase === "playoff")
+        ? { id:this.activeQuestion.id, category:this.activeQuestion.category, tier:this.activeQuestion.tier, points:this.phase === "playoff" ? 1 : questionPoints(this.activeQuestion), prompt:this.activeQuestion.prompt, mode:this.activeQuestion.mode ?? "buzzer", choices:this.activeQuestion.choices, progressiveImage:this.activeQuestion.progressiveImage, media:this.activeQuestion.media }
         : null,
       buzzOrder: this.buzzOrder.map((b) => ({ teamId: b.teamId })),
       lockedOutTeamIds: this.lockedOutTeamIds,
       currentResponderId: this.currentResponderId(),
       controllingTeamId: this.controllingTeamId,
       finalState: this.finalState,
+      playoffState: this.playoffState,
+      qualificationPurpose: this.qualificationPurpose,
       finalCandidateIds: this.finalCandidateIds,
       legalNextNodeIds: this.phase === "route_choice" ? legalNextNodeIds(this.map) : [],
       friendAnswersSubmitted: Object.keys(this.friendAnswers),

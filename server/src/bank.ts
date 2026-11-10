@@ -18,7 +18,7 @@ export interface BankQuestion extends Question {
   originalFormat: string;
   revealMedia?: { type: "image" | "audio"; url: string };
 }
-export interface QuestionPack { id: string; name: string; questionIds: string[]; finalQuestionIds?: string[] }
+export interface QuestionPack { id: string; name: string; questionIds: string[]; finalQuestionIds?: string[]; playoffQuestionIds?: string[] }
 export interface QuestionBank { version: 1; revision: number; questions: BankQuestion[]; packs: QuestionPack[]; activePackId: string }
 export const SUPPORTED_FORMATS: Format[] = ["text", "emoji", "image", "audio", "private_choice", "closest", "progressive_image"];
 export function readyProblems(q: BankQuestion): string[] {
@@ -65,6 +65,8 @@ export function validateBank(value: unknown): QuestionBank {
     if (!pack.id || !pack.name.trim() || packs.has(pack.id) || !Array.isArray(pack.questionIds) || pack.questionIds.some(id => !ids.has(id))) throw new Error("Ugyldig kveldspakke.");
     if (pack.finalQuestionIds !== undefined && (!Array.isArray(pack.finalQuestionIds) || pack.finalQuestionIds.some(id=>!pack.questionIds.includes(id)))) throw new Error("Finalespørsmål må være med i kveldspakken.");
     pack.finalQuestionIds = [...new Set(pack.finalQuestionIds ?? [])];
+    if(pack.playoffQuestionIds!==undefined && (!Array.isArray(pack.playoffQuestionIds) || pack.playoffQuestionIds.length>5 || pack.playoffQuestionIds.some(id=>!pack.questionIds.includes(id) || pack.finalQuestionIds!.includes(id)))) throw new Error("Velg maks fem kvalifiseringsspørsmål fra pakken, uten overlapp med finalepotten.");
+    pack.playoffQuestionIds=[...new Set(pack.playoffQuestionIds??[])];
     pack.questionIds = [...new Set(pack.questionIds)]; packs.add(pack.id);
   }
   if (!packs.has(bank.activePackId)) throw new Error("Velg en gyldig kveldspakke.");
